@@ -1,0 +1,28 @@
+# Projects
+projects/
+*.json
+!requirements.txt
+
+# Device ID
+.device_id
+
+# Config
+project_config.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
