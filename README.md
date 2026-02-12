@@ -1,27 +1,30 @@
- Health Blockchain System
+Health Blockchain System
 
-This is a secure blockchain-based system to store, correct, and validate health medical data.  
-Each entry is a block that is signed by an HMAC-SHA256 signature (with device-based authentication), and each block is chained together with a SHA-256 hash for tamper-resistance.  
-The system includes advanced security features: AES-256 encryption, device-based authentication, and secure key management.  
-There is also a token reward system for data entries, and you can save/load the blockchain to/from a JSON file (with optional encryption). 
+This is a secure staring, correcting and validating Health medical data on block chain platform.
+
+Each entry is a signed block using an HMAC-SHA256 signature (with device based authentication), and blocks are chained with SHA-256 to make it tamper resistant.
+
+To ensure the highest level of protection, the system provides security features like AES-256 end-to-end encryption, device-based authentication and secure key management.
+
+You can also reward data entries with a token, and also save/load the blockchain from/to a JSON file (with optional encryption).
 
 ---
 
  Features
 
-- Add health data as blocks to the blockchain  
-- 🔐 **AES-256 encryption** (optional) for blockchain data
-- 🔒 **Device-based authentication** - each blockchain is tied to a device
-- 🔑 **Secure key management** via environment variables
-- HMAC-SHA256 digital signature on each block (device-specific)
-- SHA-256 hash chaining for block integrity  
-- Includes correction blocks to update wrong/old data  
-- Complete chain validation system with device verification
-- Token rewards for entries in the chain  
-- Save/load blockchain to/from a JSON file (encrypted or plain)
-- Reconstruction of final corrected data  
-- Easy and clear command line interface  
+Health blocks will be added to the blockchain.
 
+- Encrypted blockchain, if applicable, with AES-256
+- Device authentication means that the blocks created by each blockchain were created using the specific device.
+- Key storage is accomplished through the use of environment variables.
+- HMAC-SHA256 digital signature is located on each block and identifies the device that created it
+- SHA-256 hash chain linked to maintain and validate block integrity
+- Data should have "correction" blocks to provide updates to previous or erroneous data.
+- Devices will validate their own blockchains by using a complete chain verification system.
+- Users can earn tokens for entering data into the blockchain.
+- Blockchains can be saved and loaded from a JSON file and will remain encrypted or unencrypted as needed.
+- A reconstruction of the corrected information can be achieved by this process.
+- Clear, simple command line interface for the software
 ---
 
    Project Structure
@@ -67,46 +70,42 @@ hash (SHA-256)
 signature (HMAC-SHA256)
 
 ---
-
+ 
  🔹 Digital Signatures
 
-Each block has a private key signature utilizing HMAC-SHA256, which lets us know if anything has been tampered with the block when we use it during validation.
+All blocks are signed using a private key with HMAC-SHA256. Any attempts to tamper with a block will be detected at the time of validation.
 
 ---
 
  🔹 Correction Blocks
 
-Instead of altering old medical data we add an almost ordinary block, known as a correction block that references the wrong block (correction_of) and states the corrected content. For final data reconstruction, we apply the most recent correction for each block
+Rather than modifying previously entered data, we create a new, almost normal block called a correction block, which has a link back to the erroneous block (correction_of) and describes the corrected information. In the final reconstruction of the data, we apply the latest correction for all blocks.
 
 ---
 
  🔹 Token System
 
-For every new entry of health data, the user receives tokens that are stored in tokens.json
+For every new entry of medical information, the user receives tokens stored in tokens.json.
 
----
 
- 🔹 Project Management
+ ## Project Management
+- There are multiple projects, meaning that each blockchain has its own associated project folder.
+- The Blockchain automatically saves after every operation that you perform on it.
+- When you launch the application, you can either choose to load existing projects or create a new project.
+- On application startup, the application will automatically open the last-used project folder.
+- The structure of your project folder will be structured like this: projects/project_name/blockchain.json
 
-- **Multiple Projects**: Each blockchain is stored in its own project folder
-- **Auto-save**: Blockchain automatically saves after each operation
-- **Project Selection**: Choose from existing projects or create new ones
-- **Last Project**: Automatically loads the last used project on startup
-- **Project Structure**: `projects/project_name/blockchain.json`
+## Saving & Loading
+- The blockchain automatically saves to your project folder whenever you perform an operation on it
+- Each project will have its own blockchain.json and tokens.json files.
+- It is possible to encrypt your blockchain (AES-256 encryption) or leave it unencrypted.
+- You can also load an existing chain from your project menu (if it has been encrypted, you will need a password to load it).
 
- 🔹 Saving & Loading
-
-- Blockchain automatically saves to project folder after each operation
-- Each project has its own blockchain.json and tokens.json files
-- Blockchain can be saved encrypted (AES-256) or unencrypted
-- Existing chains can be loaded through the project menu (password required if encrypted)
-
- 🔹 Security Features
-
-- **Device ID**: Each device has a unique identifier stored in `.device_id`
-- **Encryption**: Optional AES-256 encryption for blockchain data
-- **Key Management**: Private keys managed via `HEALTH_BLOCKCHAIN_KEY` environment variable
-- **Access Control**: Blockchains are tied to specific devices
+## Security Features
+- Device ID: Every device has a unique device ID stored in the file called '.device_id'
+- Encryption: You can optionally encrypt your blockchain data using AES-256
+- Key Management: The private keys for your blockchains are managed using the environment variable called 'HEALTH_BLOCKCHAIN_KEY'
+- Access Control: Your blockchains are tied to specific devices only
 
 See `SECURITY.md` for detailed security documentation.
 
