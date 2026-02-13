@@ -2,6 +2,7 @@
 import customtkinter as ctk
 from tkinter import messagebox, simpledialog
 from core.blockchain import Blockchain
+from core.security import decrypt_data
 import database.storage as storage
 import json
 
@@ -38,8 +39,16 @@ class App(ctk.CTk):
         self.scrollable_frame.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
         
         # Bottom sidebar buttons
-        self.verify_btn = ctk.CTkButton(self.sidebar, text="🛡️ Verify Chain", fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), command=self.verify_chain_action)
-        self.verify_btn.grid(row=3, column=0, padx=20, pady=10)
+        self.verify_btn = ctk.CTkButton(
+            self.sidebar, 
+            text="🛡️ VERIFY CHAIN INTEGRITY", 
+            fg_color="#2CC985", 
+            hover_color="#229966",
+            text_color="white",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self.verify_chain_action
+        )
+        self.verify_btn.grid(row=3, column=0, padx=20, pady=20)
         
         # ----- Main Area (Editor) -----
         self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -77,6 +86,9 @@ class App(ctk.CTk):
         # State
         self.current_block_index = None # None means new note
         self.refresh_notes_list()
+
+        # Auto-verify on startup
+        self.verify_chain_on_startup()
 
     def init_blockchain(self):
         if not storage.project_exists(self.project_name):
@@ -121,7 +133,7 @@ class App(ctk.CTk):
             # Edit existing block (Correction)
             # Find the original index if it's already a correction? 
             # Logic: If I edit block #5, I add a new block saying "Correction of #5"
-            self.blockchain.add_correction_block(self.current_block_index, note_data)
+            self.blockchain.add_correction_block(self.current_block_index, note_data, encryption_password=password)
             self.status_label.configure(text=f"Correction added for Block #{self.current_block_index}")
             
         self.blockchain.save_chain()
@@ -142,11 +154,22 @@ class App(ctk.CTk):
         
         for index in sorted_indices:
             data = final_data[index]
-            if not isinstance(data, dict): 
-                continue # Skip Genesis or simple string blocks
             
-            if "title" not in data:
-                continue
+            # Handle protected/encrypted data
+            is_encrypted = False
+            title_text = "Untitled"
+            
+            # If data is a string, it might be encrypted blob
+            if isinstance(data, str):
+                # Check directly if original is protected to be sure, or assumes strings are encrypted
+                 is_encrypted = True
+                 title_text = "🔒 Protected Note"
+            elif isinstance(data, dict):
+                 if "title" not in data:
+                    continue
+                 title_text = data.get("title", "Untitled")
+            else:
+                 continue
                 
             # Check protection status using READ BLOCK (password check logic is in backend)
             # But get_final_data returns the pure data because it iterates chain. 
@@ -173,9 +196,9 @@ class App(ctk.CTk):
             original_block = self.blockchain.chain[index]
             is_protected = original_block.is_protected
             
-            title_text = data.get("title", "Untitled")
-            if is_protected:
-                title_text = "🔒 " + title_text
+            if is_protected and not is_encrypted:
+                 # Case where it's protected flag but maybe data wasn't encrypted (legacy)
+                 title_text = "🔒 " + title_text
             
             btn = ctk.CTkButton(
                 self.scrollable_frame, 
@@ -205,6 +228,15 @@ class App(ctk.CTk):
         final_data = self.blockchain.get_final_data()
         data = final_data.get(index)
         
+        # Construct full data by decrypting if necessary
+        if original_block.is_protected and isinstance(data, str):
+             try:
+                decrypted = decrypt_data(data, pwd)
+                data = json.loads(decrypted)
+             except Exception as e:
+                messagebox.showerror("Error", f"Failed to decrypt: {e}")
+                return
+
         if data:
             self.current_block_index = index
             self.title_entry.delete(0, "end")
@@ -223,5 +255,10 @@ class App(ctk.CTk):
         if is_valid:
             messagebox.showinfo("Blockchain Verified", "✅ The Blockchain integrity is verified and secure.")
         else:
-            messagebox.showerror("Blockchain Error", "❌ The Blockchain is INVALID! References or Hashes do not match.")
+            messagebox.showerror("Blockchain Error", "❌ CRITICAL: The Blockchain is INVALID!\n\nHashes do not match. The file may have been tampered with.")
+
+    def verify_chain_on_startup(self):
+        """Runs silently on startup, alerts only if invalid."""
+        if not self.blockchain.is_valid():
+             messagebox.showerror("Security Alert", "❌ CRITICAL SECURITY WARNING\n\nThe blockchain integrity check FAILED on startup.\n\nThe data file (blockchain.json) appears to be corrupted or tampered with.")
 

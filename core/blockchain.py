@@ -4,7 +4,7 @@ import json
 import hashlib
 from typing import Optional
 
-from core.security import signaturedata, verify_message
+from core.security import signaturedata, verify_message, encrypt_data, decrypt_data
 import database.storage as storage
 
 # ---------------------------------------------------------
@@ -106,13 +106,41 @@ class Blockchain:
 
         # Hash password if protection is enabled
         protection_hash = None
+        data_to_store = data
+
         if is_protected and protection_password:
             protection_hash = hashlib.sha256(protection_password.encode()).hexdigest()
+            # Encrypt the data before storing
+            # First ensure it's a string
+            payload_str = (
+                json.dumps(data, sort_keys=True)
+                if isinstance(data, dict)
+                else str(data)
+            )
+            data_to_store = encrypt_data(payload_str, protection_password)
+
+        # Signature validation now signs the payload that is actually stored (encrypted or not).
+        # We need to regenerate the signature on the actual stored data to be consistent with verification.
+        # verification uses: msg = f"{index}|{ts}|{data_text}|{prev_hash}"
+        # where data_text is the string representation of block.data.
+        
+        # NOTE: In previous code, signature was generated on 'data_text' derived from 'data' raw.
+        # Now 'data_to_store' might be the encrypted string. 
+        # So we should sign the 'data_to_store'.
+        
+        stored_data_text = (
+            json.dumps(data_to_store, sort_keys=True)
+            if isinstance(data_to_store, dict)
+            else str(data_to_store)
+        )
+        
+        msg = f"{index}|{ts}|{stored_data_text}|{prev_hash}"
+        signature = signaturedata(msg)
 
         block = Block(
             index=index,
             timestamp=ts,
-            data=data,
+            data=data_to_store,
             previous_hash=prev_hash,
             signature=signature,
             is_protected=is_protected,
@@ -136,19 +164,41 @@ class Blockchain:
             password_hash = hashlib.sha256(password.encode()).hexdigest()
             if password_hash != block.protection_password:
                 return "❌ INCORRECT PASSWORD"
+            
+            # Decrypt data
+            try:
+                decrypted_str = decrypt_data(block.data, password)
+                # Try to parse as JSON
+                try:
+                    return json.loads(decrypted_str)
+                except json.JSONDecodeError:
+                    return decrypted_str
+            except Exception as e:
+                return f"❌ DECRYPTION FAILED: {str(e)}"
 
         return block.data
 
     # -----------------------------------------------------
     # ADD CORRECTION BLOCK
     # -----------------------------------------------------
-    def add_correction_block(self, block_index: int, corrected_data):
+    def add_correction_block(self, block_index: int, corrected_data, encryption_password: Optional[str] = None):
         """
         Adds a correction block which overrides the data of an earlier block.
         """
+        data_content = corrected_data
+        
+        # If password provided, encrypt the content
+        if encryption_password:
+             payload_str = (
+                json.dumps(corrected_data, sort_keys=True)
+                if isinstance(corrected_data, dict)
+                else str(corrected_data)
+            )
+             data_content = encrypt_data(payload_str, encryption_password)
+
         correction_info = {
             "correction_of": block_index,
-            "corrected_data": corrected_data,
+            "corrected_data": data_content,
             "note": "Correction block for a previous entry.",
         }
 
