@@ -246,88 +246,100 @@ class App(ctk.CTk):
         original_block = self.blockchain.chain[index]
         final_data = self.blockchain.get_final_data().get(index)
         
-        content_to_show = "No Data"
-        title_to_show = "Unknown"
+        # Create Viewer Window Immediately
+        viewer = ctk.CTkToplevel(self)
+        viewer.title(f"Block #{index} Inspection")
+        viewer.geometry("600x550")
+        viewer.attributes("-topmost", True) # Ensure it's visible
         
-        if original_block.is_protected:
-            pwd = ctk.CTkInputDialog(text=f"Enter Password to Decrypt Block #{index}:", title="Restricted Access").get_input()
+        # Header
+        header_frame = ctk.CTkFrame(viewer, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=20)
+        
+        ctk.CTkLabel(header_frame, text=f"BLOCK #{index}", font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
+        
+        status_text = "🔒 ENCRYPTED" if original_block.is_protected else "📖 PUBLIC"
+        status_color = "#E57373" if original_block.is_protected else "#00E676"
+        ctk.CTkLabel(header_frame, text=status_text, text_color=status_color, font=ctk.CTkFont(size=14, weight="bold")).pack(side="right")
+
+        # Content Area
+        content_frame = ctk.CTkFrame(viewer)
+        content_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        # Helper to populate content
+        def show_content(title, content, is_locked=False):
+            for widget in content_frame.winfo_children():
+                widget.destroy()
+                
+            if is_locked:
+                # Locked State UI
+                center_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+                center_frame.place(relx=0.5, rely=0.5, anchor="center")
+                
+                ctk.CTkLabel(center_frame, text="🔒", font=ctk.CTkFont(size=40)).pack(pady=10)
+                ctk.CTkLabel(center_frame, text="This block is encrypted.", font=ctk.CTkFont(size=16)).pack()
+                ctk.CTkButton(center_frame, text="🔓 DECRYPT & VIEW DATA", command=unlock_data, fg_color="#E040FB").pack(pady=20)
+                return
+
+            # Unlocked/Normal State UI
+            ctk.CTkLabel(content_frame, text="Label / Title:", text_color="gray").pack(anchor="w", padx=15, pady=(15, 5))
+            ctk.CTkLabel(content_frame, text=title, font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", padx=15)
+            
+            ctk.CTkLabel(content_frame, text="Data Payload:", text_color="gray").pack(anchor="w", padx=15, pady=(15, 5))
+            
+            txt = ctk.CTkTextbox(content_frame, font=ctk.CTkFont(family="Consolas", size=14))
+            txt.pack(fill="both", expand=True, padx=15, pady=10)
+            txt.insert("0.0", content)
+            txt.configure(state="disabled")
+            
+            # Correction Button (Only show if unlocked)
+            ctk.CTkButton(viewer, text="APPEND CORRECTION / UPDATE", fg_color="#7C4DFF", 
+                          command=lambda: [viewer.destroy(), self.open_edit_dialog(index, title, content, original_block.is_protected)]
+                         ).pack(fill="x", padx=20, pady=20)
+
+        def unlock_data():
+            pwd = ctk.CTkInputDialog(text=f"Enter Password for Block #{index}:", title="Decrypt").get_input()
             if not pwd:
                 return
-            
-            # Check Password & Decrypt
-            # Re-implementing logic here for UI feedback
-            # Ideally this should be a method in Blockchain class returning (status, data)
-            block_data = self.blockchain.get_block_data(index, pwd)
-            
-            if block_data == "❌ INCORRECT PASSWORD" or block_data == "🔒 PROTECTED — password required":
-                messagebox.showerror("Access Denied", "Incorrect Password. Access Logged.")
-                return
-            
-            # If we are here, blockchain.get_block_data returned the raw data (which might be the dict or the string if decryption failed inside?)
-            # Wait, my previous edit to `get_block_data` handles decryption and returns the dict/str.
-            
-            # Need to handle if decryption failed inside get_block_data (it returns a string starting with DECRYPTION FAILED)
-            if isinstance(block_data, str) and block_data.startswith("❌ DECRYPTION FAILED"):
-                 messagebox.showerror("Error", block_data)
+                
+            # Verify password via checking block data
+            block_check = self.blockchain.get_block_data(index, pwd)
+            if isinstance(block_check, str) and (block_check.startswith("❌") or block_check.startswith("🔒")):
+                 messagebox.showerror("Error", "Incorrect Password")
                  return
-                 
-            # If we are editing, we need to check if there were corrections.
-            # get_block_data returns the BLOCK'S data. But if there are corrections, we want the FINAL data.
-            # But the FINAL data is in `final_data` which is encrypted string.
-            # So we need to decrypt `final_data` (the latest version) using the password.
             
-            # Let's try to decrypt the `final_data` (current state)
-            current_state_data = final_data
-            if isinstance(current_state_data, str):
-                try:
-                    decrypted = decrypt_data(current_state_data, pwd)
-                    # Try json
-                    try:
-                        data_obj = json.loads(decrypted)
-                        title_to_show = data_obj.get("title", "Untitled")
-                        content_to_show = data_obj.get("content", "")
-                    except:
-                        content_to_show = decrypted
-                        title_to_show = "Raw Data"
-                except Exception as e:
-                    messagebox.showerror("Error", f"Decryption failed on latest data: {e}")
-                    return
-            else:
-                 # Maybe it wasn't encrypted in the latest version (unlikely if protection is on)
-                 title_to_show = current_state_data.get("title", "")
-                 content_to_show = current_state_data.get("content", "")
-        
-        else:
-            # Not protected
-            data_obj = final_data
-            if isinstance(data_obj, dict):
-                title_to_show = data_obj.get("title", "Untitled")
-                content_to_show = data_obj.get("content", "")
-            else:
-                content_to_show = str(data_obj)
+            # Decrypt final data if necessary
+            curr_title = "Unknown"
+            curr_content = "Error Decrypting"
+            
+            # Try to decrypt the LATEST data (final_data) which might be just an encrypted string
+            try:
+                # If final_data is string, try to decrypt it. If it's already dict (unlikely for protected), use it.
+                data_to_decrypt = final_data
+                if isinstance(data_to_decrypt, str):
+                    decrypted_json = decrypt_data(data_to_decrypt, pwd)
+                    data_obj = json.loads(decrypted_json)
+                    curr_title = data_obj.get("title", "")
+                    curr_content = data_obj.get("content", "")
+                else: 
+                    # Fallback
+                    curr_title = data_to_decrypt.get("title", "") if isinstance(data_to_decrypt, dict) else "Unknown"
+                    curr_content = str(data_to_decrypt)
+                
+                # Show unlocked content
+                show_content(curr_title, curr_content, is_locked=False)
+                
+            except Exception as e:
+                messagebox.showerror("Decryption Error", f"Failed to decrypt payload: {e}")
 
-        # Show Viewer Window
-        viewer = ctk.CTkToplevel(self)
-        viewer.title(f"Block #{index} Content")
-        viewer.geometry("600x500")
-        
-        ctk.CTkLabel(viewer, text=f"BLOCK #{index} DATA", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
-        
-        ctk.CTkLabel(viewer, text="Label:", text_color="gray").pack(anchor="w", padx=20)
-        ctk.CTkLabel(viewer, text=title_to_show, font=ctk.CTkFont(size=16)).pack(anchor="w", padx=20, pady=(0, 20))
-        
-        ctk.CTkLabel(viewer, text="Decrypted Payload:", text_color="gray").pack(anchor="w", padx=20)
-        txt = ctk.CTkTextbox(viewer, font=ctk.CTkFont(family="Consolas", size=14))
-        txt.pack(fill="both", expand=True, padx=20, pady=10)
-        txt.insert("0.0", content_to_show)
-        txt.configure(state="disabled")
-        
-        # Edit/Correction Button
-        def open_edit():
-            viewer.destroy()
-            self.open_edit_dialog(index, title_to_show, content_to_show, original_block.is_protected)
-            
-        ctk.CTkButton(viewer, text="APPEND CORRECTION BLOCK", fg_color="#E040FB", command=open_edit).pack(pady=20)
+        # Initial View Logic
+        if original_block.is_protected:
+            show_content(None, None, is_locked=True)
+        else:
+            # Not protected, just show
+            t = final_data.get("title", "Untitled") if isinstance(final_data, dict) else "Data"
+            c = final_data.get("content", "") if isinstance(final_data, dict) else str(final_data)
+            show_content(t, c, is_locked=False)
 
     def open_edit_dialog(self, index, old_title, old_content, is_protected):
         dialog = ctk.CTkToplevel(self)
