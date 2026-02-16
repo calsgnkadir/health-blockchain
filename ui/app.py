@@ -132,13 +132,14 @@ class App(ctk.CTk):
         self.verify_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
         # Simulate Attack (Demo Feature)
-        # self.attack_btn = ctk.CTkButton(
-        #     self.sidebar,
-        #     text="⚠️ SIMULATE ATTACK",
-        #     fg_color="#D32F2F",
-        #     command=self.simulate_attack
-        # )
-        # self.attack_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        self.attack_btn = ctk.CTkButton(
+            self.sidebar,
+            text="⚠️ SIMULATE ATTACK",
+            fg_color="#D32F2F",
+            hover_color="#B71C1C",
+            command=self.simulate_attack
+        )
+        self.attack_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
         
         # Footer
         self.footer_lbl = ctk.CTkLabel(self.sidebar, text="v2.0.0 Enterprise\nLMDB Powered", text_color="gray40", font=ctk.CTkFont(size=10))
@@ -183,9 +184,36 @@ class App(ctk.CTk):
         broken_idx = self.blockchain.find_broken_link_index()
         if broken_idx == -1:
             messagebox.showinfo("System Secure", "✅ SYSTEM INTEGRITY: 100%\nAll hashes and signatures are valid.")
+            self.refresh_ui() # Ensure green state
         else:
             messagebox.showerror("CRITICAL ERROR", f"❌ FATAL: Chain broken at Block #{broken_idx}!\nData tampering detected.")
             self.refresh_ui() # Trigger UI update to show red blocks
+
+    def simulate_attack(self):
+        """Corrupts a random block to demonstrate integrity check."""
+        if len(self.blockchain.chain) < 2:
+             messagebox.showinfo("Info", "Add at least 1 data block (besides Genesis) to simulate an attack.")
+             return
+             
+        # Attack the last block for demonstration
+        target_index = len(self.blockchain.chain) - 1
+        target_block = self.blockchain.chain[target_index]
+        
+        # Corrupt Data
+        original_data = target_block.data
+        if isinstance(original_data, dict):
+             target_block.data["title"] = "HACKED DATA"
+             target_block.data["content"] = "This block has been tampered with!"
+        else:
+             target_block.data = {"title": "HACKED", "content": "Corrupted Payload"}
+             
+        # IMPORTANT: We save the block with NEW data but OLD signatures/hash
+        # This creates the mismatch.
+        self.blockchain.save_block(target_block)
+        
+        messagebox.showwarning("Attack Simulated", f"⚠️ Block #{target_index} has been corrupted!\n\nIts data was changed, but the cryptographic signature remains invalid.\n\nNow running integrity check...")
+        
+        self.verify_chain_action()
             
     def verify_chain_on_startup(self):
         if not self.blockchain.is_valid():
