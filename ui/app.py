@@ -13,53 +13,71 @@ ctk.set_default_color_theme("dark-blue")
 
 class BlockCard(ctk.CTkFrame):
     """A card representing a single data block item."""
-    def __init__(self, master, index, data, is_protected, on_click):
-        super().__init__(master, corner_radius=15, fg_color="#2B2B38", border_width=1, border_color="#3A3A4B")
+    def __init__(self, master, index, data, is_protected, on_click, is_broken=False):
+        # Determine colors based on state
+        bg_color = "#2B2B38"
+        border_color = "#3A3A4B"
+        status_color = "#00E676" # Green
+        status_icon = "🔗" 
+
+        if is_broken:
+            bg_color = "#3E2723" # Dark Redish
+            border_color = "#D32F2F" # Red Border
+            status_color = "#D32F2F"
+            status_icon = "⛓️‍💥 BROKEN"
+        elif is_protected:
+            status_color = "#E57373" # Red
+            status_icon = "🔒 LOCKED"
+
+        super().__init__(master, corner_radius=15, fg_color=bg_color, border_width=2 if is_broken else 1, border_color=border_color)
         self.on_click = on_click
         self.index = index
         self.data = data
         self.is_protected = is_protected
         
-        # Grid layout
+        # Layout
         self.grid_columnconfigure(1, weight=1)
         
-        # Icon / Status
-        status_color = "#E57373" if is_protected else "#00E676" # Red/Green
-        status_text = "🔒 LCS (Locked)" if is_protected else "📖 D-BLOCK (Open)"
+        # Header Row
+        self.id_label = ctk.CTkLabel(self, text=f"BLOCK #{index}", font=ctk.CTkFont(size=14, weight="bold"), text_color="gray70")
+        self.id_label.grid(row=0, column=0, padx=15, pady=(10,5), sticky="w")
         
-        self.status_bar = ctk.CTkFrame(self, height=5, fg_color=status_color, corner_radius=5)
-        self.status_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 5))
-        
-        # Block Header
-        self.id_label = ctk.CTkLabel(self, text=f"BLOCK ID: #{index}", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray60")
-        self.id_label.grid(row=1, column=0, padx=15, sticky="w")
-        
-        self.type_label = ctk.CTkLabel(self, text=status_text, font=ctk.CTkFont(size=10), text_color=status_color)
-        self.type_label.grid(row=1, column=1, padx=15, sticky="e")
-        
-        # Title / Label
+        self.status_label = ctk.CTkLabel(self, text=status_icon, text_color=status_color, font=ctk.CTkFont(size=12, weight="bold"))
+        self.status_label.grid(row=0, column=1, padx=15, pady=(10,5), sticky="e")
+
+        # Separator (Visual Line)
+        # self.sep = ctk.CTkFrame(self, height=2, fg_color="gray30")
+        # self.sep.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=5)
+
+        # Title
         display_title = "Unknown Data"
         if isinstance(data, dict):
             display_title = data.get("title", "Untitled")
         elif isinstance(data, str) and is_protected:
             display_title = "••••••••••••"
             
-        self.title_lbl = ctk.CTkLabel(self, text=display_title, font=ctk.CTkFont(size=18, weight="bold"), text_color="white")
-        self.title_lbl.grid(row=2, column=0, columnspan=2, padx=15, pady=(5, 10), sticky="w")
-        
+        self.title_lbl = ctk.CTkLabel(self, text=display_title, font=ctk.CTkFont(size=16, weight="bold"), text_color="white")
+        self.title_lbl.grid(row=2, column=0, columnspan=2, padx=15, pady=(5, 5), sticky="w")
+
+        # Timestamp (Optional)
+        # self.ts_lbl = ctk.CTkLabel(self, text="2024-02-16 12:45", font=ctk.CTkFont(size=10), text_color="gray50")
+        # self.ts_lbl.grid(row=3, column=0, columnspan=2, padx=15, sticky="w")
+
         # Action Button
+        btn_text = "INSPECT BLOCK" if not is_broken else "INSPECT DAMAGE"
+        btn_fg = "#3D3D50" if not is_broken else "#B71C1C"
+        btn_hover = "#4D4D60" if not is_broken else "#FF5252"
+
         self.view_btn = ctk.CTkButton(
             self, 
-            text="ACCESS DATA", 
-            fg_color="#3D3D50", 
-            hover_color="#4D4D60", 
+            text=btn_text, 
+            fg_color=btn_fg, 
+            hover_color=btn_hover, 
             height=32,
+            font=ctk.CTkFont(size=12),
             command=lambda: self.on_click(self.index)
         )
-        self.view_btn.grid(row=3, column=0, columnspan=2, padx=15, pady=(0, 15), sticky="ew")
-        
-    def set_content(self, title):
-        self.title_lbl.configure(text=title)
+        self.view_btn.grid(row=4, column=0, columnspan=2, padx=15, pady=15, sticky="ew")
 
 
 class App(ctk.CTk):
@@ -67,7 +85,7 @@ class App(ctk.CTk):
         super().__init__()
         
         # Window Setup
-        self.title("SecureChain Vault")
+        self.title("SecureChain Vault - Enterprise Edition")
         self.geometry("1100x700")
         
         # Main Layout
@@ -112,9 +130,18 @@ class App(ctk.CTk):
             command=self.verify_chain_action
         )
         self.verify_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
+
+        # Simulate Attack (Demo Feature)
+        # self.attack_btn = ctk.CTkButton(
+        #     self.sidebar,
+        #     text="⚠️ SIMULATE ATTACK",
+        #     fg_color="#D32F2F",
+        #     command=self.simulate_attack
+        # )
+        # self.attack_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
         
         # Footer
-        self.footer_lbl = ctk.CTkLabel(self.sidebar, text="v1.2.0 Stable\nSecure Storage", text_color="gray40", font=ctk.CTkFont(size=10))
+        self.footer_lbl = ctk.CTkLabel(self.sidebar, text="v2.0.0 Enterprise\nLMDB Powered", text_color="gray40", font=ctk.CTkFont(size=10))
         self.footer_lbl.grid(row=5, column=0, pady=20)
         
         # ----- Main Storage Feed -----
@@ -125,13 +152,14 @@ class App(ctk.CTk):
         self.header_frame = ctk.CTkFrame(self.main_area, fg_color="transparent")
         self.header_frame.pack(fill="x", pady=(0, 20))
 
-        self.main_lbl = ctk.CTkLabel(self.header_frame, text="📦 Storage Blocks", font=ctk.CTkFont(size=24, weight="bold"))
+        self.main_lbl = ctk.CTkLabel(self.header_frame, text="📦 Blockchain Timeline", font=ctk.CTkFont(size=24, weight="bold"))
         self.main_lbl.pack(side="left")
         
-        self.search_entry = ctk.CTkEntry(self.header_frame, placeholder_text="🔍 Filter / Search...", width=220)
+        self.search_entry = ctk.CTkEntry(self.header_frame, placeholder_text="🔍 Filter chain...", width=220)
         self.search_entry.pack(side="right")
         self.search_entry.bind("<KeyRelease>", self.refresh_ui)
         
+        # Scrollable Timeline Area
         self.scrollable = ctk.CTkScrollableFrame(self.main_area, fg_color="transparent")
         self.scrollable.pack(fill="both", expand=True)
         
@@ -152,14 +180,18 @@ class App(ctk.CTk):
         self.blockchain = Blockchain(self.project_name)
             
     def verify_chain_action(self):
-        if self.blockchain.is_valid():
+        broken_idx = self.blockchain.find_broken_link_index()
+        if broken_idx == -1:
             messagebox.showinfo("System Secure", "✅ SYSTEM INTEGRITY: 100%\nAll hashes and signatures are valid.")
         else:
-            messagebox.showerror("CRITICAL ERROR", "❌ FATAL: Blockchain integrity corrupted!\nData tampering detected.")
+            messagebox.showerror("CRITICAL ERROR", f"❌ FATAL: Chain broken at Block #{broken_idx}!\nData tampering detected.")
+            self.refresh_ui() # Trigger UI update to show red blocks
             
     def verify_chain_on_startup(self):
         if not self.blockchain.is_valid():
-            messagebox.showerror("Security Alert", "❌ CRITICAL SECURITY WARNING\n\nThe blockchain data file appears to be corrupted or tampered with.")
+             # We can't show broken_idx clearly here without recalculating, 
+             # but refresh_ui will handle the coloring if we just call it.
+             messagebox.showerror("Security Alert", "❌ CRITICAL SECURITY WARNING\n\nThe blockchain data file appears to be corrupted or tampered with.")
 
     def refresh_ui(self, event=None):
         # Clear main area
@@ -169,20 +201,21 @@ class App(ctk.CTk):
         final_data = self.blockchain.get_final_data()
         search_query = self.search_entry.get().lower().strip() if hasattr(self, 'search_entry') else ""
         
+        # Check chain health for coloring
+        broken_index = self.blockchain.find_broken_link_index()
+        
         # Update Stats
         total = len(self.blockchain.chain)
         self.block_count_lbl.configure(text=f"Total Chain Height: {total}")
         
-        # Sort by latest
+        # Sort by latest (Top of timeline) to oldest (Bottom)
+        # Or oldest to newest? Timelines usually go down. Let's do Newest at Top.
         sorted_indices = sorted(final_data.keys(), reverse=True)
         
-        # Grid layout for cards (3 columns)
-        column_count = 0
-        row_count = 0
-        
+        # We need a single column for the timeline
         self.scrollable.grid_columnconfigure(0, weight=1)
-        self.scrollable.grid_columnconfigure(1, weight=1)
-        self.scrollable.grid_columnconfigure(2, weight=1)
+
+        row_counter = 0
 
         for index in sorted_indices:
             data = final_data[index]
@@ -199,27 +232,36 @@ class App(ctk.CTk):
                 # If it's a match?
                 if search_query not in searchable_text:
                     continue # Skip this block
-            data = final_data[index]
             
+            # Determine if this block is part of the "broken chain" segment
+            # If broken_index is 5, then blocks 5, 6, 7... are invalid.
+            # (Since we are sorting reverse, we check if index >= broken_index)
+            is_broken = False
+            if broken_index != -1 and index >= broken_index:
+                is_broken = True
+
             # Identify Protection
-            is_encrypted = False
             is_protected = False
-            
-            # Check original block for protection flag
             original_block = self.blockchain.chain[index]
             is_protected = original_block.is_protected
             
-            if isinstance(data, str) and is_protected:
-                is_encrypted = True
-            
             # Create Card
-            card = BlockCard(self.scrollable, index, data, is_protected, self.open_block_viewer)
-            card.grid(row=row_count, column=column_count, padx=10, pady=10, sticky="nsew")
+            card = BlockCard(self.scrollable, index, data, is_protected, self.open_block_viewer, is_broken=is_broken)
+            card.grid(row=row_counter, column=0, padx=50, pady=(0, 0), sticky="ew") # Padding handled by connector
             
-            column_count += 1
-            if column_count >= 3:
-                column_count = 0
-                row_count += 1
+            # Add Connector Line (Below card, unless it's the very last item displayed)
+            # In reverse sort, the "last" item in loop is the genesis block (index 0).
+            # We want connectors BETWEEN blocks.
+            if index > 0:
+                connector_color = "#555"
+                if is_broken:
+                     connector_color = "#D32F2F"
+                
+                # Draw a simple frame as a line
+                conn = ctk.CTkFrame(self.scrollable, width=4, height=30, fg_color=connector_color)
+                conn.grid(row=row_counter+1, column=0, pady=0)
+                
+            row_counter += 2
 
     def open_add_dialog(self):
         # Simple Input Dialog
@@ -244,8 +286,7 @@ class App(ctk.CTk):
             
             data = {"title": label, "content": payload}
             self.blockchain.add_block(data, is_protected=protected, protection_password=password)
-            self.blockchain.save_chain()
-            self.refresh_ui()
+            self.refresh_ui() # Save is implicit in add_block now
             dialog.destroy()
             messagebox.showinfo("Success", "Block successfully mined and added to chain!")
 
@@ -392,8 +433,7 @@ class App(ctk.CTk):
             
             new_data = {"title": new_title, "content": new_content}
             self.blockchain.add_correction_block(index, new_data, encryption_password=pwd)
-            self.blockchain.save_chain()
-            self.refresh_ui()
+            self.refresh_ui() # Save is implicit
             dialog.destroy()
             messagebox.showinfo("Success", "Correction Block added to Chain!")
             

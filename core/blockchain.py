@@ -250,6 +250,33 @@ class Blockchain:
                 return False
         return True
 
+    def find_broken_link_index(self) -> int:
+        """Finds the index of the first block that breaks the chain. Returns -1 if valid."""
+        for i in range(1, len(self.chain)):
+            prev = self.chain[i-1]
+            curr = self.chain[i]
+            
+            # Hash check
+            if curr.hash != curr.create_hash():
+                return i
+
+            # Previous hash check
+            if curr.previous_hash != prev.hash:
+                return i
+
+            # Signature verification
+            data_text = (
+                json.dumps(curr.data, sort_keys=True)
+                if isinstance(curr.data, dict)
+                else str(curr.data)
+            )
+            msg = f"{curr.index}|{curr.timestamp}|{data_text}|{curr.previous_hash}"
+
+            if not verify_message(msg, curr.signature):
+                return i
+                
+        return -1
+
     # -----------------------------------------------------
     # LMDB PERSISTENCE
     # -----------------------------------------------------
