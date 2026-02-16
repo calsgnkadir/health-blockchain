@@ -144,13 +144,12 @@ class App(ctk.CTk):
         self.verify_chain_on_startup()
         
     def init_blockchain(self):
+        # LMDB handles creation automatically if folder is missing
         if not storage.project_exists(self.project_name):
             storage.create_project(self.project_name)
-            self.blockchain = Blockchain(self.project_name)
-            self.blockchain.save_chain()
-        else:
-            bc = Blockchain.load_chain(self.project_name)
-            self.blockchain = bc if bc else Blockchain(self.project_name)
+        
+        # Initialize (Loads from DB or creates Genesis)
+        self.blockchain = Blockchain(self.project_name)
             
     def verify_chain_action(self):
         if self.blockchain.is_valid():

@@ -22,20 +22,21 @@ class Block:
         signature: str,
         is_protected: bool = False,
         protection_password: Optional[str] = None,
+        hash_val: Optional[str] = None # Added optional hash_val for loading
     ):
         self.index = index
         self.timestamp = timestamp
         self.data = data
         self.previous_hash = previous_hash
         self.is_protected = is_protected
-        self.protection_password = protection_password  # Already hashed or to be hashed? In old code it was passed already hashed if read from file, or plain if new? Let's check old code logic.
-        # Old code: 
-        # In add_block: protection_hash = hashlib...
-        # In Block.__init__: self.protection_password = protection_password
-        # So it takes whatever is passed.
-        
-        self.hash = self.create_hash()
+        self.protection_password = protection_password
         self.signature = signature
+        
+        # Calculate or set hash
+        if hash_val:
+            self.hash = hash_val
+        else:
+            self.hash = self.create_hash()
 
     def create_hash(self) -> str:
         """Creates SHA256 hash from block fields."""
@@ -64,21 +65,33 @@ class Block:
 # BLOCKCHAIN
 # ---------------------------------------------------------
 class Blockchain:
-    """Basic blockchain with correction blocks and protected blocks."""
+    """Enterprise-grade blockchain using LMDB storage."""
 
-    def __init__(self, project_name: Optional[str] = None):
+    def __init__(self, project_name: str):
         self.chain: list[Block] = []
         self.project_name = project_name
-        self.create_genesis_block()
+        
+        # Try to load existing chain
+        loaded_blocks = self.load_chain_from_db()
+        if loaded_blocks:
+            self.chain = loaded_blocks
+            print(f"✔ LMDB: Blockchain initialized with {len(self.chain)} blocks.")
+        else:
+            print("⚠ New Chain: Creating Genesis Block.")
+            self.create_genesis_block()
 
     # -----------------------------------------------------
     # GENESIS BLOCK
     # -----------------------------------------------------
     def create_genesis_block(self):
+        # Reset DB just in case
+        storage.reset_db(self.project_name)
+        
         ts = time.time()
         sig = signaturedata(f"0|{ts}|Genesis Block|0")
         block = Block(0, ts, "Genesis Block", "0", sig)
         self.chain.append(block)
+        self.save_block(block) # Commit to LMDB
 
     # -----------------------------------------------------
     # ADD NORMAL BLOCK
@@ -94,24 +107,13 @@ class Blockchain:
         ts = time.time()
         prev_hash = last.hash
 
-        # Sign message
-        data_text = (
-            json.dumps(data, sort_keys=True)
-            if isinstance(data, dict)
-            else str(data)
-        )
-
-        msg = f"{index}|{ts}|{data_text}|{prev_hash}"
-        signature = signaturedata(msg)
-
-        # Hash password if protection is enabled
-        protection_hash = None
+        # Encrypt data if needed BEFORE signing
         data_to_store = data
-
+        protection_hash = None
+        
         if is_protected and protection_password:
             protection_hash = hashlib.sha256(protection_password.encode()).hexdigest()
-            # Encrypt the data before storing
-            # First ensure it's a string
+            # Encrypt payload
             payload_str = (
                 json.dumps(data, sort_keys=True)
                 if isinstance(data, dict)
@@ -119,21 +121,12 @@ class Blockchain:
             )
             data_to_store = encrypt_data(payload_str, protection_password)
 
-        # Signature validation now signs the payload that is actually stored (encrypted or not).
-        # We need to regenerate the signature on the actual stored data to be consistent with verification.
-        # verification uses: msg = f"{index}|{ts}|{data_text}|{prev_hash}"
-        # where data_text is the string representation of block.data.
-        
-        # NOTE: In previous code, signature was generated on 'data_text' derived from 'data' raw.
-        # Now 'data_to_store' might be the encrypted string. 
-        # So we should sign the 'data_to_store'.
-        
+        # Sign the stored data
         stored_data_text = (
             json.dumps(data_to_store, sort_keys=True)
             if isinstance(data_to_store, dict)
             else str(data_to_store)
         )
-        
         msg = f"{index}|{ts}|{stored_data_text}|{prev_hash}"
         signature = signaturedata(msg)
 
@@ -148,46 +141,15 @@ class Blockchain:
         )
 
         self.chain.append(block)
-
-    # -----------------------------------------------------
-    # READ BLOCK DATA (PASSWORD CHECK IF PROTECTED)
-    # -----------------------------------------------------
-    def get_block_data(self, block_index: int, password: Optional[str] = None):
-        if block_index < 0 or block_index >= len(self.chain):
-            return None
-
-        block = self.chain[block_index]
-
-        if block.is_protected:
-            if not password:
-                return "🔒 PROTECTED — password required"
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            if password_hash != block.protection_password:
-                return "❌ INCORRECT PASSWORD"
-            
-            # Decrypt data
-            try:
-                decrypted_str = decrypt_data(block.data, password)
-                # Try to parse as JSON
-                try:
-                    return json.loads(decrypted_str)
-                except json.JSONDecodeError:
-                    return decrypted_str
-            except Exception as e:
-                return f"❌ DECRYPTION FAILED: {str(e)}"
-
-        return block.data
+        self.save_block(block) # Immediate persist
 
     # -----------------------------------------------------
     # ADD CORRECTION BLOCK
     # -----------------------------------------------------
     def add_correction_block(self, block_index: int, corrected_data, encryption_password: Optional[str] = None):
-        """
-        Adds a correction block which overrides the data of an earlier block.
-        """
+        """Append-only correction."""
         data_content = corrected_data
         
-        # If password provided, encrypt the content
         if encryption_password:
              payload_str = (
                 json.dumps(corrected_data, sort_keys=True)
@@ -220,27 +182,50 @@ class Blockchain:
         )
 
         self.chain.append(block)
-        print(f"✔ Correction block added for block #{block_index}")
+        self.save_block(block) # Immediate persist
+        print(f"✔ Correction block committed via LMDB transaction.")
 
     # -----------------------------------------------------
-    # FINAL DATA (AFTER CORRECTIONS)
+    # READ / RETRIEVE
     # -----------------------------------------------------
+    def get_block_data(self, block_index: int, password: Optional[str] = None):
+        if block_index < 0 or block_index >= len(self.chain):
+            return None
+
+        block = self.chain[block_index]
+
+        if block.is_protected:
+            if not password:
+                return "🔒 PROTECTED — password required"
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            if password_hash != block.protection_password:
+                return "❌ INCORRECT PASSWORD"
+            
+            # Decrypt
+            try:
+                decrypted_str = decrypt_data(block.data, password)
+                try:
+                    return json.loads(decrypted_str)
+                except:
+                    return decrypted_str
+            except Exception as e:
+                return f"❌ DECRYPTION FAILED: {str(e)}"
+
+        return block.data
+
     def get_final_data(self) -> dict:
         result = {}
-
-        # First: add all normal blocks
+        # Base blocks
         for block in self.chain:
             if isinstance(block.data, dict) and "correction_of" in block.data:
                 continue
             result[block.index] = block.data
-
-        # Second: apply corrections
+        # Corrections
         for block in self.chain:
             if isinstance(block.data, dict) and "correction_of" in block.data:
                 target = block.data["correction_of"]
-                if target in result: # Only correct if target exists
+                if target in result:
                      result[target] = block.data["corrected_data"]
-
         return result
 
     # -----------------------------------------------------
@@ -249,16 +234,11 @@ class Blockchain:
     def is_valid(self) -> bool:
         """Verify hash integrity and signatures."""
         for prev, curr in zip(self.chain, self.chain[1:]):
-
-            # Hash check
             if curr.hash != curr.create_hash():
                 return False
-
-            # Previous hash check
             if curr.previous_hash != prev.hash:
                 return False
 
-            # Signature verification
             data_text = (
                 json.dumps(curr.data, sort_keys=True)
                 if isinstance(curr.data, dict)
@@ -268,46 +248,28 @@ class Blockchain:
 
             if not verify_message(msg, curr.signature):
                 return False
-
         return True
 
     # -----------------------------------------------------
-    # SAVE BLOCKCHAIN
+    # LMDB PERSISTENCE
     # -----------------------------------------------------
+    def save_block(self, block):
+        """Saves a SINGLE block to LMDB (Atomic Write)."""
+        storage.save_block_to_db(self.project_name, block.index, block.to_dict())
+        # No need to dump whole chain anymore! Huge win.
+
     def save_chain(self):
-        if not self.project_name:
-            print("Warning: No project name set. Cannot save.")
-            return
+        """Deprecated: LMDB saves incrementally. This is kept for compatibility."""
+        pass 
 
-        filename = storage.get_blockchain_file(self.project_name)
-        export = [b.to_dict() for b in self.chain]
-        storage.save_json(filename, export)
-        print(f"💾 Blockchain saved to {filename}")
-
-    # -----------------------------------------------------
-    # LOAD BLOCKCHAIN
-    # -----------------------------------------------------
-    @staticmethod
-    def load_chain(project_name: str):
-        filename = storage.get_blockchain_file(project_name)
-        raw = storage.load_json(filename)
-
-        if not raw:
+    def load_chain_from_db(self):
+        """Loads all blocks from LMDB."""
+        raw_blocks = storage.load_all_blocks(self.project_name)
+        if not raw_blocks:
             return None
-
-        # Support both formats:
-        if isinstance(raw, dict) and "blocks" in raw:
-            blocks_data = raw["blocks"]
-        elif isinstance(raw, list):
-            blocks_data = raw
-        else:
-            print("❌ Unsupported blockchain format.")
-            return None
-
-        bc = Blockchain(project_name=project_name)
-        bc.chain = []
-
-        for b in blocks_data:
+            
+        blocks = []
+        for b in raw_blocks:
             block = Block(
                 index=b["index"],
                 timestamp=b["timestamp"],
@@ -316,8 +278,12 @@ class Blockchain:
                 signature=b["signature"],
                 is_protected=b.get("is_protected", False),
                 protection_password=b.get("protection_password"),
+                hash_val=b.get("hash")
             )
-            bc.chain.append(block)
-
-        print(f"✔ Loaded blockchain from {filename}")
-        return bc
+            blocks.append(block)
+        return blocks
+        
+    @staticmethod
+    def load_chain(project_name: str):
+        # Factory method pattern
+        return Blockchain(project_name)
