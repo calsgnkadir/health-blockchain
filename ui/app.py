@@ -121,8 +121,16 @@ class App(ctk.CTk):
         self.main_area = ctk.CTkFrame(self, fg_color="transparent")
         self.main_area.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
         
-        self.main_lbl = ctk.CTkLabel(self.main_area, text="📦 Storage Blocks", font=ctk.CTkFont(size=24, weight="bold"))
-        self.main_lbl.pack(anchor="w", pady=(0, 20))
+        # Header with Search
+        self.header_frame = ctk.CTkFrame(self.main_area, fg_color="transparent")
+        self.header_frame.pack(fill="x", pady=(0, 20))
+
+        self.main_lbl = ctk.CTkLabel(self.header_frame, text="📦 Storage Blocks", font=ctk.CTkFont(size=24, weight="bold"))
+        self.main_lbl.pack(side="left")
+        
+        self.search_entry = ctk.CTkEntry(self.header_frame, placeholder_text="🔍 Filter / Search...", width=220)
+        self.search_entry.pack(side="right")
+        self.search_entry.bind("<KeyRelease>", self.refresh_ui)
         
         self.scrollable = ctk.CTkScrollableFrame(self.main_area, fg_color="transparent")
         self.scrollable.pack(fill="both", expand=True)
@@ -154,12 +162,13 @@ class App(ctk.CTk):
         if not self.blockchain.is_valid():
             messagebox.showerror("Security Alert", "❌ CRITICAL SECURITY WARNING\n\nThe blockchain data file appears to be corrupted or tampered with.")
 
-    def refresh_ui(self):
+    def refresh_ui(self, event=None):
         # Clear main area
         for widget in self.scrollable.winfo_children():
             widget.destroy()
             
         final_data = self.blockchain.get_final_data()
+        search_query = self.search_entry.get().lower().strip() if hasattr(self, 'search_entry') else ""
         
         # Update Stats
         total = len(self.blockchain.chain)
@@ -177,6 +186,20 @@ class App(ctk.CTk):
         self.scrollable.grid_columnconfigure(2, weight=1)
 
         for index in sorted_indices:
+            data = final_data[index]
+            
+            # Filter Logic
+            if search_query:
+                # Prepare searchable text
+                searchable_text = ""
+                if isinstance(data, dict):
+                    searchable_text = (str(data.get("title", "")) + " " + str(data.get("content", ""))).lower()
+                elif isinstance(data, str):
+                    searchable_text = data.lower()
+                
+                # If it's a match?
+                if search_query not in searchable_text:
+                    continue # Skip this block
             data = final_data[index]
             
             # Identify Protection
