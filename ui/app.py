@@ -8,8 +8,61 @@ import database.storage as storage
 import json
 import time
 
+import os
+import secrets
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
+
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
+
+# --- VAULT SECURITY UTILS ---
+VAULT_FILE = "vault.key"
+
+def derive_key(password: str, salt: bytes) -> bytes:
+    """Derives a strong key from password using PBKDF2."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
+
+def init_vault(password: str):
+    """Initializes the vault with a new master password."""
+    salt = secrets.token_bytes(16)
+    key = derive_key(password, salt)
+    fernet = Fernet(key)
+    
+    # Encrypt a validation token
+    token = fernet.encrypt(b"VAULT_UNLOCKED")
+    
+    # Save salt + token
+    with open(VAULT_FILE, "wb") as f:
+        f.write(salt + b"::" + token)
+
+def unlock_vault(password: str) -> bool:
+    """Attempts to unlock the vault."""
+    if not os.path.exists(VAULT_FILE):
+        return False
+        
+    try:
+        with open(VAULT_FILE, "rb") as f:
+            data = f.read()
+            
+        salt, token = data.split(b"::")
+        key = derive_key(password, salt)
+        fernet = Fernet(key)
+        
+        decrypted = fernet.decrypt(token)
+        return decrypted == b"VAULT_UNLOCKED"
+    except Exception:
+        return False
+
+# --- UI COMPONENTS ---
 
 class BlockCard(ctk.CTkFrame):
     """A card representing a single data block item."""
@@ -84,6 +137,68 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # Hide main window initially
+        self.withdraw()
+        
+        # Check vault status
+        if not os.path.exists(VAULT_FILE):
+            self.show_register_dialog()
+        else:
+            self.show_login_dialog()
+
+    def show_register_dialog(self):
+        login = ctk.CTkToplevel(self)
+        login.title("Setup Secure Vault")
+        login.geometry("400x300")
+        login.attributes("-topmost", True)
+        
+        ctk.CTkLabel(login, text="🆕 CREATE MASTER PASSWORD", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
+        ctk.CTkLabel(login, text="This password will encrypt your entire vault.\nDo not lose it!", text_color="gray").pack()
+        
+        entry = ctk.CTkEntry(login, show="*", width=250)
+        entry.pack(pady=20)
+        
+        def register():
+            pwd = entry.get()
+            if len(pwd) < 4:
+                messagebox.showerror("Weak Password", "Password must be at least 4 characters.")
+                return
+            
+            init_vault(pwd)
+            messagebox.showinfo("Success", "Vault Initialized! Please login.")
+            login.destroy()
+            self.show_login_dialog()
+            
+        ctk.CTkButton(login, text="CREATE VAULT", command=register, fg_color="#00E676").pack(pady=10)
+
+    def show_login_dialog(self):
+        login = ctk.CTkToplevel(self)
+        login.title("Vault Locked")
+        login.geometry("400x300")
+        login.attributes("-topmost", True)
+        login.protocol("WM_DELETE_WINDOW", self.quit) # Exit app if closed
+        
+        ctk.CTkLabel(login, text="🔒 LOCKED", font=ctk.CTkFont(size=40)).pack(pady=20)
+        ctk.CTkLabel(login, text="Enter Master Password", font=ctk.CTkFont(size=14)).pack()
+        
+        entry = ctk.CTkEntry(login, show="*", width=250)
+        entry.pack(pady=15)
+        entry.focus()
+        
+        def attempt_login(event=None):
+            pwd = entry.get()
+            if unlock_vault(pwd):
+                login.destroy()
+                self.deiconify() # Show main app
+                self.setup_main_app()
+            else:
+                entry.delete(0, 'end')
+                messagebox.showerror("Access Denied", "Incorrect Master Password!")
+        
+        login.bind('<Return>', attempt_login)
+        ctk.CTkButton(login, text="UNLOCK", command=attempt_login, fg_color="#D32F2F").pack(pady=10)
+
+    def setup_main_app(self):
         # Window Setup
         self.title("SecureChain Vault - Enterprise Edition")
         self.geometry("1100x700")
