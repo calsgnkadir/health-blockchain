@@ -11,10 +11,10 @@ Write-Host "🚀 Sunucu baslatiliyor..." -ForegroundColor Green
 Write-Host "   URL: http://localhost:8000" -ForegroundColor White
 Write-Host "   API: http://localhost:8000/docs" -ForegroundColor White
 Write-Host ""
-Write-Host "Demo Hesaplar:" -ForegroundColor Yellow
-Write-Host "  Admin  : admin / Admin@2026Secure!"
-Write-Host "  Doktor : dr.smith / Doctor@2026Secure!"
-Write-Host "  VIP    : vip001 / VIPPatient@2026!"
+Write-Host 'Demo Hesaplar:' -ForegroundColor Yellow
+Write-Host '  Admin  : admin / Admin@2026Secure!'
+Write-Host '  Doktor : dr.smith / Doctor@2026Secure!'
+Write-Host '  VIP    : vip001 / VIPPatient@2026!'
 Write-Host ""
 
 Set-Location $backend
