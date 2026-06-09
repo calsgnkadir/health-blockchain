@@ -218,6 +218,8 @@ function navigate(page) {
     records:        'Health Records',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status',
+    vaccines:       'Vaccine Passport',
+    medications:    'Medications & Reminders',
     users:          'Users',
     audit:          'Access History',
     security:       'Security Settings',
@@ -226,6 +228,8 @@ function navigate(page) {
   if (page === 'dashboard')     loadDashboard();
   if (page === 'records')       loadRecords();
   if (page === 'chain-status')  loadChainStatus();
+  if (page === 'vaccines')      loadVaccines();
+  if (page === 'medications')   loadMedications();
   if (page === 'users')         loadUsers();
   if (page === 'audit')         switchLogTab(currentLogTab);
   if (page === 'security')      loadSecuritySettings();
@@ -272,14 +276,68 @@ async function loadDashboard() {
     const iconEl = document.getElementById('stat-integrity-icon');
     if (iconEl) {
       iconEl.querySelector('svg').setAttribute('stroke', valid ? '#2CC985' : '#E57373');
-      const polyline = iconEl.querySelector('polyline, path[d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"]');
     }
 
     updateChainPill(valid);
     const recent = recData.records.slice(0, 5);
     document.getElementById('recent-records').innerHTML =
       recent.length ? recent.map(renderRecordCard).join('') : emptyState('No records yet');
+
+    updateClinicalHighlights(recData.records);
   } catch(e) { console.error(e); }
+}
+
+function updateClinicalHighlights(records) {
+  const highlightDiv = document.getElementById('patient-highlights');
+  if (!highlightDiv) return;
+  
+  highlightDiv.style.display = 'block';
+
+  // 1. Vitals
+  const vitalsRecord = records.find(r => r.record_type === 'vital_signs' && !r.is_protected && r.data);
+  if (vitalsRecord && vitalsRecord.data && vitalsRecord.data.data) {
+    const v = vitalsRecord.data.data;
+    document.getElementById('vital-bp-val').textContent = v.blood_pressure || '—';
+    document.getElementById('vital-hr-val').textContent = v.heart_rate ? `${v.heart_rate} bpm` : '—';
+    document.getElementById('vital-temp-val').textContent = v.temperature ? `${v.temperature} °C` : '—';
+    document.getElementById('vital-spo2-val').textContent = v.oxygen_sat ? `${v.oxygen_sat} %` : '—';
+    
+    const tempVal = parseFloat(v.temperature);
+    if (tempVal >= 38.0) {
+      document.getElementById('vital-temp-val').style.color = '#ff4d4d';
+    } else {
+      document.getElementById('vital-temp-val').style.color = '#fff';
+    }
+    const hrVal = parseInt(v.heart_rate);
+    if (hrVal > 100 || hrVal < 60) {
+      document.getElementById('vital-hr-val').style.color = '#C9A84C';
+    } else {
+      document.getElementById('vital-hr-val').style.color = '#fff';
+    }
+  } else {
+    document.getElementById('vital-bp-val').textContent = '—';
+    document.getElementById('vital-hr-val').textContent = '—';
+    document.getElementById('vital-temp-val').textContent = '—';
+    document.getElementById('vital-spo2-val').textContent = '—';
+    document.getElementById('vital-temp-val').style.color = '#fff';
+    document.getElementById('vital-hr-val').style.color = '#fff';
+  }
+
+  // 2. Allergies
+  const allergyRecords = records.filter(r => r.record_type === 'allergy' && !r.is_protected && r.data);
+  const allergyBox = document.getElementById('allergy-warning-box');
+  const allergyUl = document.getElementById('allergy-list-ul');
+  
+  if (allergyRecords.length > 0) {
+    allergyUl.innerHTML = allergyRecords.map(r => {
+      const a = r.data.data || {};
+      return `<li><strong>${a.allergen || 'Unknown'}</strong>: ${a.reaction || 'No reaction listed'} (${a.severity || 'Mild'} severity, onset: ${a.onset_date || '—'})</li>`;
+    }).join('');
+    allergyBox.style.display = 'block';
+  } else {
+    allergyUl.innerHTML = '';
+    allergyBox.style.display = 'none';
+  }
 }
 
 function updateChainPill(valid) {
@@ -374,6 +432,40 @@ function emptyState(msg) {
 }
 
 /* -- Record Detail Modal ----------------------------- */
+function renderAttachmentHtml(fileName, fileType, fileData) {
+  if (!fileData) return '';
+
+  let previewHtml = '';
+  if (fileType && fileType.startsWith('image/')) {
+    previewHtml = `
+      <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: rgba(255,255,255,0.02);">
+        <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">IMAGE ATTACHMENT: ${fileName}</div>
+        <img src="data:${fileType};base64,${fileData}" style="max-width:100%; max-height:240px; border-radius:4px; display:block; margin:0 auto;" />
+        <button class="btn btn-gold btn-sm" style="margin-top:10px; width:100%" onclick="downloadBase64File('${fileName}', '${fileType}', '${fileData}')">Download Image</button>
+      </div>
+    `;
+  } else {
+    previewHtml = `
+      <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: rgba(255,255,255,0.02); display:flex; justify-content:space-between; align-items:center;">
+        <div style="text-align:left">
+          <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${fileName}</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${fileType || 'Unknown'}</div>
+        </div>
+        <button class="btn btn-gold btn-sm" onclick="downloadBase64File('${fileName}', '${fileType}', '${fileData}')">Download File</button>
+      </div>
+    `;
+  }
+  return `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">ATTACHMENT</h4>${previewHtml}`;
+}
+
+function downloadBase64File(fileName, fileType, fileData) {
+  const linkSource = `data:${fileType};base64,${fileData}`;
+  const downloadLink = document.createElement("a");
+  downloadLink.href = linkSource;
+  downloadLink.download = fileName;
+  downloadLink.click();
+}
+
 async function openRecord(idx) {
   const r = allRecords.find(x => x.block_index === idx);
   if (!r) return;
@@ -408,6 +500,8 @@ async function openRecord(idx) {
     ).join('');
   }
 
+  const attachmentHtml = renderAttachmentHtml(r.file_name, r.file_type, r.file_data);
+
   document.getElementById('modal-content').innerHTML = `
     <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${r.title}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -420,6 +514,7 @@ async function openRecord(idx) {
     </div>
     ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
     ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+    ${attachmentHtml}
     <hr style="border-color:var(--border);margin:16px 0">
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r.hash_preview}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
@@ -440,7 +535,6 @@ async function decryptRecord(idx) {
   errEl.style.display = 'none';
 
   try {
-    // S-05 FIX: password sent in POST body, never in URL
     const res = await apiFetch(`/api/records/${patientId()}/${idx}/decrypt`, {
       method: 'POST',
       body: JSON.stringify({ password: pwd })
@@ -458,6 +552,8 @@ async function decryptRecord(idx) {
       ).join('');
     }
 
+    const attachmentHtml = renderAttachmentHtml(d.file_name, d.file_type, d.file_data);
+
     document.getElementById('modal-content').innerHTML = `
       <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${d.title || (r ? r.title : '')}</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -470,6 +566,7 @@ async function decryptRecord(idx) {
       </div>
       ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
       ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+      ${attachmentHtml}
       <hr style="border-color:var(--border);margin:16px 0">
       <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r ? r.hash_preview : '—'}</div></div>
       <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
@@ -529,6 +626,38 @@ document.getElementById('add-record-form').addEventListener('submit', async e =>
     if (el && el.value.trim()) dynData[f.id] = el.value.trim();
   });
 
+  const fileInput = document.getElementById('rec-file');
+  let file_name = null;
+  let file_type = null;
+  let file_data = null;
+
+  if (fileInput && fileInput.files && fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      errEl.textContent = 'Attachment size exceeds the 2MB limit.';
+      errEl.style.display = 'block';
+      return;
+    }
+    file_name = file.name;
+    file_type = file.type;
+
+    const getBase64 = (f) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(f);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+
+    try {
+      const dataUrl = await getBase64(file);
+      file_data = dataUrl.split(',')[1];
+    } catch(err) {
+      errEl.textContent = 'Failed to read file attachment.';
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
   const payload = {
     patient_id:             document.getElementById('rec-patient-id').value.trim(),
     record_type:            type,
@@ -541,6 +670,9 @@ document.getElementById('add-record-form').addEventListener('submit', async e =>
     confidential_password:  isConfidential ? confPassword : null,  // S-04 FIX
     data:                   dynData,
     notes:                  document.getElementById('rec-notes').value.trim(),
+    file_name:              file_name,
+    file_type:              file_type,
+    file_data:              file_data,
   };
 
   const btn = document.getElementById('btn-add-rec');
@@ -551,6 +683,8 @@ document.getElementById('add-record-form').addEventListener('submit', async e =>
     okEl.style.display = 'block';
     document.getElementById('add-record-form').reset();
     document.getElementById('dynamic-fields').innerHTML = '';
+    // Reset file input
+    if (fileInput) fileInput.value = '';
     // Reset confidential password field and hide it
     document.getElementById('rec-confidential-password').value = '';
     document.getElementById('confidential-password-group').style.display = 'none';
@@ -851,5 +985,192 @@ async function disable2FA() {
   } catch(e) {
     err.textContent = e.message;
     err.style.display = 'block';
+  }
+}
+
+async function loadVaccines() {
+  const container = document.getElementById('vaccine-passport-list');
+  container.innerHTML = '<div class="loading-spinner">Loading Vaccine Passport...</div>';
+  try {
+    const pid = patientId();
+    const d = await apiFetch(`/api/records/${pid}`);
+    allRecords = d.records;
+    
+    const vaccines = allRecords.filter(r => r.record_type === 'vaccination' || (r.is_protected && r.title === 'ENCRYPTED VIP RECORD'));
+    if (vaccines.length === 0) {
+      container.innerHTML = emptyState('No vaccination records found in the blockchain registry.');
+      return;
+    }
+    
+    container.innerHTML = `
+      <div class="glass" style="padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; color: #fff;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border); color: var(--muted-hi); font-size: 13px;">
+              <th style="padding: 12px 8px;">Vaccine Name</th>
+              <th style="padding: 12px 8px;">Lot Number</th>
+              <th style="padding: 12px 8px;">Dose #</th>
+              <th style="padding: 12px 8px;">Date Administered</th>
+              <th style="padding: 12px 8px;">Next Dose Due</th>
+              <th style="padding: 12px 8px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${vaccines.map(r => {
+              if (r.is_protected) {
+                return `
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="openRecord(${r.block_index})">
+                    <td colspan="5" style="padding: 14px 8px; color: var(--muted); font-style: italic;">🔐 Confidential Block #${r.block_index} — Click to decrypt in Records</td>
+                    <td style="padding: 14px 8px;"><span class="badge badge-encrypted">Encrypted</span></td>
+                  </tr>
+                `;
+              }
+              const val = r.data || {};
+              const dateStr = val.record_date ? new Date(val.record_date).toLocaleDateString('en-GB') : '—';
+              const nextDose = val.data && val.data.next_dose ? new Date(val.data.next_dose).toLocaleDateString('en-GB') : '—';
+              return `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="openRecord(${r.block_index})">
+                  <td style="padding: 14px 8px; font-weight: 600;">${val.data.vaccine_name || '—'}</td>
+                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${val.data.lot_number || '—'}</td>
+                  <td style="padding: 14px 8px;">Dose ${val.data.dose_number || '1'}</td>
+                  <td style="padding: 14px 8px;">${dateStr}</td>
+                  <td style="padding: 14px 8px;">${nextDose}</td>
+                  <td style="padding: 14px 8px;"><span class="badge badge-shared">Verified</span></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) {
+    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+  }
+}
+
+async function loadMedications() {
+  const container = document.getElementById('active-medications-list');
+  container.innerHTML = '<div class="loading-spinner">Loading Active Medications...</div>';
+  try {
+    const pid = patientId();
+    const d = await apiFetch(`/api/records/${pid}`);
+    allRecords = d.records;
+    
+    const prescriptions = allRecords.filter(r => r.record_type === 'prescription' || (r.is_protected && r.title === 'ENCRYPTED VIP RECORD'));
+    if (prescriptions.length === 0) {
+      container.innerHTML = emptyState('No active medications or prescriptions found.');
+      return;
+    }
+    
+    const activeList = [];
+    const expiredList = [];
+    
+    prescriptions.forEach(r => {
+      if (r.is_protected) {
+        activeList.push(r);
+        return;
+      }
+      
+      const val = r.data || {};
+      const recordDate = new Date(val.record_date);
+      const durationDays = parseInt(val.data.duration || 0);
+      const expiryDate = new Date(recordDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      expiryDate.setHours(0,0,0,0);
+      
+      const details = {
+        block_index: r.block_index,
+        title: r.title,
+        medication: val.data.medication || 'Unknown',
+        dose: val.data.dose || '—',
+        frequency: val.data.frequency || '—',
+        duration: durationDays,
+        instructions: val.data.instructions || '—',
+        record_date: val.record_date,
+        doctor: val.doctor_name,
+        expiry_date: expiryDate.toLocaleDateString('en-GB'),
+        is_protected: false
+      };
+      
+      if (expiryDate >= today) {
+        activeList.push(details);
+      } else {
+        expiredList.push(details);
+      }
+    });
+    
+    let activeHtml = '';
+    if (activeList.length === 0) {
+      activeHtml = '<p style="color:var(--muted); font-size:13px; font-style:italic; margin-bottom: 24px;">No currently active medications.</p>';
+    } else {
+      activeHtml = `
+        <h3 style="color:#C9A84C; font-size:16px; font-weight:700; margin-bottom:14px;">⚡ CURRENT ACTIVE MEDICATIONS:</h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:32px;">
+          ${activeList.map(m => {
+            if (m.is_protected) {
+              return `
+                <div class="stat-card glass" style="border-left:3px solid var(--gold); cursor:pointer" onclick="openRecord(${m.block_index})">
+                  <div class="stat-info">
+                    <div class="stat-value" style="font-size:14px; font-weight:600; color:#fff;">🔐 Decrypt Protected Prescription</div>
+                    <div class="stat-label" style="font-size:11px; margin-top:4px;">Block #${m.block_index}</div>
+                  </div>
+                </div>
+              `;
+            }
+            return `
+              <div class="stat-card glass" style="border-left:3px solid #10b981; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
+                <div style="width:100%">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; font-size:16px; color:#fff;">${m.medication}</span>
+                    <span class="badge badge-shared" style="background:rgba(16,185,129,0.1); color:#10b981; border: 1px solid rgba(16,185,129,0.3)">ACTIVE</span>
+                  </div>
+                  <div style="font-size:12px; color:var(--muted-hi); margin-top:8px;">
+                    <strong>Dosage:</strong> ${m.dose} · <strong>Frequency:</strong> ${m.frequency}
+                  </div>
+                  <div style="font-size:12px; color:var(--muted); margin-top:4px;">
+                    <strong>Instructions:</strong> ${m.instructions}
+                  </div>
+                </div>
+                <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
+                  <span>Expires: <strong>${m.expiry_date}</strong></span>
+                  <span>Dr. ${m.doctor}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    let expiredHtml = '';
+    if (expiredList.length > 0) {
+      expiredHtml = `
+        <h3 style="color:var(--muted-hi); font-size:15px; font-weight:600; margin-bottom:14px;">⌛ EXPIRED PRESCRIPTIONS HISTORY:</h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+          ${expiredList.map(m => `
+            <div class="stat-card glass" style="border-left:3px solid var(--border); opacity:0.6; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
+              <div style="width:100%">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-weight:700; font-size:15px; color:var(--muted-hi);">${m.medication}</span>
+                  <span class="badge badge-private" style="background:rgba(255,255,255,0.05); color:var(--muted)">EXPIRED</span>
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin-top:8px;">
+                  <strong>Dosage:</strong> ${m.dose} · <strong>Frequency:</strong> ${m.frequency}
+                </div>
+              </div>
+              <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
+                <span>Expired on: <strong>${m.expiry_date}</strong></span>
+                <span>Dr. ${m.doctor}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    container.innerHTML = activeHtml + expiredHtml;
+  } catch(e) {
+    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
   }
 }

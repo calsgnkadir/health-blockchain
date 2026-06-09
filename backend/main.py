@@ -19,7 +19,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, ValidationError
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
@@ -468,6 +468,103 @@ def create_user(data: UserCreate, u: dict = Depends(require_role("admin"))):
 # HEALTH RECORDS
 # ──────────────────────────────────────────────────────────────
 
+class VitalSignsSchema(BaseModel):
+    blood_pressure: str
+    heart_rate: int
+    temperature: float
+    oxygen_sat: int
+
+    @field_validator("heart_rate")
+    @classmethod
+    def check_heart_rate(cls, v):
+        if not (1 <= v <= 300):
+            raise ValueError("Heart rate must be between 1 and 300 bpm")
+        return v
+
+    @field_validator("temperature")
+    @classmethod
+    def check_temp(cls, v):
+        if not (30.0 <= v <= 45.0):
+            raise ValueError("Temperature must be between 30.0°C and 45.0°C")
+        return v
+
+    @field_validator("oxygen_sat")
+    @classmethod
+    def check_spo2(cls, v):
+        if not (0 <= v <= 100):
+            raise ValueError("SpO2 oxygen saturation must be between 0% and 100%")
+        return v
+
+class AllergySchema(BaseModel):
+    allergen: str
+    reaction: str
+    severity: str
+    onset_date: str
+
+    @field_validator("severity")
+    @classmethod
+    def check_severity(cls, v):
+        allowed = {"Mild", "Moderate", "Severe"}
+        if v not in allowed:
+            raise ValueError(f"Severity must be one of {allowed}")
+        return v
+
+class PrescriptionSchema(BaseModel):
+    medication: str
+    dose: str
+    frequency: str
+    duration: int
+
+    @field_validator("duration")
+    @classmethod
+    def check_duration(cls, v):
+        if v <= 0:
+            raise ValueError("Duration must be a positive number of days")
+        return v
+
+class VaccinationSchema(BaseModel):
+    vaccine_name: str
+    lot_number: str
+    dose_number: int
+    next_dose: Optional[str] = None
+
+    @field_validator("dose_number")
+    @classmethod
+    def check_dose(cls, v):
+        if v <= 0:
+            raise ValueError("Dose number must be a positive integer")
+        return v
+
+class LabResultSchema(BaseModel):
+    test_name: str
+    result_value: str
+    reference_range: str
+    unit: str
+
+class DiagnosisSchema(BaseModel):
+    icd_code: str
+    severity: str
+    symptoms: str
+
+class SurgerySchema(BaseModel):
+    procedure: str
+    anesthesia: str
+    duration_min: int
+    outcome: str
+
+    @field_validator("duration_min")
+    @classmethod
+    def check_duration(cls, v):
+        if v <= 0:
+            raise ValueError("Duration must be a positive number of minutes")
+        return v
+
+class ImagingSchema(BaseModel):
+    modality: str
+    body_part: str
+    findings: str
+    radiologist: str
+
 class RecordCreate(BaseModel):
     patient_id:      str
     record_type:     str
@@ -480,6 +577,9 @@ class RecordCreate(BaseModel):
     confidential_password: Optional[str] = None
     data:            Dict[str, Any]
     notes:           Optional[str] = None
+    file_name:       Optional[str] = None
+    file_type:       Optional[str] = None
+    file_data:       Optional[str] = None
 
     @field_validator("record_type")
     @classmethod
@@ -494,6 +594,17 @@ class RecordCreate(BaseModel):
         if v not in ACCESS_LEVELS:
             raise ValueError(f"Invalid access level: {v}")
         return v
+
+    @field_validator("file_data")
+    @classmethod
+    def file_data_size(cls, v):
+        if v is not None:
+            # 2MB binary is approximately 2.7MB base64 encoded
+            max_len = int(2 * 1024 * 1024 * 4 / 3)
+            if len(v) > max_len:
+                raise ValueError("Attachment size exceeds the 2MB limit")
+        return v
+
 @app.post("/api/records", summary="Add Health Record")
 def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
     # Authorization checks
@@ -501,6 +612,39 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         raise HTTPException(403, "You can only access your own records")
     if u["role"] not in ("doctor", "admin", "vip_patient"):
         raise HTTPException(403, "You do not have permission to add records")
+
+    # Dynamic clinical data validation
+    try:
+        if rec.record_type == "vital_signs":
+            VitalSignsSchema(**rec.data)
+        elif rec.record_type == "allergy":
+            AllergySchema(**rec.data)
+        elif rec.record_type == "prescription":
+            PrescriptionSchema(**rec.data)
+        elif rec.record_type == "vaccination":
+            VaccinationSchema(**rec.data)
+        elif rec.record_type == "lab_result":
+            LabResultSchema(**rec.data)
+        elif rec.record_type == "diagnosis":
+            DiagnosisSchema(**rec.data)
+        elif rec.record_type == "surgery":
+            SurgerySchema(**rec.data)
+        elif rec.record_type == "imaging":
+            ImagingSchema(**rec.data)
+    except ValidationError as e:
+        err_msgs = []
+        for error in e.errors():
+            loc = ".".join(str(x) for x in error["loc"])
+            err_msgs.append(f"{loc}: {error['msg']}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Validation failed: {', '.join(err_msgs)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Validation error: {str(e)}"
+        )
 
     block_data = {
         "record_type":       rec.record_type,
@@ -516,6 +660,9 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         "created_by":        u["username"],
         "created_at":        datetime.now(timezone.utc).isoformat(),
         "patient_id":        rec.patient_id,
+        "file_name":         rec.file_name,
+        "file_type":         rec.file_type,
+        "file_data":         rec.file_data,
     }
 
     block = record_service.add_record(
@@ -575,6 +722,9 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
             entry["title"]        = "ENCRYPTED VIP RECORD"
             entry["record_type"]  = "protected"
             entry["data"]         = None
+            entry["file_name"]    = None
+            entry["file_type"]    = None
+            entry["file_data"]    = None
         elif isinstance(data, dict):
             entry["title"]        = data.get("title", "Untitled")
             entry["record_type"]  = data.get("record_type", "other")
@@ -585,6 +735,9 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
             entry["record_date"]  = data.get("record_date", "")
             entry["data"]         = data.get("data", {})
             entry["notes"]        = data.get("notes", "")
+            entry["file_name"]    = data.get("file_name")
+            entry["file_type"]    = data.get("file_type")
+            entry["file_data"]    = data.get("file_data")
         else:
             entry["title"] = str(data)[:80]
             entry["data"]  = None
