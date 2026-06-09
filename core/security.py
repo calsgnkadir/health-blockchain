@@ -40,6 +40,7 @@ _KEYRING_KEY_NAME = "private_key"
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # Argon2 — preferred, falls back to bcrypt
 try:
@@ -291,8 +292,8 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def get_encryption_key(password: str, salt: Optional[bytes] = None) -> Tuple[bytes, bytes]:
     """
-    Derives AES key using password + Device ID + unique salt.
-    Returns: (fernet_key, salt)
+    Derives AES 256-bit key using password + Device ID + unique salt.
+    Returns: (raw_key_32_bytes, salt)
     """
     device_id = get_device_id()
     if salt is None:
@@ -306,35 +307,45 @@ def get_encryption_key(password: str, salt: Optional[bytes] = None) -> Tuple[byt
     )
     # Key material: device_id + password (device dependency)
     key_material = (device_id + password).encode("utf-8")
-    key = base64.urlsafe_b64encode(kdf.derive(key_material))
-    return key, salt
+    raw_key = kdf.derive(key_material)
+    return raw_key, salt
 
 
 # ──────────────────────────────────────────────
-# 6. AES-256 ENCRYPTION / DECRYPTION
+# 6. AES-256-GCM ENCRYPTION / DECRYPTION
 # ──────────────────────────────────────────────
 
 def encrypt_data(data: str, password: str, salt: Optional[bytes] = None) -> Tuple[str, bytes]:
     """
-    Encrypts data with AES-256 (Fernet).
+    Encrypts data with AES-256-GCM.
     Returns: (encrypted_data_base64, used_salt)
     """
-    key, used_salt = get_encryption_key(password, salt)
-    fernet = Fernet(key)
-    encrypted = fernet.encrypt(data.encode("utf-8"))
-    return base64.urlsafe_b64encode(encrypted).decode(), used_salt
+    raw_key, used_salt = get_encryption_key(password, salt)
+    aesgcm = AESGCM(raw_key)
+    nonce = os.urandom(12)  # Standard 12-byte nonce for GCM
+    ciphertext = aesgcm.encrypt(nonce, data.encode("utf-8"), None)
+    
+    # Pack nonce + ciphertext
+    payload = nonce + ciphertext
+    return base64.urlsafe_b64encode(payload).decode("utf-8"), used_salt
 
 
 def decrypt_data(encrypted_data: str, password: str, salt: bytes) -> str:
     """
-    Decrypts AES-256 encrypted data.
+    Decrypts AES-256-GCM encrypted data.
     salt: unique salt used during encryption (comes from LMDB).
     """
     try:
-        key, _ = get_encryption_key(password, salt)
-        fernet = Fernet(key)
-        encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
-        return fernet.decrypt(encrypted_bytes).decode("utf-8")
+        raw_key, _ = get_encryption_key(password, salt)
+        aesgcm = AESGCM(raw_key)
+        
+        payload = base64.urlsafe_b64decode(encrypted_data.encode("utf-8"))
+        if len(payload) < 28:  # 12 bytes nonce + at least 16 bytes authentication tag
+            raise ValueError("Invalid encrypted payload size")
+            
+        nonce = payload[:12]
+        ciphertext = payload[12:]
+        return aesgcm.decrypt(nonce, ciphertext, None).decode("utf-8")
     except Exception as e:
         raise ValueError(f"Decryption error: {e}")
 

@@ -32,9 +32,23 @@ let mfaRequired = false;
 })();
 
 /* -- API Helper --------------------------------------- */
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
 async function apiFetch(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  // CSRF protection: append token header for unsafe methods
+  const csrfToken = getCookie('csrf_token');
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+  
   const res = await fetch(API + path, { ...opts, headers });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.detail || 'An error occurred');
@@ -104,6 +118,7 @@ function fillCreds(u, p) {
 }
 
 function logout() {
+  apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   token = null; currentUser = null;
   localStorage.removeItem('vhv_token');
   localStorage.removeItem('vhv_user');
@@ -171,6 +186,24 @@ const ROLE_LABEL = { admin: 'Administrator', doctor: 'Doctor', vip_patient: 'VIP
 
 /* -- Auto-login -------------------------------------- */
 if (token && currentUser) enterApp();
+
+/* -- System Config & Environment Check ---------------- */
+async function checkEnvironment() {
+  try {
+    const config = await apiFetch('/api/system/config');
+    const demoCreds = document.querySelector('.demo-credentials');
+    if (demoCreds) {
+      if (config.environment === 'development') {
+        demoCreds.style.display = 'block';
+      } else {
+        demoCreds.style.display = 'none';
+      }
+    }
+  } catch(e) {
+    console.error("Failed to load system config:", e);
+  }
+}
+checkEnvironment();
 
 /* -- Navigation -------------------------------------- */
 function navigate(page) {

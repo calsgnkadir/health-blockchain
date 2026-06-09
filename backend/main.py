@@ -14,7 +14,7 @@ Running:
   uvicorn main:app --reload --port 8000
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi import FastAPI, HTTPException, Depends, Request, status, Cookie, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -29,6 +29,7 @@ import os
 import sys
 import time
 import threading
+import secrets
 
 # ── Path Configuration ───────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -54,8 +55,43 @@ app.add_middleware(
     allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    # Only enforce CSRF for API state-changing routes
+    path = request.url.path
+    if (
+        request.method in ("GET", "HEAD", "OPTIONS")
+        or not path.startswith("/api/")
+        or path == "/api/auth/login"
+    ):
+        response = await call_next(request)
+        # Ensure csrf_token cookie is present for the client to read
+        if not request.cookies.get("csrf_token"):
+            env = os.environ.get("ENVIRONMENT", "production")
+            is_secure = (env == "production")
+            response.set_cookie(
+                "csrf_token",
+                secrets.token_hex(32),
+                samesite="strict",
+                secure=is_secure,
+                httponly=False  # Must be readable by JavaScript
+            )
+        return response
+
+    # Unsafe requests (POST, PUT, DELETE) on API paths
+    csrf_cookie = request.cookies.get("csrf_token")
+    csrf_header = request.headers.get("x-csrf-token")
+
+    if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "CSRF token validation failed — missing or mismatched token"}
+        )
+
+    return await call_next(request)
 
 # ── JWT RSA Key Configuration ──────────────────────────────
 _JWT_PRIVATE_KEY_FILE = os.path.join(os.path.dirname(__file__), ".jwt_private.pem")
@@ -103,7 +139,7 @@ JWT_PRIVATE_KEY, JWT_PUBLIC_KEY = _load_or_generate_jwt_rsa_keys()
 ALGORITHM = "RS256"
 TOKEN_HOURS = 8   # 8 hours
 
-security_bearer = HTTPBearer()
+security_bearer = HTTPBearer(auto_error=False)
 
 # ── Rate Limiting ─────────────────────────────────────────────
 _login_attempts: Dict[str, List[float]] = defaultdict(list)
@@ -170,7 +206,12 @@ ACCESS_LEVELS = {
 @app.on_event("startup")
 async def startup_event():
     """Initialize user database on startup."""
-    storage.seed_default_users()
+    env = os.environ.get("ENVIRONMENT", "production")
+    if env == "development":
+        storage.seed_default_users()
+        print("[INFO] Seeding default users (Development Mode)")
+    else:
+        print("[INFO] Production Mode — Skipping default user seeding")
     print(f"[OK] VIP Health Vault API v3.0 ready - Device: {get_device_id()[:16]}...")
 
 # ──────────────────────────────────────────────────────────────
@@ -189,9 +230,19 @@ def create_token(user: dict) -> str:
     return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=ALGORITHM)
 
 
-def current_user(creds: HTTPAuthorizationCredentials = Depends(security_bearer)) -> dict:
+def current_user(
+    access_token: Optional[str] = Cookie(None),
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
+) -> dict:
+    token = access_token
+    if not token and creds:
+        token = creds.credentials
+
+    if not token:
+        raise HTTPException(401, "Not authenticated — access token is missing")
+
     try:
-        payload = jwt.decode(creds.credentials, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         user = storage.load_user(username)
         if not user:
@@ -222,7 +273,7 @@ class LoginReq(BaseModel):
 
 
 @app.post("/api/auth/login", summary="User Login")
-async def login(req: LoginReq, request: Request):
+async def login(req: LoginReq, request: Request, response: Response):
     client_ip = _get_client_ip(request)
 
     # Rate limiting
@@ -273,6 +324,17 @@ async def login(req: LoginReq, request: Request):
         extra={"ip": client_ip, "role": user["role"], "mfa": bool(user.get("totp_enabled"))},
     )
 
+    env = os.environ.get("ENVIRONMENT", "production")
+    is_secure = (env == "production")
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=is_secure,
+        samesite="strict",
+        max_age=TOKEN_HOURS * 3600,
+    )
+
     return {
         "access_token": token,
         "token_type":   "bearer",
@@ -298,6 +360,11 @@ def me(u: dict = Depends(current_user)):
         "patient_id": u.get("patient_id"),
         "totp_enabled": bool(u.get("totp_enabled")),
     }
+
+@app.post("/api/auth/logout", summary="User Logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"success": True, "message": "Logged out successfully"}
 
 class Verify2FAReq(BaseModel):
     code: str
@@ -729,6 +796,13 @@ def system_status(u: dict = Depends(require_role("admin"))):
         "projects":     len(projects),
         "patient_ids":  projects,
         "timestamp":    datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/system/config", summary="Public System Configuration")
+def get_system_config():
+    return {
+        "environment": os.environ.get("ENVIRONMENT", "production"),
     }
 
 # ──────────────────────────────────────────────────────────────

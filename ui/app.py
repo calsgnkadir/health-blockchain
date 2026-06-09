@@ -264,15 +264,16 @@ class App(ctk.CTk):
         )
         self.verify_btn.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
-        # Simulate Attack
-        self.attack_btn = ctk.CTkButton(
-            self.sidebar,
-            text="SIMULATE ATTACK",
-            fg_color="#D32F2F",
-            hover_color="#B71C1C",
-            command=self.simulate_attack
-        )
-        self.attack_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        # Simulate Attack (only in development)
+        if os.environ.get("ENVIRONMENT", "production") == "development":
+            self.attack_btn = ctk.CTkButton(
+                self.sidebar,
+                text="SIMULATE ATTACK",
+                fg_color="#D32F2F",
+                hover_color="#B71C1C",
+                command=self.simulate_attack
+            )
+            self.attack_btn.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
         
         # Footer
         self.footer_lbl = ctk.CTkLabel(self.sidebar, text="v2.0.0 Enterprise\nLMDB Powered", text_color="gray40", font=ctk.CTkFont(size=10))
