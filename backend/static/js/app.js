@@ -126,6 +126,7 @@ function logout() {
   document.getElementById('page-login').classList.add('active');
   document.getElementById('page-login').style.display = 'block';
   document.getElementById('page-app').style.display = 'none';
+  updateNotificationsUI();
 }
 
 function resetLoginForm(e) {
@@ -178,6 +179,9 @@ function enterApp() {
 
   // Set today's date
   document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];
+
+  updateNotificationsUI();
+  addNotification('System Login', `Access granted to user ${currentUser.username}. Device Fingerprint verified.`, 'success');
 
   loadRecordTypes().then(() => navigate('dashboard'));
 }
@@ -284,6 +288,16 @@ async function loadDashboard() {
       recent.length ? recent.map(renderRecordCard).join('') : emptyState('No records yet');
 
     updateClinicalHighlights(recData.records);
+    renderVitalsChart(recData.records);
+
+    // Trigger chain failure notification if broken
+    if (!valid) {
+      const notis = getNotifications();
+      const hasAlert = notis.some(n => n.title === 'Chain Integrity Compromised' && n.text.includes(`#${statusData.broken_at}`));
+      if (!hasAlert) {
+        addNotification('Chain Integrity Compromised', `Integrity check failed. Block #${statusData.broken_at} is broken!`, 'warning');
+      }
+    }
   } catch(e) { console.error(e); }
 }
 
@@ -501,6 +515,8 @@ async function openRecord(idx) {
   }
 
   const attachmentHtml = renderAttachmentHtml(r.file_name, r.file_type, r.file_data);
+  const isImaging = d.record_type === 'imaging';
+  const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
   document.getElementById('modal-content').innerHTML = `
     <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${r.title}</h2>
@@ -514,12 +530,17 @@ async function openRecord(idx) {
     </div>
     ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
     ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+    ${dicomViewerHtml}
     ${attachmentHtml}
     <hr style="border-color:var(--border);margin:16px 0">
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r.hash_preview}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
+
+  if (isImaging) {
+    initDicomViewer(d.data || {});
+  }
 }
 
 async function decryptRecord(idx) {
@@ -553,6 +574,8 @@ async function decryptRecord(idx) {
     }
 
     const attachmentHtml = renderAttachmentHtml(d.file_name, d.file_type, d.file_data);
+    const isImaging = d.record_type === 'imaging';
+    const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
     document.getElementById('modal-content').innerHTML = `
       <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${d.title || (r ? r.title : '')}</h2>
@@ -566,11 +589,16 @@ async function decryptRecord(idx) {
       </div>
       ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
       ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+      ${dicomViewerHtml}
       ${attachmentHtml}
       <hr style="border-color:var(--border);margin:16px 0">
       <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r ? r.hash_preview : '—'}</div></div>
       <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
     `;
+
+    if (isImaging) {
+      initDicomViewer(d.data || {});
+    }
   } catch (ex) {
     errEl.textContent = ex.message;
     errEl.style.display = 'block';
@@ -681,6 +709,10 @@ document.getElementById('add-record-form').addEventListener('submit', async e =>
     const res = await apiFetch('/api/records', { method:'POST', body: JSON.stringify(payload) });
     okEl.textContent = `${res.message} (Block #${res.block_index})`;
     okEl.style.display = 'block';
+    
+    // Add Notification trigger!
+    addNotification('Record Saved', `New ${payload.record_type} record successfully added to block #${res.block_index}.`, 'success');
+
     document.getElementById('add-record-form').reset();
     document.getElementById('dynamic-fields').innerHTML = '';
     // Reset file input
@@ -1173,4 +1205,711 @@ async function loadMedications() {
   } catch(e) {
     container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
   }
+}
+
+/* =========================================================================
+   ================= PHASE 3 DASHBOARD & VISUALS SYSTEMS =================
+   ========================================================================= */
+
+/* ── 1. Vitals Signs Charting (Chart.js + Fallback) ── */
+let vitalsChartInstance = null;
+
+function renderVitalsChart(records) {
+  const chartPanel = document.getElementById('vitals-chart-panel');
+  if (!chartPanel) return;
+
+  const vitalsRecords = records
+    .filter(r => r.record_type === 'vital_signs' && !r.is_protected && r.data && r.data.data)
+    .map(r => ({
+      date: r.data.record_date || new Date(r.timestamp * 1000).toISOString().split('T')[0],
+      v: r.data.data,
+      timestamp: r.timestamp
+    }));
+
+  vitalsRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  if (vitalsRecords.length === 0) {
+    chartPanel.style.display = 'none';
+    return;
+  }
+
+  chartPanel.style.display = 'block';
+
+  const labels = vitalsRecords.map(r => {
+    try {
+      const parts = r.date.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+    } catch(e) {}
+    return r.date;
+  });
+
+  const tempData = vitalsRecords.map(r => parseFloat(r.v.temperature) || null);
+  const hrData = vitalsRecords.map(r => parseInt(r.v.heart_rate) || null);
+  const spo2Data = vitalsRecords.map(r => parseInt(r.v.oxygen_sat) || null);
+
+  const canvas = document.getElementById('vitalsChart');
+  if (!canvas) return;
+
+  if (typeof Chart === 'undefined') {
+    let html = `
+      <div style="color:var(--muted); font-size:12px; margin-bottom:12px; font-style:italic;">
+        (Chart.js offline. Displaying clinical trends log)
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border); color:var(--gold);">
+              <th style="padding:8px;">Date</th>
+              <th style="padding:8px;">Temp (°C)</th>
+              <th style="padding:8px;">Heart Rate (bpm)</th>
+              <th style="padding:8px;">SpO2 (%)</th>
+              <th style="padding:8px;">BP (mmHg)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    vitalsRecords.forEach(r => {
+      html += `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:8px; font-family:var(--font-mono);">${r.date}</td>
+          <td style="padding:8px;">${r.v.temperature || '—'} °C</td>
+          <td style="padding:8px;">${r.v.heart_rate || '—'} bpm</td>
+          <td style="padding:8px;">${r.v.oxygen_sat || '—'} %</td>
+          <td style="padding:8px;">${r.v.blood_pressure || '—'}</td>
+        </tr>
+      `;
+    });
+    html += `</tbody></table></div>`;
+    
+    let fallbackDiv = document.getElementById('vitals-chart-fallback');
+    if (!fallbackDiv) {
+      fallbackDiv = document.createElement('div');
+      fallbackDiv.id = 'vitals-chart-fallback';
+      canvas.parentNode.appendChild(fallbackDiv);
+    }
+    fallbackDiv.innerHTML = html;
+    canvas.style.display = 'none';
+    return;
+  }
+
+  const fallbackDiv = document.getElementById('vitals-chart-fallback');
+  if (fallbackDiv) fallbackDiv.style.display = 'none';
+  canvas.style.display = 'block';
+
+  if (vitalsChartInstance) {
+    vitalsChartInstance.destroy();
+  }
+
+  const ctx = canvas.getContext('2d');
+  vitalsChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Heart Rate (bpm)',
+          data: hrData,
+          borderColor: '#ff4d4d',
+          backgroundColor: 'rgba(255, 77, 77, 0.08)',
+          borderWidth: 2,
+          tension: 0.35,
+          yAxisID: 'y-hr-spo2',
+          pointBackgroundColor: '#ff4d4d',
+          pointRadius: 4
+        },
+        {
+          label: 'SpO2 Saturation (%)',
+          data: spo2Data,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          borderWidth: 2,
+          tension: 0.35,
+          yAxisID: 'y-hr-spo2',
+          pointBackgroundColor: '#3b82f6',
+          pointRadius: 4
+        },
+        {
+          label: 'Temperature (°C)',
+          data: tempData,
+          borderColor: '#C9A84C',
+          backgroundColor: 'rgba(201, 168, 76, 0.08)',
+          borderWidth: 2,
+          tension: 0.35,
+          yAxisID: 'y-temp',
+          pointBackgroundColor: '#C9A84C',
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: '#9B95B0',
+            font: { family: 'Inter', size: 11 }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(18, 18, 42, 0.95)',
+          titleColor: '#C9A84C',
+          bodyColor: '#EDE8E0',
+          borderColor: 'rgba(201, 168, 76, 0.25)',
+          borderWidth: 1
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.03)' },
+          ticks: { color: '#6B6882', font: { family: 'JetBrains Mono', size: 10 } }
+        },
+        'y-hr-spo2': {
+          type: 'linear',
+          position: 'left',
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#ff4d4d', font: { family: 'JetBrains Mono', size: 10 } },
+          min: 40,
+          max: 150,
+          title: {
+            display: true,
+            text: 'Heart Rate / SpO2',
+            color: '#ff4d4d',
+            font: { family: 'Inter', size: 10 }
+          }
+        },
+        'y-temp': {
+          type: 'linear',
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#C9A84C', font: { family: 'JetBrains Mono', size: 10 } },
+          min: 34,
+          max: 42,
+          title: {
+            display: true,
+            text: 'Temp (°C)',
+            color: '#C9A84C',
+            font: { family: 'Inter', size: 10 }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ── 2. DICOM Medical Image Viewer Engine ── */
+let dicomWidth = 240;
+let dicomLevel = 120;
+let dicomZoom = 1.0;
+let dicomPanX = 0;
+let dicomPanY = 0;
+let dicomInverted = false;
+let dicomRawPixels = null;
+let dicomCanvasInstance = null;
+let dicomModalityText = 'CT';
+let dicomBodyPartText = 'CHEST';
+
+function getDicomViewerHtml() {
+  return `
+    <div id="dicom-viewer-container" style="margin-top:16px;">
+      <hr style="border-color:var(--border);margin:16px 0">
+      <h4 style="color:var(--muted-hi); font-size:12px; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">DICOM IMAGE VIEWPORT</h4>
+      <div class="dicom-viewport-box">
+        <canvas id="dicom-canvas" class="dicom-canvas"></canvas>
+        <div class="dicom-controls">
+          <button onclick="zoomDicom(1.2)">Zoom +</button>
+          <button onclick="zoomDicom(0.8)">Zoom -</button>
+          <button onclick="invertDicom()">Invert Colors</button>
+          <button onclick="resetDicom()">Reset</button>
+        </div>
+        <div class="dicom-overlay-text top-left">MODALITY: <span id="dicom-modality">-</span></div>
+        <div class="dicom-overlay-text bottom-left"><span id="dicom-wl">-</span></div>
+        <div class="dicom-overlay-text top-right">SCALE: <span id="dicom-scale">1.0x</span></div>
+        <div class="dicom-overlay-text bottom-right">512 x 512px<br>8-BIT MONO</div>
+      </div>
+      <span style="font-size:11px; color:var(--muted); margin-top:8px; display:block; line-height:1.4;">
+        * Left-click + drag to adjust Window/Level (Contrast/Brightness). Scroll wheel or right-click drag to Zoom. Middle-click drag to Pan.
+      </span>
+    </div>
+  `;
+}
+
+function initDicomViewer(data) {
+  const canvas = document.getElementById('dicom-canvas');
+  if (!canvas) return;
+
+  dicomCanvasInstance = canvas;
+  const modality = data.modality || 'CT';
+  const bodyPart = data.body_part || 'CHEST';
+  dicomModalityText = modality;
+  dicomBodyPartText = bodyPart;
+
+  document.getElementById('dicom-modality').textContent = `${modality} (${bodyPart})`;
+  
+  if (modality.toLowerCase().includes('mri')) {
+    dicomWidth = 180;
+    dicomLevel = 90;
+  } else {
+    dicomWidth = 240;
+    dicomLevel = 120;
+  }
+  dicomZoom = 1.0;
+  dicomPanX = 0;
+  dicomPanY = 0;
+  dicomInverted = false;
+
+  updateDicomHudText();
+
+  dicomRawPixels = generateSimulatedImaging(modality, bodyPart);
+
+  // Setup Event Listeners
+  canvas.removeEventListener('mousedown', onDicomMouseDown);
+  canvas.removeEventListener('mousemove', onDicomMouseMove);
+  canvas.removeEventListener('mouseup', onDicomMouseUp);
+  canvas.removeEventListener('mouseleave', onDicomMouseLeave);
+  canvas.removeEventListener('wheel', onDicomWheel);
+  canvas.removeEventListener('contextmenu', onDicomContextMenu);
+
+  canvas.addEventListener('mousedown', onDicomMouseDown);
+  canvas.addEventListener('mousemove', onDicomMouseMove);
+  canvas.addEventListener('mouseup', onDicomMouseUp);
+  canvas.addEventListener('mouseleave', onDicomMouseLeave);
+  canvas.addEventListener('wheel', onDicomWheel, { passive: false });
+  canvas.addEventListener('contextmenu', onDicomContextMenu);
+
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width || 512;
+  canvas.height = rect.height || 320;
+
+  drawDicomFrame();
+}
+
+function updateDicomHudText() {
+  const wlEl = document.getElementById('dicom-wl');
+  if (wlEl) {
+    wlEl.innerHTML = `W: <strong>${Math.round(dicomWidth)}</strong> L: <strong>${Math.round(dicomLevel)}</strong>${dicomInverted ? ' <span style="color:#ff3333">[INV]</span>' : ''}`;
+  }
+  const scaleEl = document.getElementById('dicom-scale');
+  if (scaleEl) {
+    scaleEl.textContent = `${dicomZoom.toFixed(1)}x`;
+  }
+}
+
+let isDicomDragging = false;
+let dicomDragStart = { x: 0, y: 0 };
+let dicomDragMode = 'window'; 
+
+function onDicomMouseDown(e) {
+  e.preventDefault();
+  isDicomDragging = true;
+  dicomDragStart.x = e.clientX;
+  dicomDragStart.y = e.clientY;
+  
+  if (e.button === 2) {
+    dicomDragMode = 'zoom';
+  } else if (e.button === 1) {
+    dicomDragMode = 'pan';
+  } else {
+    dicomDragMode = 'window';
+  }
+}
+
+function onDicomMouseMove(e) {
+  if (!isDicomDragging) return;
+  const dx = e.clientX - dicomDragStart.x;
+  const dy = e.clientY - dicomDragStart.y;
+  dicomDragStart.x = e.clientX;
+  dicomDragStart.y = e.clientY;
+
+  if (dicomDragMode === 'window') {
+    dicomWidth += dx * 1.5;
+    dicomLevel -= dy * 1.5;
+    dicomWidth = Math.max(10, Math.min(1024, dicomWidth));
+    dicomLevel = Math.max(-512, Math.min(512, dicomLevel));
+    updateDicomHudText();
+  } else if (dicomDragMode === 'zoom') {
+    dicomZoom *= (1 - dy * 0.01);
+    dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
+    updateDicomHudText();
+  } else if (dicomDragMode === 'pan') {
+    dicomPanX += dx;
+    dicomPanY += dy;
+  }
+  drawDicomFrame();
+}
+
+function onDicomMouseUp(e) { isDicomDragging = false; }
+function onDicomMouseLeave(e) { isDicomDragging = false; }
+function onDicomContextMenu(e) { e.preventDefault(); }
+
+function onDicomWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  dicomZoom *= factor;
+  dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
+  updateDicomHudText();
+  drawDicomFrame();
+}
+
+function zoomDicom(factor) {
+  dicomZoom *= factor;
+  dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
+  updateDicomHudText();
+  drawDicomFrame();
+}
+
+function invertDicom() {
+  dicomInverted = !dicomInverted;
+  updateDicomHudText();
+  drawDicomFrame();
+}
+
+function resetDicom() {
+  if (dicomModalityText.toLowerCase().includes('mri')) {
+    dicomWidth = 180;
+    dicomLevel = 90;
+  } else {
+    dicomWidth = 240;
+    dicomLevel = 120;
+  }
+  dicomZoom = 1.0;
+  dicomPanX = 0;
+  dicomPanY = 0;
+  dicomInverted = false;
+  updateDicomHudText();
+  drawDicomFrame();
+}
+
+function generateSimulatedImaging(modality, bodyPart) {
+  const off = document.createElement('canvas');
+  off.width = 512;
+  off.height = 512;
+  const ctx = off.getContext('2d');
+  
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 512, 512);
+
+  const m = (modality || '').toLowerCase();
+  const bp = (bodyPart || '').toLowerCase();
+
+  if (m.includes('mri') || bp.includes('brain') || bp.includes('head')) {
+    // Brain MRI Outline
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.ellipse(256, 256, 170, 210, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.ellipse(256, 256, 180, 220, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#777';
+    ctx.beginPath();
+    ctx.ellipse(256, 256, 155, 195, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#222';
+    for (let angle = 0; angle < Math.PI * 2; angle += 0.15) {
+      const x = 256 + Math.cos(angle) * 145;
+      const y = 256 + Math.sin(angle) * 185;
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#999';
+    ctx.beginPath();
+    ctx.ellipse(256, 256, 120, 160, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.moveTo(256, 180);
+    ctx.bezierCurveTo(210, 180, 210, 280, 250, 280);
+    ctx.bezierCurveTo(240, 250, 240, 200, 256, 180);
+    ctx.moveTo(256, 180);
+    ctx.bezierCurveTo(302, 180, 302, 280, 262, 280);
+    ctx.bezierCurveTo(272, 250, 272, 200, 256, 180);
+    ctx.fill();
+
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(256, 60);
+    ctx.lineTo(256, 450);
+    ctx.stroke();
+
+  } else if (m.includes('x-ray') || bp.includes('chest') || bp.includes('lung') || bp.includes('heart')) {
+    // Lung fields
+    ctx.fillStyle = '#1c1c1c';
+    ctx.beginPath();
+    ctx.ellipse(170, 256, 75, 170, -0.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(342, 256, 75, 170, 0.05, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Spine
+    ctx.fillStyle = '#888';
+    ctx.fillRect(244, 80, 24, 350);
+
+    // Rib cage overlay
+    ctx.strokeStyle = 'rgba(180, 180, 180, 0.35)';
+    ctx.lineWidth = 8;
+    for (let y = 110; y < 400; y += 30) {
+      ctx.beginPath();
+      ctx.arc(130, y, 90, Math.PI * 1.8, Math.PI * 0.3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(382, y, 90, Math.PI * 0.7, Math.PI * 1.2);
+      ctx.stroke();
+    }
+
+    // Clavicles
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(244, 110);
+    ctx.quadraticCurveTo(170, 100, 100, 130);
+    ctx.moveTo(268, 110);
+    ctx.quadraticCurveTo(342, 100, 412, 130);
+    ctx.stroke();
+
+    // Heart silhouette
+    ctx.fillStyle = 'rgba(160, 160, 160, 0.7)';
+    ctx.beginPath();
+    ctx.ellipse(220, 280, 55, 75, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Diaphragm
+    ctx.fillStyle = '#555';
+    ctx.beginPath();
+    ctx.moveTo(60, 430);
+    ctx.quadraticCurveTo(170, 390, 244, 420);
+    ctx.quadraticCurveTo(342, 390, 452, 430);
+    ctx.lineTo(452, 512);
+    ctx.lineTo(60, 512);
+    ctx.closePath();
+    ctx.fill();
+
+  } else {
+    // Hand/Bone X-Ray
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.fillStyle = '#a0a0a0';
+    ctx.fillRect(236, 40, 40, 180);
+    ctx.beginPath();
+    ctx.arc(256, 220, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillRect(236, 292, 40, 180);
+    ctx.beginPath();
+    ctx.arc(256, 292, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(210, 256);
+    ctx.lineTo(302, 256);
+    ctx.stroke();
+    
+    ctx.strokeStyle = 'rgba(80, 80, 80, 0.2)';
+    ctx.lineWidth = 60;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(256, 20);
+    ctx.lineTo(256, 492);
+    ctx.stroke();
+  }
+
+  const imgData = ctx.getImageData(0, 0, 512, 512);
+  const rawIntensity = new Uint8Array(512 * 512);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    rawIntensity[i / 4] = Math.round(
+      0.299 * imgData.data[i] +
+      0.587 * imgData.data[i + 1] +
+      0.114 * imgData.data[i + 2]
+    );
+  }
+  return rawIntensity;
+}
+
+function drawDicomFrame() {
+  const canvas = dicomCanvasInstance;
+  if (!canvas || !dicomRawPixels) return;
+
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width;
+  const ch = canvas.height;
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, cw, ch);
+
+  const offscreen = document.createElement('canvas');
+  offscreen.width = 512;
+  offscreen.height = 512;
+  const octx = offscreen.getContext('2d');
+  const oimgData = octx.createImageData(512, 512);
+
+  const lut = new Uint8Array(256);
+  const lowBound = dicomLevel - dicomWidth / 2;
+  const range = dicomWidth;
+
+  for (let i = 0; i < 256; i++) {
+    let val = ((i - lowBound) / range) * 255;
+    if (val < 0) val = 0;
+    if (val > 255) val = 255;
+    lut[i] = dicomInverted ? (255 - val) : val;
+  }
+
+  for (let i = 0; i < 512 * 512; i++) {
+    const rawVal = dicomRawPixels[i];
+    const displayVal = lut[rawVal];
+    const pixelIdx = i * 4;
+    oimgData.data[pixelIdx] = displayVal;     
+    oimgData.data[pixelIdx + 1] = displayVal; 
+    oimgData.data[pixelIdx + 2] = displayVal; 
+    oimgData.data[pixelIdx + 3] = 255;        
+  }
+  octx.putImageData(oimgData, 0, 0);
+
+  ctx.save();
+  ctx.translate(cw / 2 + dicomPanX, ch / 2 + dicomPanY);
+  ctx.scale(dicomZoom, dicomZoom);
+  ctx.drawImage(offscreen, -256, -256);
+  ctx.restore();
+}
+
+/* ── 3. LocalStorage-Based Notification System ── */
+function getNotifications() {
+  const key = `vhv_notifications_${currentUser ? currentUser.username : 'guest'}`;
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveNotifications(list) {
+  const key = `vhv_notifications_${currentUser ? currentUser.username : 'guest'}`;
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+function addNotification(title, text, type = 'info') {
+  const list = getNotifications();
+  const noti = {
+    id: Date.now() + Math.random().toString(36).substr(2, 5),
+    title,
+    text,
+    type,
+    time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    date: new Date().toLocaleDateString('en-GB'),
+    read: false
+  };
+  list.unshift(noti);
+  saveNotifications(list);
+  updateNotificationsUI();
+}
+
+function updateNotificationsUI() {
+  const badge = document.getElementById('noti-badge-count');
+  const listEl = document.getElementById('noti-list');
+  if (!currentUser) {
+    if (badge) badge.style.display = 'none';
+    if (listEl) listEl.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--muted); font-size: 12px;">No alerts</div>';
+    return;
+  }
+
+  const list = getNotifications();
+  const unreadCount = list.filter(n => !n.read).length;
+
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount;
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  if (listEl) {
+    if (list.length === 0) {
+      listEl.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--muted); font-size: 12px;">No new alerts</div>';
+    } else {
+      listEl.innerHTML = list.map(n => {
+        let typeDotClass = 'noti-dot-info';
+        if (n.type === 'warning') typeDotClass = 'noti-dot-warning';
+        if (n.type === 'success') typeDotClass = 'noti-dot-success';
+
+        return `
+          <div class="noti-item" onclick="markAsRead('${n.id}')">
+            <div class="noti-title-row">
+              <span class="noti-title">
+                <span class="noti-icon-dot ${typeDotClass}"></span>
+                ${n.title}
+              </span>
+              <span class="noti-time">${n.time}</span>
+            </div>
+            <div class="noti-text" style="${n.read ? 'color: var(--muted);' : 'font-weight: 500;'}">${n.text}</div>
+            <div style="font-size: 9px; color: var(--muted); text-align: right; margin-top: 4px;">${n.date}</div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+function toggleNotifications(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('noti-dropdown');
+  if (!dropdown) return;
+  const isVisible = dropdown.style.display === 'block';
+  
+  closeAllDropdowns();
+
+  if (!isVisible) {
+    dropdown.style.display = 'block';
+    markAllAsRead();
+  }
+}
+
+function closeAllDropdowns() {
+  const dropdown = document.getElementById('noti-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+document.addEventListener('click', () => {
+  closeAllDropdowns();
+});
+
+function markAsRead(id) {
+  const list = getNotifications();
+  const item = list.find(n => n.id === id);
+  if (item) {
+    item.read = true;
+    saveNotifications(list);
+    updateNotificationsUI();
+  }
+}
+
+function markAllAsRead() {
+  const list = getNotifications();
+  list.forEach(n => n.read = true);
+  saveNotifications(list);
+  updateNotificationsUI();
+}
+
+function clearAllNotifications(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  saveNotifications([]);
+  updateNotificationsUI();
 }

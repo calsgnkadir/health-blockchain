@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css?v=3.1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -152,6 +153,26 @@
       <header class="topbar">
         <div class="topbar-title" id="topbar-title">Dashboard</div>
         <div class="topbar-actions">
+          <!-- Notification Bell -->
+          <div class="notification-bell" onclick="toggleNotifications(event)" id="notification-bell-btn" style="position: relative; margin-right: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-hi); cursor: pointer; display: block;">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="bell-badge" id="noti-badge-count" style="display:none; position: absolute; top: -4px; right: -4px; background: var(--danger); color: white; border-radius: 99px; font-size: 10px; font-weight: 700; padding: 2px 5px; line-height: 1;">0</span>
+            
+            <!-- Notifications Dropdown -->
+            <div id="noti-dropdown" class="noti-dropdown glass" onclick="event.stopPropagation()" style="display: none; position: absolute; right: 0; top: 32px; width: 300px; max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); z-index: 1000; padding: 8px 0;">
+              <div class="noti-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 700; font-size: 13px; color: var(--gold);">
+                <span>Notifications</span>
+                <a href="#" onclick="clearAllNotifications(event)" style="color: var(--muted-hi); text-decoration: none; font-size: 11px;">Clear All</a>
+              </div>
+              <div id="noti-list" class="noti-list" style="padding: 4px 0;">
+                <div style="padding: 16px; text-align: center; color: var(--muted); font-size: 12px;">No new alerts</div>
+              </div>
+            </div>
+          </div>
+
           <div class="chain-pill" id="chain-pill">
             <span class="chain-dot valid"></span>
             <span id="chain-pill-text">Chain Valid</span>
@@ -223,6 +244,14 @@
           <div id="allergy-warning-box" class="alert alert-error" style="display:none; padding:16px; border-radius:8px; margin-bottom:20px; background: rgba(229, 115, 115, 0.1); border: 1px solid rgba(229, 115, 115, 0.3);">
             <strong style="color:#ff8a80; font-size: 14px; display: block; margin-bottom: 6px;">⚠️ CRITICAL PATIENT ALLERGIES:</strong>
             <ul id="allergy-list-ul" style="margin-left: 20px; list-style-type: disc; color: #ffbcaf; font-size:13px; line-height:1.4;"></ul>
+          </div>
+        </div>
+
+        <!-- Vital Signs Trend Chart -->
+        <div id="vitals-chart-panel" class="glass" style="display:none; margin-top:24px; margin-bottom:24px; padding:20px; border-radius:14px; border: 1px solid var(--border);">
+          <h3 style="color:var(--gold); font-size:15px; margin-bottom:14px;">📈 Vital Signs Trends</h3>
+          <div style="width:100%; height:260px; position:relative;">
+            <canvas id="vitalsChart"></canvas>
           </div>
         </div>
 
