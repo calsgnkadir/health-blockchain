@@ -1,13 +1,13 @@
-# VIP Health Vault — Başlatma Scripti
-Write-Host "🏥 VIP Health Vault baslatiliyor..." -ForegroundColor Cyan
+# VIP Health Vault - Baslatma Scripti
+Write-Host "VIP Health Vault baslatiliyor..." -ForegroundColor Cyan
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backend = Join-Path $root "backend"
 
-Write-Host "📦 Gereksinimler yukleniyor..." -ForegroundColor Yellow
+Write-Host "Gereksinimler yukleniyor..." -ForegroundColor Yellow
 pip install fastapi uvicorn[standard] pyjwt cryptography lmdb keyring wmi pyotp qrcode pillow --quiet
 
-Write-Host "🚀 Sunucu baslatiliyor..." -ForegroundColor Green
+Write-Host "Sunucu baslatiliyor..." -ForegroundColor Green
 Write-Host "   URL: http://localhost:8000" -ForegroundColor White
 Write-Host "   API: http://localhost:8000/docs" -ForegroundColor White
 Write-Host ""
