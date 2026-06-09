@@ -41,6 +41,24 @@ from core.security import (
 import database.storage as storage
 import core.totp as totp
 
+# Clean Architecture Dependency Injection
+from core.domain.entities import User, Block
+from infrastructure.repositories.lmdb_repositories import LMDBUserRepository, LMDBBlockRepository, LMDBAuditRepository
+from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
+from core.services.auth_service import AuthService
+from core.services.record_service import RecordService
+from core.services.audit_service import AuditService
+
+user_repository = LMDBUserRepository()
+block_repository = LMDBBlockRepository()
+audit_repository = LMDBAuditRepository()
+crypto_strategy = AESGCMStrategy()
+
+auth_service = AuthService(user_repository)
+record_service = RecordService(block_repository, crypto_strategy)
+audit_service = AuditService(audit_repository, record_service)
+
+
 # ── Application ─────────────────────────────────────────────────
 app = FastAPI(
     title="VIP Health Vault API",
@@ -228,8 +246,6 @@ def create_token(user: dict) -> str:
         "device":   get_device_id()[:16],
     }
     return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=ALGORITHM)
-
-
 def current_user(
     access_token: Optional[str] = Cookie(None),
     creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
@@ -244,10 +260,10 @@ def current_user(
     try:
         payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
-        user = storage.load_user(username)
+        user = user_repository.load_user(username)
         if not user:
             raise HTTPException(401, "Invalid token — user not found")
-        return user
+        return user.to_dict()
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")
     except jwt.PyJWTError:
@@ -283,46 +299,32 @@ async def login(req: LoginReq, request: Request, response: Response):
             detail="Too many login attempts. Please wait 1 minute.",
         )
 
-    user = storage.load_user(req.username)
-    if not user or not verify_password(req.password, user["password_hash"]):
-        # Failed login audit log
-        if user:
-            storage.append_audit_log(
-                "__system__",
-                action="LOGIN_FAILED",
-                username=req.username,
-                device_id=get_device_id(),
-                extra={"ip": client_ip},
-            )
+    user_entity = auth_service.authenticate(req.username, req.password, client_ip)
+    if not user_entity:
         raise HTTPException(401, "Incorrect username or password")
 
     # Check if TOTP 2FA is enabled
-    if user.get("totp_enabled"):
+    if user_entity.totp_enabled:
         if not req.code:
             return JSONResponse(
                 status_code=200,
                 content={"mfa_required": True}
             )
         # Verify 2FA code
-        if not user.get("totp_secret") or not totp.verify_totp(user["totp_secret"], req.code):
-            storage.append_audit_log(
-                "__system__",
+        if not user_entity.totp_secret or not totp.verify_totp(user_entity.totp_secret, req.code):
+            from core.events.event_bus import event_bus, SystemAuditEvent
+            event_bus.publish(SystemAuditEvent(
+                project_name="__system__",
                 action="LOGIN_MFA_FAILED",
                 username=req.username,
                 device_id=get_device_id(),
                 extra={"ip": client_ip},
-            )
+            ))
             raise HTTPException(401, "Invalid 2FA verification code")
 
+    auth_service.login_success(user_entity, client_ip)
+    user = user_entity.to_dict()
     token = create_token(user)
-
-    storage.append_audit_log(
-        "__system__",
-        action="LOGIN_SUCCESS",
-        username=req.username,
-        device_id=get_device_id(),
-        extra={"ip": client_ip, "role": user["role"], "mfa": bool(user.get("totp_enabled"))},
-    )
 
     env = os.environ.get("ENVIRONMENT", "production")
     is_secure = (env == "production")
@@ -350,6 +352,7 @@ async def login(req: LoginReq, request: Request, response: Response):
     }
 
 
+
 @app.get("/api/auth/me", summary="Current User Info")
 def me(u: dict = Depends(current_user)):
     return {
@@ -372,39 +375,18 @@ class Verify2FAReq(BaseModel):
 @app.post("/api/auth/2fa/setup", summary="Setup 2FA TOTP")
 def setup_2fa(u: dict = Depends(current_user)):
     """Generates a temporary secret and QR code for the user to register in their app."""
-    # Generate new secret
-    secret = totp.generate_totp_secret()
-    
-    # Store temporary secret in user object (but don't set totp_enabled to True yet)
-    u["totp_secret"] = secret
-    storage.save_user(u)
-    
-    # Generate provisioning URI & QR Code Base64
-    uri = totp.get_totp_uri(u["username"], secret)
-    qr_code = totp.get_totp_qr_base64(uri)
-    
-    return {
-        "secret": secret,
-        "qr_code": qr_code
-    }
+    user_entity = User.from_dict(u)
+    res = auth_service.setup_2fa(user_entity)
+    return res
 
 @app.post("/api/auth/2fa/enable", summary="Verify and Enable 2FA")
 def enable_2fa(req: Verify2FAReq, u: dict = Depends(current_user)):
     """Verifies the code and enables 2FA for the user."""
-    secret = u.get("totp_secret")
-    if not secret:
+    user_entity = User.from_dict(u)
+    if not user_entity.totp_secret:
         raise HTTPException(400, "2FA setup has not been initiated. Call /api/auth/2fa/setup first.")
     
-    if totp.verify_totp(secret, req.code):
-        u["totp_enabled"] = True
-        storage.save_user(u)
-        
-        storage.append_audit_log(
-            "__system__",
-            action="2FA_ENABLED",
-            username=u["username"],
-            device_id=get_device_id(),
-        )
+    if auth_service.enable_2fa(user_entity, req.code):
         return {"success": True, "message": "Two-factor authentication enabled successfully"}
     else:
         raise HTTPException(400, "Invalid verification code. Please check your app and try again.")
@@ -412,27 +394,18 @@ def enable_2fa(req: Verify2FAReq, u: dict = Depends(current_user)):
 @app.post("/api/auth/2fa/disable", summary="Disable 2FA")
 def disable_2fa(req: Verify2FAReq, u: dict = Depends(current_user)):
     """Verifies the code and disables 2FA for the user."""
-    if not u.get("totp_enabled"):
+    user_entity = User.from_dict(u)
+    if not user_entity.totp_enabled:
         raise HTTPException(400, "2FA is not enabled for this account.")
         
-    secret = u.get("totp_secret")
-    if not secret:
+    if not user_entity.totp_secret:
         raise HTTPException(500, "Database inconsistency: enabled 2FA but missing secret.")
         
-    if totp.verify_totp(secret, req.code):
-        u["totp_enabled"] = False
-        u["totp_secret"] = None
-        storage.save_user(u)
-        
-        storage.append_audit_log(
-            "__system__",
-            action="2FA_DISABLED",
-            username=u["username"],
-            device_id=get_device_id(),
-        )
+    if auth_service.disable_2fa(user_entity, req.code):
         return {"success": True, "message": "Two-factor authentication disabled successfully"}
     else:
         raise HTTPException(400, "Invalid verification code. Disable failed.")
+
 
 # ──────────────────────────────────────────────────────────────
 # USER MANAGEMENT (Admin Only)
@@ -466,43 +439,30 @@ class UserCreate(BaseModel):
 
 @app.get("/api/admin/users", summary="All Users")
 def list_users(u: dict = Depends(require_role("admin"))):
-    users = storage.load_all_users()
+    users = user_repository.load_all_users()
     return {"users": [
-        {k: v for k, v in user.items() if k not in ("password_hash", "totp_secret")}
+        {k: v for k, v in user.to_dict().items() if k not in ("password_hash", "totp_secret")}
         for user in users
     ]}
 
 
 @app.post("/api/admin/users", summary="Create New User")
 def create_user(data: UserCreate, u: dict = Depends(require_role("admin"))):
-    if storage.user_exists(data.username):
+    if user_repository.user_exists(data.username):
         raise HTTPException(409, f"Username already exists: {data.username}")
 
-    import uuid as _uuid
-    new_user = {
-        "id":            f"USR-{data.role.upper()}-{_uuid.uuid4().hex[:6].upper()}",
-        "username":      data.username,
-        "password_hash": hash_password(data.password),
-        "role":          data.role,
-        "full_name":     data.full_name,
-        "patient_id":    data.patient_id,
-        "specialty":     data.specialty,
-        "institution":   data.institution,
-        "totp_secret":   None,
-        "totp_enabled":  False,
-        "created_at":    datetime.now(timezone.utc).isoformat(),
-        "created_by":    u["username"],
-    }
-    storage.save_user(new_user)
-
-    storage.append_audit_log(
-        "__system__",
-        action="USER_CREATED",
-        username=u["username"],
-        extra={"new_user": data.username, "role": data.role},
+    new_user = auth_service.create_user(
+        username=data.username,
+        password=data.password,
+        role=data.role,
+        full_name=data.full_name,
+        patient_id=data.patient_id,
+        specialty=data.specialty,
+        institution=data.institution,
+        creator_username=u["username"]
     )
 
-    return {"success": True, "user_id": new_user["id"]}
+    return {"success": True, "user_id": new_user.id}
 
 # ──────────────────────────────────────────────────────────────
 # HEALTH RECORDS
@@ -534,8 +494,6 @@ class RecordCreate(BaseModel):
         if v not in ACCESS_LEVELS:
             raise ValueError(f"Invalid access level: {v}")
         return v
-
-
 @app.post("/api/records", summary="Add Health Record")
 def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
     # Authorization checks
@@ -543,8 +501,6 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         raise HTTPException(403, "You can only access your own records")
     if u["role"] not in ("doctor", "admin", "vip_patient"):
         raise HTTPException(403, "You do not have permission to add records")
-
-    bc = get_blockchain(rec.patient_id)
 
     block_data = {
         "record_type":       rec.record_type,
@@ -562,8 +518,9 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         "patient_id":        rec.patient_id,
     }
 
-    block = bc.add_block(
-        block_data,
+    block = record_service.add_record(
+        patient_id=rec.patient_id,
+        data=block_data,
         is_protected=rec.is_confidential,
         protection_password=rec.confidential_password if rec.is_confidential else None,
         username=u["username"],
@@ -585,11 +542,11 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
     if role == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    bc = get_blockchain(patient_id)
-    final_data = bc.get_final_data()
+    chain = record_service.get_chain(patient_id)
+    final_data = record_service.get_final_data(patient_id)
     records = []
 
-    for block in bc.chain:
+    for block in chain:
         if block.index == 0:
             continue  # Skip Genesis block
         data = final_data.get(block.index)
@@ -637,19 +594,20 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
     records.sort(key=lambda x: x["timestamp"], reverse=True)
 
     # Access audit log
-    storage.append_audit_log(
-        f"patient_{patient_id.replace('-','_')}",
+    from core.events.event_bus import SystemAuditEvent, event_bus
+    event_bus.publish(SystemAuditEvent(
+        project_name=record_service._get_project_name(patient_id),
         action="RECORDS_VIEWED",
         username=u["username"],
         device_id=get_device_id(),
-        extra={"record_count": len(records)},
-    )
+        extra={"record_count": len(records)}
+    ))
 
     return {
         "patient_id":   patient_id,
-        "total_blocks": len(bc.chain),
+        "total_blocks": len(chain),
         "records":      records,
-        "chain_valid":  bc.is_valid(),
+        "chain_valid":  record_service.is_chain_valid(patient_id),
     }
 
 
@@ -663,8 +621,8 @@ def get_single_record(
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    bc = get_blockchain(patient_id)
-    block = bc.chain[block_index] if 0 <= block_index < len(bc.chain) else None
+    chain = record_service.get_chain(patient_id)
+    block = chain[block_index] if 0 <= block_index < len(chain) else None
     if block is None:
         raise HTTPException(404, "Block not found")
 
@@ -675,7 +633,7 @@ def get_single_record(
             "data": "ENCRYPTED — use POST /decrypt with the correct password",
         }
 
-    data = bc.get_final_block_data(block_index, password=None, username=u["username"])
+    data = record_service.get_final_block_data(patient_id, block_index, password=None, username=u["username"])
     return {"block_index": block_index, "is_protected": False, "data": data}
 
 
@@ -700,8 +658,7 @@ def decrypt_record(
     if not req.password:
         raise HTTPException(400, "Password is required to decrypt this record")
 
-    bc = get_blockchain(patient_id)
-    data = bc.get_final_block_data(block_index, password=req.password, username=u["username"])
+    data = record_service.get_final_block_data(patient_id, block_index, password=req.password, username=u["username"])
 
     if isinstance(data, str) and (
         "INCORRECT" in data or "SECURE" in data or "ERROR" in data
@@ -717,11 +674,11 @@ def decrypt_record(
 
 @app.get("/api/blockchain/{patient_id}/status", summary="Chain Status")
 def chain_status(patient_id: str, u: dict = Depends(current_user)):
-    bc = get_blockchain(patient_id)
-    brk = bc.find_broken_link_index()
+    chain = record_service.get_chain(patient_id)
+    brk = record_service.find_broken_link_index(patient_id)
     return {
         "patient_id":   patient_id,
-        "chain_length": len(bc.chain),
+        "chain_length": len(chain),
         "is_valid":     brk == -1,
         "broken_at":    brk if brk != -1 else None,
         "device_id":    get_device_id()[:16] + "...",
@@ -735,21 +692,8 @@ def audit_log(
     source: str = "db",
     u: dict = Depends(require_role("admin", "auditor")),
 ):
-    proj = f"patient_{patient_id.replace('-','_')}"
-    used_source = source
-    
-    if source == "blockchain":
-        bc = get_blockchain(patient_id)
-        logs = bc.get_audit_logs(limit)
-    else:
-        logs = storage.load_audit_logs(proj, limit)
-        # Fallback to blockchain logs if not in database
-        if not logs:
-            bc = get_blockchain(patient_id)
-            logs = bc.get_audit_logs(limit)
-            used_source = "blockchain"
-            
-    return {"patient_id": patient_id, "logs": logs, "source": used_source}
+    logs = audit_service.get_audit_logs(patient_id, limit, source)
+    return {"patient_id": patient_id, "logs": logs, "source": source}
 
 
 @app.get("/api/blockchain/{patient_id}/access-logs", summary="Patient Access Log")
@@ -761,21 +705,9 @@ def get_access_logs(
 ):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-    proj = f"patient_{patient_id.replace('-','_')}"
-    used_source = source
-    
-    if source == "blockchain":
-        bc = get_blockchain(patient_id)
-        logs = bc.get_audit_logs(limit)
-    else:
-        logs = storage.load_access_logs(proj, limit)
-        # Fallback to blockchain logs if not in database
-        if not logs:
-            bc = get_blockchain(patient_id)
-            logs = bc.get_audit_logs(limit)
-            used_source = "blockchain"
-            
-    return {"patient_id": patient_id, "logs": logs, "source": used_source}
+    logs = audit_service.get_access_logs(patient_id, limit, source)
+    return {"patient_id": patient_id, "logs": logs, "source": source}
+
 
 
 @app.get("/api/record-types", summary="Record Types")
