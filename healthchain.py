@@ -124,10 +124,10 @@ class Blockchain:
 
         if block.is_protected:
             if not password:
-                return "🔒 PROTECTED — password required"
+                return "PROTECTED — password required"
             password_hash = hashlib.sha256(password.encode()).hexdigest()
             if password_hash != block.protection_password:
-                return "❌ INCORRECT PASSWORD"
+                return "INCORRECT PASSWORD"
 
         return block.data
 
@@ -162,7 +162,7 @@ class Blockchain:
         )
 
         self.chain.append(block)
-        print(f"✔ Correction block added for block #{block_index}")
+        print(f"Correction block added for block #{block_index}")
 
     # -----------------------------------------------------
     # FINAL DATA (AFTER CORRECTIONS)
@@ -249,7 +249,7 @@ class Blockchain:
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(export, f, indent=4)
 
-        print(f"💾 Blockchain saved to {filename}")
+        print(f"Blockchain saved to {filename}")
 
     # -----------------------------------------------------
     # LOAD BLOCKCHAIN
@@ -270,10 +270,10 @@ class Blockchain:
             with open(filename, "r", encoding="utf-8") as f:
                 raw = json.load(f)
         except FileNotFoundError:
-            print("❌ File not found.")
+            print("File not found.")
             return None
         except json.JSONDecodeError:
-            print("❌ Invalid JSON file.")
+            print("Invalid JSON file.")
             return None
 
         # Support both formats:
@@ -282,7 +282,7 @@ class Blockchain:
         elif isinstance(raw, list):
             blocks_data = raw
         else:
-            print("❌ Unsupported blockchain format.")
+            print("Unsupported blockchain format.")
             return None
 
         bc = Blockchain(project_name=project_name)
@@ -300,7 +300,5 @@ class Blockchain:
             )
             bc.chain.append(block)
 
-        print(f"✔ Loaded blockchain from {filename}")
+        print(f"Loaded blockchain from {filename}")
         return bc
-
-

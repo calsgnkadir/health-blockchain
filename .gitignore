@@ -1,28 +1,38 @@
-# Projects
-projects/
-*.json
-!requirements.txt
-
-# Device ID
+# ─── Security — NEVER commit these files ───────────────────────
+.private_key
+.device_fingerprint
 .device_id
+.jwt_secret
+vault.key
+*.key
+*.pem
 
-# Config
-project_config.json
+# ─── LMDB / Database ─────────────────────────────────────────
+backend/projects/
+projects/
+*.lmdb/
+*.mdb
+*.lock
 
-# Python
+# ─── Python ──────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
+*.egg-info/
+dist/
+build/
+.eggs/
 
-# IDE
+# ─── IDE / OS ─────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
 
+# ─── Config / Temp ────────────────────────────────────────────
+project_config.json
+*.log

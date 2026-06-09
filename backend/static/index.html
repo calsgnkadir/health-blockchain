@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VIP Health Vault — Ultra-Secure Medical Records</title>
+  <meta name="description" content="Blockchain-based ultra-secure VIP medical record system. Immutable, encrypted, auditable.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=3.1">
+</head>
+<body>
+
+<!-- ================= PARTICLE CANVAS ================= -->
+<canvas id="particles-canvas"></canvas>
+
+<!-- ================= APP SHELL ======================= -->
+<div id="app">
+
+  <!-- LOGIN PAGE -->
+  <div id="page-login" class="page active">
+    <div class="login-wrap">
+      <div class="login-brand">
+        <div>
+          <h1 class="brand-name">VIP Health Vault</h1>
+          <p class="brand-sub">Ultra-Secure Blockchain Medical Records</p>
+        </div>
+      </div>
+
+      <div class="login-card glass">
+        <div class="login-header">
+          <h2>Secure Access</h2>
+          <p>Unauthorized access is monitored and logged</p>
+        </div>
+
+        <div id="login-error" class="alert alert-error" style="display:none"></div>
+
+        <form id="login-form" autocomplete="off">
+          <div class="field-group">
+            <label>Username</label>
+            <div class="input-wrap">
+              <input id="inp-username" type="text" placeholder="username" required />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Password</label>
+            <div class="input-wrap">
+              <input id="inp-password" type="password" placeholder="••••••••" required />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-gold btn-full" id="btn-login">
+            <span id="btn-login-text">ENTER VAULT</span>
+            <span id="btn-login-spin" class="spinner" style="display:none"></span>
+          </button>
+        </form>
+
+        <div class="demo-credentials">
+          <p class="demo-title">Demo Accounts</p>
+          <div class="demo-list">
+            <div class="demo-item" onclick="fillCreds('admin','Admin@2026Secure!')">
+              <span class="role-badge badge-admin">ADMIN</span>
+              <span>admin / Admin@2026Secure!</span>
+            </div>
+            <div class="demo-item" onclick="fillCreds('dr.smith','Doctor@2026Secure!')">
+              <span class="role-badge badge-doctor">DOCTOR</span>
+              <span>dr.smith / Doctor@2026Secure!</span>
+            </div>
+            <div class="demo-item" onclick="fillCreds('vip001','VIPPatient@2026!')">
+              <span class="role-badge badge-vip">VIP</span>
+              <span>vip001 / VIPPatient@2026!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-footer">
+        <span class="security-badge">AES-256 + PBKDF2 (600K iter)</span>
+        <span class="security-badge">SHA-256 Immutable Chain</span>
+        <span class="security-badge">Argon2 Password Protection</span>
+        <span class="security-badge">Hardware Device Binding</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP (after login) -->
+  <div id="page-app" class="page" style="display:none">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-brand">
+        <span>VIP Health Vault</span>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebar-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">User</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+          Dashboard
+        </a>
+        <a class="nav-item" data-page="records" onclick="navigate('records')">
+          Health Records
+        </a>
+        <a class="nav-item" data-page="add-record" id="nav-add" onclick="navigate('add-record')">
+          Add Record
+        </a>
+        <a class="nav-item" data-page="chain-status" onclick="navigate('chain-status')">
+          Chain Status
+        </a>
+        <a class="nav-item" data-page="audit" id="nav-audit" onclick="navigate('audit')" style="display:none">
+          Access History
+        </a>
+        <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
+          Users
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content">
+
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-actions">
+          <div class="chain-pill" id="chain-pill">
+            <span class="chain-dot valid"></span>
+            <span id="chain-pill-text">Chain Valid</span>
+          </div>
+          <div class="topbar-user" id="topbar-user-name"></div>
+        </div>
+      </header>
+
+      <!-- DASHBOARD VIEW -->
+      <section id="view-dashboard" class="view active">
+        <div class="stats-grid">
+          <div class="stat-card glass">
+            <div class="stat-info">
+              <div class="stat-value" id="stat-total-blocks">—</div>
+              <div class="stat-label">Total Blocks</div>
+            </div>
+          </div>
+          <div class="stat-card glass">
+            <div class="stat-info">
+              <div class="stat-value" id="stat-total-records">—</div>
+              <div class="stat-label">Health Records</div>
+            </div>
+          </div>
+          <div class="stat-card glass">
+            <div class="stat-info">
+              <div class="stat-value" id="stat-integrity">VALID</div>
+              <div class="stat-label">Chain Integrity</div>
+            </div>
+          </div>
+          <div class="stat-card glass">
+            <div class="stat-info">
+              <div class="stat-value" id="stat-encrypted">—</div>
+              <div class="stat-label">Encrypted Records</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h2 class="section-title">Recent Records</h2>
+          <button class="btn btn-gold btn-sm" onclick="navigate('add-record')">+ New Record</button>
+        </div>
+        <div id="recent-records" class="records-list"></div>
+      </section>
+
+      <!-- RECORDS VIEW -->
+      <section id="view-records" class="view">
+        <div class="view-header">
+          <h2>Health Records</h2>
+          <div class="filter-bar">
+            <input id="rec-search" type="text" placeholder="Search..." class="search-input" oninput="filterRecords()">
+            <select id="rec-type-filter" class="select-input" onchange="filterRecords()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+        </div>
+        <div id="all-records" class="records-list"></div>
+      </section>
+
+      <!-- ADD RECORD VIEW -->
+      <section id="view-add-record" class="view">
+        <div class="view-header">
+          <h2>New Health Record</h2>
+          <p class="view-sub">Records are added to the blockchain and become immutable</p>
+        </div>
+        <div class="form-card glass">
+          <div id="add-error" class="alert alert-error" style="display:none"></div>
+          <div id="add-success" class="alert alert-success" style="display:none"></div>
+
+          <form id="add-record-form">
+            <div class="form-grid">
+              <div class="field-group">
+                <label>Patient ID <span class="req">*</span></label>
+                <input id="rec-patient-id" type="text" placeholder="VIP-001" required />
+              </div>
+              <div class="field-group">
+                <label>Record Date <span class="req">*</span></label>
+                <input id="rec-date" type="date" required />
+              </div>
+              <div class="field-group">
+                <label>Record Type <span class="req">*</span></label>
+                <select id="rec-type" required onchange="renderDynamicFields()">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Access Level <span class="req">*</span></label>
+                <select id="rec-access">
+                  <option value="doctor_shared">Patient + Doctor</option>
+                  <option value="private">Patient Only</option>
+                  <option value="emergency">Emergency Access</option>
+                </select>
+              </div>
+              <div class="field-group span-2">
+                <label>Title <span class="req">*</span></label>
+                <input id="rec-title" type="text" placeholder="Record title..." required />
+              </div>
+              <div class="field-group">
+                <label>Doctor Name <span class="req">*</span></label>
+                <input id="rec-doctor" type="text" placeholder="Prof. Dr. ..." required />
+              </div>
+              <div class="field-group">
+                <label>Institution <span class="req">*</span></label>
+                <input id="rec-institution" type="text" placeholder="Hospital / Clinic" required />
+              </div>
+            </div>
+
+            <!-- Dynamic Fields -->
+            <div id="dynamic-fields" class="dynamic-section"></div>
+
+            <div class="field-group">
+              <label>Notes</label>
+              <textarea id="rec-notes" rows="3" placeholder="Additional notes..."></textarea>
+            </div>
+
+            <div class="field-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="rec-confidential">
+                <span class="checkbox-custom"></span>
+                <span>Confidential Record (Encrypt with AES-256)</span>
+              </label>
+            </div>
+
+            <div class="field-group" id="confidential-password-group" style="display:none">
+              <label>Encryption Password <span class="req">*</span></label>
+              <input id="rec-confidential-password" type="password"
+                     placeholder="Min. 12 chars — uppercase, lowercase, number, special char" />
+              <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">
+                This password encrypts the block. It cannot be recovered if lost.
+              </span>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-ghost" onclick="navigate('records')">Cancel</button>
+              <button type="submit" class="btn btn-gold" id="btn-add-rec">
+                Save to Blockchain
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- CHAIN STATUS VIEW -->
+      <section id="view-chain-status" class="view">
+        <div class="view-header">
+          <h2>Blockchain Chain Status</h2>
+          <button class="btn btn-gold btn-sm" onclick="loadChainStatus()">Refresh</button>
+        </div>
+        <div id="chain-status-content" class="glass chain-status-box">
+          <div class="loading-spinner">Loading...</div>
+        </div>
+        <div class="section-header" style="margin-top:32px">
+          <h2 class="section-title">Block Chain Visualization</h2>
+        </div>
+        <div id="chain-visual" class="chain-visual"></div>
+      </section>
+
+      <!-- AUDIT LOG VIEW (admin only) -->
+      <section id="view-audit" class="view">
+        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2>Access &amp; Audit Log</h2>
+            <p class="view-sub">System audit and patient data access records</p>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="refreshLogPage()">Refresh</button>
+        </div>
+        <div class="tab-container" style="display:flex; gap:10px; margin-bottom:20px;">
+          <button id="btn-audit-tab" class="btn btn-gold btn-sm" onclick="switchLogTab('audit')">System Audit Log</button>
+          <button id="btn-access-tab" class="btn btn-ghost btn-sm" onclick="switchLogTab('access')">Patient Access Log</button>
+        </div>
+        <div id="audit-list" class="records-list"></div>
+        <div id="access-log-list" class="records-list" style="display:none"></div>
+      </section>
+
+      <!-- USERS VIEW (admin only) -->
+      <section id="view-users" class="view">
+        <div class="view-header"><h2>User Management</h2></div>
+        <div id="users-list" class="records-list"></div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer style="margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px;">
+        VIP Health Vault System
+      </footer>
+
+    </main>
+  </div>
+</div>
+
+<!-- RECORD DETAIL MODAL -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+  <div class="modal-box glass" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()">x</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script src="/static/js/app.js?v=3.1"></script>
+</body>
+</html>

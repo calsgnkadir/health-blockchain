@@ -2,3 +2,11 @@ cryptography
 customtkinter
 packaging
 pillow
+fastapi
+uvicorn[standard]
+pyjwt
+lmdb
+argon2-cffi
+python-multipart
+keyring          # OS keyring — DPAPI on Windows (S-02, S-06)
+wmi              # Windows hardware fingerprint — BIOS UUID + disk serial (S-01)

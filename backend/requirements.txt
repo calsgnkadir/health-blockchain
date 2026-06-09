@@ -1,0 +1,10 @@
+cryptography
+customtkinter
+packaging
+pillow
+fastapi
+uvicorn[standard]
+pyjwt
+lmdb
+argon2-cffi
+python-multipart
