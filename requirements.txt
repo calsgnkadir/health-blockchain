@@ -10,3 +10,5 @@ argon2-cffi
 python-multipart
 keyring          # OS keyring — DPAPI on Windows (S-02, S-06)
 wmi              # Windows hardware fingerprint — BIOS UUID + disk serial (S-01)
+pyotp            # TOTP 2FA (S-11)
+qrcode[pil]      # 2FA QR code generation (S-11)

@@ -36,22 +36,33 @@
         <div id="login-error" class="alert alert-error" style="display:none"></div>
 
         <form id="login-form" autocomplete="off">
-          <div class="field-group">
-            <label>Username</label>
-            <div class="input-wrap">
-              <input id="inp-username" type="text" placeholder="username" required />
+          <div id="login-fields-group">
+            <div class="field-group">
+              <label>Username</label>
+              <div class="input-wrap">
+                <input id="inp-username" type="text" placeholder="username" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Password</label>
+              <div class="input-wrap">
+                <input id="inp-password" type="password" placeholder="••••••••" required />
+              </div>
             </div>
           </div>
-          <div class="field-group">
-            <label>Password</label>
+          <div class="field-group" id="login-mfa-group" style="display:none">
+            <label>Two-Factor Authentication (2FA) Code</label>
             <div class="input-wrap">
-              <input id="inp-password" type="password" placeholder="••••••••" required />
+              <input id="inp-mfa" type="text" placeholder="6-digit code" autocomplete="one-time-code" />
             </div>
           </div>
           <button type="submit" class="btn btn-gold btn-full" id="btn-login">
             <span id="btn-login-text">ENTER VAULT</span>
             <span id="btn-login-spin" class="spinner" style="display:none"></span>
           </button>
+          <div id="login-mfa-back" style="display:none; text-align:center; margin-top:14px;">
+            <a href="#" onclick="resetLoginForm(event)" style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to Username/Password</a>
+          </div>
         </form>
 
         <div class="demo-credentials">
@@ -117,6 +128,9 @@
         </a>
         <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
           Users
+        </a>
+        <a class="nav-item" data-page="security" onclick="navigate('security')">
+          Security &amp; 2FA
         </a>
       </nav>
 
@@ -309,6 +323,54 @@
       <section id="view-users" class="view">
         <div class="view-header"><h2>User Management</h2></div>
         <div id="users-list" class="records-list"></div>
+      </section>
+
+      <!-- SECURITY & 2FA VIEW -->
+      <section id="view-security" class="view">
+        <div class="view-header">
+          <h2>Security &amp; 2FA Settings</h2>
+          <p class="view-sub">Manage multi-factor authentication for your account</p>
+        </div>
+        <div id="security-error" class="alert alert-error" style="display:none"></div>
+        <div id="security-success" class="alert alert-success" style="display:none"></div>
+        <div class="glass form-card" style="max-width: 600px;">
+          <h3>Two-Factor Authentication (TOTP 2FA)</h3>
+          <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
+            Protect your VIP Health Vault account with an extra layer of security. After enabling, you must enter a 6-digit verification code from your authenticator app (e.g. Google Authenticator) during login.
+          </p>
+
+          <div id="mfa-status-box" style="margin-bottom: 24px;">
+            <!-- Will be dynamically filled -->
+          </div>
+
+          <div id="mfa-setup-section" style="display:none;">
+            <div class="field-group" style="text-align: center; margin-bottom: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+              <p style="font-weight: 600; margin-bottom: 10px; color: var(--text);">1. Scan this QR Code with your Authenticator App</p>
+              <div style="margin: 15px auto; padding: 10px; background: white; border-radius: 8px; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
+                <img id="mfa-qr-code-img" src="" alt="2FA QR Code" style="width: 160px; height: 160px;" />
+              </div>
+              <p style="font-size: 12px; color: var(--muted);">Or enter secret key manually: <code id="mfa-secret-key" style="font-family: var(--font-mono); font-size: 13px; color: var(--gold); font-weight: 600; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;"></code></p>
+            </div>
+
+            <div class="field-group" style="border-top: 1px solid var(--border); padding-top: 20px;">
+              <label>2. Enter the 6-Digit Code from the App to Verify</label>
+              <div class="input-wrap">
+                <input id="inp-2fa-verify-code" type="text" placeholder="e.g. 123456" maxlength="6" />
+              </div>
+              <button class="btn btn-gold" style="margin-top:15px;" onclick="enable2FA()">VERIFY &amp; ENABLE 2FA</button>
+            </div>
+          </div>
+
+          <div id="mfa-disable-section" style="display:none; border-top: 1px solid var(--border); padding-top: 20px;">
+            <div class="field-group">
+              <label>Enter 2FA Code to Disable Two-Factor Authentication</label>
+              <div class="input-wrap">
+                <input id="inp-2fa-disable-code" type="text" placeholder="e.g. 123456" maxlength="6" />
+              </div>
+              <button class="btn btn-error" style="margin-top:15px;" onclick="disable2FA()">DISABLE 2FA</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- FOOTER -->

@@ -38,6 +38,7 @@ from core.security import (
     get_device_id, validate_password,
 )
 import database.storage as storage
+import core.totp as totp
 
 # ── Application ─────────────────────────────────────────────────
 app = FastAPI(
@@ -56,62 +57,50 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# ── JWT Configuration ────────────────────────────────────────
-_JWT_SECRET_FILE = os.path.join(os.path.dirname(__file__), ".jwt_secret")
+# ── JWT RSA Key Configuration ──────────────────────────────
+_JWT_PRIVATE_KEY_FILE = os.path.join(os.path.dirname(__file__), ".jwt_private.pem")
+_JWT_PUBLIC_KEY_FILE = os.path.join(os.path.dirname(__file__), ".jwt_public.pem")
 
-def _load_or_create_jwt_secret() -> str:
-    """
-    Loads JWT secret from:
-      1. JWT_SECRET environment variable
-      2. OS keyring (Windows DPAPI / macOS Keychain / libsecret)
-      3. .jwt_secret plaintext file — auto-migrates to keyring and deletes file
-      4. Generate new random secret and store it
-    """
-    # 1. Environment variable — highest priority
-    secret = os.environ.get("JWT_SECRET")
-    if secret:
-        return secret
+def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
+    """Loads RSA private and public keys, generating them if they do not exist."""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
 
-    # 2. OS keyring (DPAPI on Windows)
-    try:
-        import keyring as _kr
-        secret = _kr.get_password("VIPHealthVault", "jwt_secret")
-        if secret:
-            return secret
-    except Exception:
-        pass
+    if os.path.exists(_JWT_PRIVATE_KEY_FILE) and os.path.exists(_JWT_PUBLIC_KEY_FILE):
+        with open(_JWT_PRIVATE_KEY_FILE, "r") as f:
+            private_pem = f.read()
+        with open(_JWT_PUBLIC_KEY_FILE, "r") as f:
+            public_pem = f.read()
+        return private_pem, public_pem
 
-    # 3. Persistent file — legacy fallback
-    if os.path.exists(_JWT_SECRET_FILE):
-        with open(_JWT_SECRET_FILE, "r") as f:
-            secret = f.read().strip()
-        if secret:
-            # S-06: Auto-migrate from plaintext file to OS keyring
-            try:
-                import keyring as _kr
-                _kr.set_password("VIPHealthVault", "jwt_secret", secret)
-                os.remove(_JWT_SECRET_FILE)
-                print("[OK] JWT secret migrated from .jwt_secret file to OS keyring (DPAPI on Windows).")
-            except Exception:
-                pass  # Keep file if keyring unavailable
-            return secret
+    # Generate keys
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048
+    )
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    ).decode("utf-8")
 
-    # 4. Generate and store new secret
-    import secrets as _sec
-    secret = _sec.token_hex(32)
-    try:
-        import keyring as _kr
-        _kr.set_password("VIPHealthVault", "jwt_secret", secret)
-        print("[OK] JWT secret generated and stored in OS keyring.")
-    except Exception:
-        with open(_JWT_SECRET_FILE, "w") as f:
-            f.write(secret)
-        print("\n[WARN] JWT secret generated and saved to .jwt_secret file.")
-        print("   Set the JWT_SECRET environment variable in production.\n")
-    return secret
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode("utf-8")
 
-SECRET_KEY = _load_or_create_jwt_secret()
-ALGORITHM = "HS256"
+    # Save to files
+    with open(_JWT_PRIVATE_KEY_FILE, "w") as f:
+        f.write(private_pem)
+    with open(_JWT_PUBLIC_KEY_FILE, "w") as f:
+        f.write(public_pem)
+
+    print("[OK] Generated new RSA key pair for JWT signing.")
+    return private_pem, public_pem
+
+JWT_PRIVATE_KEY, JWT_PUBLIC_KEY = _load_or_generate_jwt_rsa_keys()
+ALGORITHM = "RS256"
 TOKEN_HOURS = 8   # 8 hours
 
 security_bearer = HTTPBearer()
@@ -133,6 +122,13 @@ def _check_rate_limit(ip: str) -> bool:
             return False
         _login_attempts[ip].append(now)
         return True
+
+def _get_client_ip(request: Request) -> str:
+    """Extracts client IP from X-Forwarded-For if behind a proxy, otherwise client host."""
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 # ── Blockchain Cache ──────────────────────────────────────────
 _blockchains: Dict[str, Blockchain] = {}
@@ -190,12 +186,12 @@ def create_token(user: dict) -> str:
         "iat":      datetime.now(timezone.utc),
         "device":   get_device_id()[:16],
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, JWT_PRIVATE_KEY, algorithm=ALGORITHM)
 
 
 def current_user(creds: HTTPAuthorizationCredentials = Depends(security_bearer)) -> dict:
     try:
-        payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(creds.credentials, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         user = storage.load_user(username)
         if not user:
@@ -222,11 +218,12 @@ def require_role(*roles: str):
 class LoginReq(BaseModel):
     username: str
     password: str
+    code: Optional[str] = None
 
 
 @app.post("/api/auth/login", summary="User Login")
 async def login(req: LoginReq, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
 
     # Rate limiting
     if not _check_rate_limit(client_ip):
@@ -248,6 +245,24 @@ async def login(req: LoginReq, request: Request):
             )
         raise HTTPException(401, "Incorrect username or password")
 
+    # Check if TOTP 2FA is enabled
+    if user.get("totp_enabled"):
+        if not req.code:
+            return JSONResponse(
+                status_code=200,
+                content={"mfa_required": True}
+            )
+        # Verify 2FA code
+        if not user.get("totp_secret") or not totp.verify_totp(user["totp_secret"], req.code):
+            storage.append_audit_log(
+                "__system__",
+                action="LOGIN_MFA_FAILED",
+                username=req.username,
+                device_id=get_device_id(),
+                extra={"ip": client_ip},
+            )
+            raise HTTPException(401, "Invalid 2FA verification code")
+
     token = create_token(user)
 
     storage.append_audit_log(
@@ -255,7 +270,7 @@ async def login(req: LoginReq, request: Request):
         action="LOGIN_SUCCESS",
         username=req.username,
         device_id=get_device_id(),
-        extra={"ip": client_ip, "role": user["role"]},
+        extra={"ip": client_ip, "role": user["role"], "mfa": bool(user.get("totp_enabled"))},
     )
 
     return {
@@ -268,6 +283,7 @@ async def login(req: LoginReq, request: Request):
             "role":       user["role"],
             "full_name":  user["full_name"],
             "patient_id": user.get("patient_id"),
+            "totp_enabled": bool(user.get("totp_enabled")),
         },
     }
 
@@ -280,7 +296,76 @@ def me(u: dict = Depends(current_user)):
         "role":       u["role"],
         "full_name":  u["full_name"],
         "patient_id": u.get("patient_id"),
+        "totp_enabled": bool(u.get("totp_enabled")),
     }
+
+class Verify2FAReq(BaseModel):
+    code: str
+
+@app.post("/api/auth/2fa/setup", summary="Setup 2FA TOTP")
+def setup_2fa(u: dict = Depends(current_user)):
+    """Generates a temporary secret and QR code for the user to register in their app."""
+    # Generate new secret
+    secret = totp.generate_totp_secret()
+    
+    # Store temporary secret in user object (but don't set totp_enabled to True yet)
+    u["totp_secret"] = secret
+    storage.save_user(u)
+    
+    # Generate provisioning URI & QR Code Base64
+    uri = totp.get_totp_uri(u["username"], secret)
+    qr_code = totp.get_totp_qr_base64(uri)
+    
+    return {
+        "secret": secret,
+        "qr_code": qr_code
+    }
+
+@app.post("/api/auth/2fa/enable", summary="Verify and Enable 2FA")
+def enable_2fa(req: Verify2FAReq, u: dict = Depends(current_user)):
+    """Verifies the code and enables 2FA for the user."""
+    secret = u.get("totp_secret")
+    if not secret:
+        raise HTTPException(400, "2FA setup has not been initiated. Call /api/auth/2fa/setup first.")
+    
+    if totp.verify_totp(secret, req.code):
+        u["totp_enabled"] = True
+        storage.save_user(u)
+        
+        storage.append_audit_log(
+            "__system__",
+            action="2FA_ENABLED",
+            username=u["username"],
+            device_id=get_device_id(),
+        )
+        return {"success": True, "message": "Two-factor authentication enabled successfully"}
+    else:
+        raise HTTPException(400, "Invalid verification code. Please check your app and try again.")
+
+@app.post("/api/auth/2fa/disable", summary="Disable 2FA")
+def disable_2fa(req: Verify2FAReq, u: dict = Depends(current_user)):
+    """Verifies the code and disables 2FA for the user."""
+    if not u.get("totp_enabled"):
+        raise HTTPException(400, "2FA is not enabled for this account.")
+        
+    secret = u.get("totp_secret")
+    if not secret:
+        raise HTTPException(500, "Database inconsistency: enabled 2FA but missing secret.")
+        
+    if totp.verify_totp(secret, req.code):
+        u["totp_enabled"] = False
+        u["totp_secret"] = None
+        storage.save_user(u)
+        
+        storage.append_audit_log(
+            "__system__",
+            action="2FA_DISABLED",
+            username=u["username"],
+            device_id=get_device_id(),
+        )
+        return {"success": True, "message": "Two-factor authentication disabled successfully"}
+    else:
+        raise HTTPException(400, "Invalid verification code. Disable failed.")
 
 # ──────────────────────────────────────────────────────────────
 # USER MANAGEMENT (Admin Only)
@@ -316,7 +401,7 @@ class UserCreate(BaseModel):
 def list_users(u: dict = Depends(require_role("admin"))):
     users = storage.load_all_users()
     return {"users": [
-        {k: v for k, v in user.items() if k != "password_hash"}
+        {k: v for k, v in user.items() if k not in ("password_hash", "totp_secret")}
         for user in users
     ]}
 

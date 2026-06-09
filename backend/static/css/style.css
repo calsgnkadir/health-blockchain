@@ -528,6 +528,16 @@ select option { background: var(--card); color: var(--text); }
   border: 1px solid rgba(255,255,255,0.12);
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.btn-error {
+  background: linear-gradient(135deg, var(--danger), #B71C1C);
+  color: #EDE8E0;
+  box-shadow: 0 4px 20px rgba(229,115,115,0.3);
+}
+.btn-error:hover {
+  background: linear-gradient(135deg, #FF8A80, var(--danger));
+  box-shadow: 0 4px 28px rgba(229,115,115,0.5);
+  transform: translateY(-1px);
+}
 .btn-full { width: 100%; }
 .btn-sm { padding: 7px 16px; font-size: 13px; }
 
@@ -689,4 +699,25 @@ select option { background: var(--card); color: var(--text); }
   .span-2 { grid-column: span 1; }
   .dynamic-section { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── 2FA status badges ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.status-badge.enabled {
+  background: rgba(44,201,133,0.08);
+  border: 1px solid rgba(44,201,133,0.25);
+  color: var(--success);
+}
+.status-badge.disabled {
+  background: rgba(229,115,115,0.08);
+  border: 1px solid rgba(229,115,115,0.25);
+  color: var(--danger);
 }
