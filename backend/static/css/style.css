@@ -852,3 +852,64 @@ select option { background: var(--card); color: var(--text); }
 .dicom-overlay-text.bottom-left { bottom: 12px; left: 12px; }
 .dicom-overlay-text.bottom-right { bottom: 12px; right: 12px; text-align: right; }
 
+/* ── Phase 4 Styling ── */
+/* AI Triage Bubble Dialogs */
+.triage-msg {
+  padding: 10px 14px;
+  border-radius: 8px;
+  max-width: 80%;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.triage-msg-system {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  color: var(--text);
+}
+.triage-msg-user {
+  background: var(--gold-dim);
+  border: 1px solid var(--border-hi);
+  align-self: flex-end;
+  color: #fff;
+  text-align: right;
+}
+
+/* Triage priority badges */
+.triage-badge-red {
+  background: rgba(229, 115, 115, 0.15) !important;
+  border: 1px solid var(--danger) !important;
+  color: var(--danger) !important;
+  box-shadow: 0 0 15px rgba(229, 115, 115, 0.2);
+}
+.triage-badge-orange {
+  background: rgba(255, 183, 77, 0.15) !important;
+  border: 1px solid var(--warn) !important;
+  color: var(--warn) !important;
+}
+.triage-badge-green {
+  background: rgba(44, 201, 133, 0.15) !important;
+  border: 1px solid var(--success) !important;
+  color: var(--success) !important;
+}
+
+/* Appointment consult cards */
+.appointment-card {
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.25s;
+}
+.appointment-card:hover {
+  border-color: var(--border-hi);
+  transform: translateY(-2px);
+  background: var(--card-hover);
+}
+
+
+

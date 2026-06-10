@@ -227,6 +227,9 @@ function navigate(page) {
     users:          'Users',
     audit:          'Access History',
     security:       'Security Settings',
+    wearables:      'Wearables Integration Hub',
+    appointments:   'Clinic Appointments',
+    triage:         'AI Clinical Triage',
   };
   document.getElementById('topbar-title').textContent = titles[page] || page;
   if (page === 'dashboard')     loadDashboard();
@@ -237,6 +240,9 @@ function navigate(page) {
   if (page === 'users')         loadUsers();
   if (page === 'audit')         switchLogTab(currentLogTab);
   if (page === 'security')      loadSecuritySettings();
+  if (page === 'wearables')     loadWearables();
+  if (page === 'appointments')  loadAppointments();
+  if (page === 'triage')        loadTriage();
 }
 
 /* -- Record Types ------------------------------------ */
@@ -1913,3 +1919,417 @@ function clearAllNotifications(event) {
   saveNotifications([]);
   updateNotificationsUI();
 }
+
+/* =========================================================================
+   ================= PHASE 4 INTEGRATIONS & TELEMEDICINE =================
+   ========================================================================= */
+
+/* ── 2. Wearables Sensor Synchronization ── */
+let activeWearableData = null;
+let activeWearableSource = '';
+
+function loadWearables() {
+  activeWearableData = null;
+  activeWearableSource = '';
+  document.getElementById('wearables-preview-empty').style.display = 'block';
+  document.getElementById('wearables-preview-data').style.display = 'none';
+  document.getElementById('btn-sync-blockchain').style.display = 'none';
+}
+
+function connectWearable(platform) {
+  const title = 'Connect Wearable Hub';
+  const w = 480, h = 540;
+  const left = (screen.width/2)-(w/2);
+  const top = (screen.height/2)-(h/2);
+  
+  const mockTelemetry = {
+    fitbit: {
+      hr: '72',
+      temp: '36.8',
+      spo2: '98',
+      bp: '118/79',
+      source: 'Fitbit Sense 2'
+    },
+    google: {
+      hr: '68',
+      temp: '36.5',
+      spo2: '99',
+      bp: '120/80',
+      source: 'Google Pixel Watch'
+    },
+    apple: {
+      hr: '70',
+      temp: '36.6',
+      spo2: '97',
+      bp: '115/75',
+      source: 'Apple Watch Ultra'
+    }
+  };
+  
+  window.onOAuthCallback = function(p) {
+    if (p !== platform) return;
+    activeWearableSource = mockTelemetry[platform].source;
+    activeWearableData = mockTelemetry[platform];
+    
+    document.getElementById('wearables-preview-empty').style.display = 'none';
+    document.getElementById('wearables-preview-data').style.display = 'block';
+    document.getElementById('btn-sync-blockchain').style.display = 'block';
+    
+    document.getElementById('wearable-hr').textContent = activeWearableData.hr + ' bpm';
+    document.getElementById('wearable-temp').textContent = activeWearableData.temp + ' °C';
+    document.getElementById('wearable-spo2').textContent = activeWearableData.spo2 + ' %';
+    document.getElementById('wearable-bp').textContent = activeWearableData.bp + ' mmHg';
+    document.getElementById('wearable-source-name').textContent = activeWearableSource;
+    document.getElementById('wearable-timestamp').textContent = new Date().toLocaleTimeString('en-US') + ' ' + new Date().toLocaleDateString('en-GB');
+    
+    addNotification('Sensor Connected', `Successfully connected to ${activeWearableSource}. Data preview loaded.`, 'success');
+  };
+  
+  const popup = window.open('', title, `width=${w},height=${h},top=${top},left=${left}`);
+  if (!popup) {
+    showOAuthModalFallback(platform, mockTelemetry[platform]);
+    return;
+  }
+  
+  popup.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>OAuth Connection Hub</title>
+      <style>
+        body { background: #07070F; color: #EDE8E0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; }
+        .card { background: #12122A; border: 1px solid rgba(201,168,76,0.25); border-radius: 12px; padding: 30px; text-align: center; max-width: 380px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+        .btn { background: linear-gradient(135deg, #C9A84C, #8B6914); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .logo { font-size: 48px; margin-bottom: 15px; }
+        h2 { color: #C9A84C; margin-top: 0; }
+        p { color: #6B6882; font-size: 14px; line-height: 1.5; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">⌚</div>
+        <h2>Connect ${platform.toUpperCase()}</h2>
+        <p>VIP Health Vault requests permission to access your medical telemetry stream (Heart Rate, Temperature, SpO2, and Blood Pressure).</p>
+        <button class="btn" onclick="authorize()">AUTHORIZE SYNC</button>
+      </div>
+      <script>
+        function authorize() {
+          if (window.opener && !window.opener.closed) {
+            window.opener.onOAuthCallback('${platform}');
+          }
+          window.close();
+        }
+      <\/script>
+    </body>
+    </html>
+  `);
+  popup.document.close();
+}
+
+function showOAuthModalFallback(platform, telemetry) {
+  document.getElementById('modal-content').innerHTML = `
+    <div style="text-align: center; padding: 20px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⌚</div>
+      <h2 style="color: var(--gold); font-size: 20px; margin-bottom: 12px;">Connect ${platform.toUpperCase()}</h2>
+      <p style="color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
+        VIP Health Vault requests permission to access your medical telemetry stream (Heart Rate, Temperature, SpO2, and Blood Pressure).
+      </p>
+      <button class="btn btn-gold btn-full" onclick="authorizeFallback('${platform}')">AUTHORIZE SYNC</button>
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+  
+  window.authorizeFallback = function(p) {
+    closeModal();
+    window.onOAuthCallback(p);
+  };
+}
+
+async function commitWearablesToBlockchain() {
+  if (!activeWearableData) return;
+  const btn = document.getElementById('btn-sync-blockchain');
+  btn.disabled = true;
+  btn.textContent = 'Syncing...';
+  
+  const payload = {
+    patient_id: patientId(),
+    record_type: 'vital_signs',
+    title: `Wearables Sensor Telemetry (${activeWearableSource})`,
+    doctor_name: 'Device Sensor Auto-Sync',
+    institution: 'Connected Vitals Core',
+    record_date: new Date().toISOString().split('T')[0],
+    access_level: 'private',
+    is_confidential: false,
+    data: {
+      heart_rate: activeWearableData.hr,
+      temperature: activeWearableData.temp,
+      oxygen_sat: activeWearableData.spo2,
+      blood_pressure: activeWearableData.bp
+    },
+    notes: `Cryptographically verified vital block synchronization from health wearables via OAuth Gateway.`
+  };
+  
+  try {
+    const res = await apiFetch('/api/records', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    addNotification('Sensor Vitals Synced', `Wearable sensor stream successfully verified and committed to block #${res.block_index}.`, 'success');
+    loadWearables();
+    loadDashboard();
+  } catch(ex) {
+    alert("Blockchain sync failed: " + ex.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'COMMIT TELEMETRY TO BLOCKCHAIN';
+  }
+}
+
+/* ── 3. AI Clinical Triage Chatbot ── */
+function loadTriage() {
+  document.getElementById('triage-chat-container').innerHTML = `
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px; border-radius: 8px; max-width: 80%; align-self: flex-start;">
+      <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM CLINICAL AI:</span>
+      Welcome to the AI Triage Hub. Please describe your symptoms and how long they have persisted so we can assign a clinical prioritization level.
+    </div>
+  `;
+  const inp = document.getElementById('triage-input');
+  if (inp) inp.value = '';
+  
+  const badge = document.getElementById('triage-status-badge');
+  if (badge) {
+    badge.textContent = 'NO ACTIVE TRIAGE';
+    badge.className = '';
+    badge.style.background = 'rgba(255,255,255,0.03)';
+    badge.style.border = '1px solid var(--border)';
+    badge.style.color = 'var(--muted)';
+  }
+  
+  const reason = document.getElementById('triage-reason');
+  if (reason) reason.textContent = '—';
+  const rec = document.getElementById('triage-recommendation');
+  if (rec) rec.textContent = '—';
+}
+
+async function sendTriageSymptom() {
+  const input = document.getElementById('triage-input');
+  const container = document.getElementById('triage-chat-container');
+  const text = input.value.trim();
+  if (!text) return;
+  
+  input.value = '';
+  
+  const userBubble = document.createElement('div');
+  userBubble.className = 'triage-msg triage-msg-user';
+  userBubble.innerHTML = `
+    <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">YOU:</span>
+    ${text}
+  `;
+  container.appendChild(userBubble);
+  container.scrollTop = container.scrollHeight;
+  
+  const thinkingBubble = document.createElement('div');
+  thinkingBubble.className = 'triage-msg triage-msg-system';
+  thinkingBubble.innerHTML = `
+    <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM CLINICAL AI:</span>
+    <span class="spinner" style="width:12px; height:12px; border-width:1.5px; border-top-color:var(--gold);"></span> Analysing symptom taxonomy...
+  `;
+  container.appendChild(thinkingBubble);
+  container.scrollTop = container.scrollHeight;
+  
+  try {
+    const res = await apiFetch('/api/ai/triage', {
+      method: 'POST',
+      body: JSON.stringify({
+        symptoms: text,
+        duration_days: 1
+      })
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    container.removeChild(thinkingBubble);
+    
+    const sysBubble = document.createElement('div');
+    sysBubble.className = 'triage-msg triage-msg-system';
+    sysBubble.innerHTML = `
+      <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM CLINICAL AI:</span>
+      <div><strong>Status:</strong> ${res.status}</div>
+      <div style="margin-top:4px;"><strong>Reason:</strong> ${res.reason}</div>
+      <div style="margin-top:4px;"><strong>Plan:</strong> ${res.recommendation}</div>
+      <div style="font-size:10px; color:var(--muted); margin-top:8px;">${res.disclaimer}</div>
+    `;
+    container.appendChild(sysBubble);
+    container.scrollTop = container.scrollHeight;
+    
+    const badge = document.getElementById('triage-status-badge');
+    badge.textContent = res.status;
+    badge.style.background = '';
+    badge.style.border = '';
+    badge.style.color = '';
+    
+    badge.className = '';
+    if (res.level === 'red') {
+      badge.classList.add('triage-badge-red');
+      addNotification('EMERGENCY TRIAGE ALERT', 'Urgent symptoms detected. Plan: ' + res.recommendation, 'warning');
+    } else if (res.level === 'orange') {
+      badge.classList.add('triage-badge-orange');
+    } else {
+      badge.classList.add('triage-badge-green');
+    }
+    
+    document.getElementById('triage-reason').textContent = res.reason;
+    document.getElementById('triage-recommendation').textContent = res.recommendation;
+    
+  } catch(ex) {
+    if (thinkingBubble.parentNode) {
+      container.removeChild(thinkingBubble);
+    }
+    const errBubble = document.createElement('div');
+    errBubble.className = 'triage-msg triage-msg-system';
+    errBubble.style.borderColor = 'var(--danger)';
+    errBubble.innerHTML = `<span style="color:var(--danger)">Error: ${ex.message}</span>`;
+    container.appendChild(errBubble);
+  }
+}
+
+/* ── 4. Clinic Appointments Booker ── */
+async function loadAppointments() {
+  const listEl = document.getElementById('appointments-list');
+  listEl.innerHTML = '<div class="loading-spinner">Loading appointments...</div>';
+  
+  try {
+    const res = await apiFetch(`/api/appointments/${patientId()}`);
+    if (res.length === 0) {
+      listEl.innerHTML = emptyState('No scheduled appointments.');
+      return;
+    }
+    
+    listEl.innerHTML = res.map(apt => {
+      return `
+        <div class="appointment-card glass">
+          <div>
+            <div style="font-weight: 700; color: #fff; font-size: 15px;">${apt.doctor_name}</div>
+            <div style="font-size: 12px; color: var(--gold); margin-top: 4px;">${apt.department}</div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">Notes: ${apt.notes || 'No notes'}</div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 600;">📅 ${apt.appointment_date} @ ${apt.appointment_time}</div>
+            <span class="badge badge-shared" style="margin-top:2px;">${apt.status.toUpperCase()}</span>
+            <button class="btn btn-error btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="cancelAppointment('${apt.id}')">Cancel</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(ex) {
+    listEl.innerHTML = `<div class="alert alert-error">Failed to load appointments: ${ex.message}</div>`;
+  }
+}
+
+function showBookAppointmentModal() {
+  document.getElementById('modal-content').innerHTML = `
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">Book Specialist Appointment</h2>
+    <div id="booking-error" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
+    <form id="booking-form" onsubmit="bookAppointment(event)">
+      <div class="field-group" style="margin-bottom:14px">
+        <label>Department</label>
+        <input type="text" id="book-dept" placeholder="Cardiology, Neurology, General Medicine..." required />
+      </div>
+      <div class="field-group" style="margin-bottom:14px">
+        <label>Specialist Doctor</label>
+        <select id="book-doctor" required>
+          <option value="Prof. Dr. Ahmet Yilmaz">Prof. Dr. Ahmet Yilmaz (Cardiologist)</option>
+          <option value="Dr. Sarah Smith">Dr. Sarah Smith (Neurologist)</option>
+          <option value="Dr. Elena Carter">Dr. Elena Carter (General Practitioner)</option>
+        </select>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px">
+        <div class="field-group">
+          <label>Date</label>
+          <input type="date" id="book-date" required />
+        </div>
+        <div class="field-group">
+          <label>Time</label>
+          <input type="time" id="book-time" required />
+        </div>
+      </div>
+      <div class="field-group" style="margin-bottom:20px">
+        <label>Consultation Notes</label>
+        <textarea id="book-notes" placeholder="Please describe clinical symptoms or follow-up reason..." rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-gold btn-full">CONFIRM CLINIC BOOKING</button>
+    </form>
+  `;
+  
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('book-date').min = today;
+  document.getElementById('book-date').value = today;
+  
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function bookAppointment(event) {
+  if (event) event.preventDefault();
+  const errEl = document.getElementById('booking-error');
+  errEl.style.display = 'none';
+  
+  const payload = {
+    patient_id: patientId(),
+    doctor_name: document.getElementById('book-doctor').value,
+    department: document.getElementById('book-dept').value.trim(),
+    appointment_date: document.getElementById('book-date').value,
+    appointment_time: document.getElementById('book-time').value,
+    notes: document.getElementById('book-notes').value.trim()
+  };
+  
+  try {
+    await apiFetch('/api/appointments', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    closeModal();
+    addNotification('Appointment Booked', `Appointment scheduled with ${payload.doctor_name} for ${payload.appointment_date} at ${payload.appointment_time}.`, 'success');
+    loadAppointments();
+  } catch(ex) {
+    errEl.textContent = ex.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function cancelAppointment(id) {
+  if (!confirm("Are you sure you want to cancel this appointment?")) return;
+  
+  try {
+    await apiFetch(`/api/appointments/${id}`, {
+      method: 'DELETE'
+    });
+    addNotification('Appointment Cancelled', 'Your appointment has been successfully cancelled.', 'info');
+    loadAppointments();
+  } catch(ex) {
+    alert("Failed to cancel: " + ex.message);
+  }
+}
+
+/* ── 5. FHIR Patient Bundle Exporter ── */
+async function exportFHIRBundle() {
+  const pid = patientId();
+  try {
+    const res = await apiFetch(`/api/enabiz/fhir/export/${pid}`);
+    const jsonStr = JSON.stringify(res, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fhir_patient_bundle_${pid}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    addNotification('FHIR Bundle Exported', `Official e-Nabiz HL7 FHIR Bundle downloaded for patient ${pid}.`, 'success');
+  } catch(ex) {
+    alert("Failed to export FHIR bundle: " + ex.message);
+  }
+}
+

@@ -139,6 +139,16 @@
         <a class="nav-item" data-page="security" onclick="navigate('security')">
           Security &amp; 2FA
         </a>
+
+        <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
+          Wearables (Giyilebilir Cihaz)
+        </a>
+        <a class="nav-item" data-page="appointments" onclick="navigate('appointments')">
+          Appointments (Randevular)
+        </a>
+        <a class="nav-item" data-page="triage" onclick="navigate('triage')">
+          AI Triage (Semptom Analizi)
+        </a>
       </nav>
 
       <div class="sidebar-bottom">
@@ -264,8 +274,15 @@
 
       <!-- RECORDS VIEW -->
       <section id="view-records" class="view">
-        <div class="view-header">
-          <h2>Health Records</h2>
+        <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2>Health Records</h2>
+          </div>
+          <div>
+            <button class="btn btn-gold btn-sm" onclick="exportFHIRBundle()">Export e-Nabız FHIR Bundle</button>
+          </div>
+        </div>
+        <div class="view-header" style="margin-top: 0; padding-top: 0;">
           <div class="filter-bar">
             <input id="rec-search" type="text" placeholder="Search..." class="search-input" oninput="filterRecords()">
             <select id="rec-type-filter" class="select-input" onchange="filterRecords()">
@@ -465,6 +482,125 @@
                 <input id="inp-2fa-disable-code" type="text" placeholder="e.g. 123456" maxlength="6" />
               </div>
               <button class="btn btn-error" style="margin-top:15px;" onclick="disable2FA()">DISABLE 2FA</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- WEARABLES VIEW -->
+      <section id="view-wearables" class="view">
+        <div class="view-header">
+          <h2>Wearables Integration Hub</h2>
+          <p class="view-sub">Synchronize telemetry data from Apple Health, Google Fit, or Fitbit</p>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+          <div class="glass" style="padding: 24px; border-radius: var(--radius); text-align: center;">
+            <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Device Connections</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5;">
+              Authorize VIP Health Vault to securely pull data from your connected telemetry sensors. Data is validated, cryptographically sealed, and committed as vital blocks.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px; max-width: 280px; margin: 0 auto;">
+              <button class="btn btn-ghost btn-full" onclick="connectWearable('fitbit')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <span>Sync Fitbit Account</span>
+              </button>
+              <button class="btn btn-ghost btn-full" onclick="connectWearable('google')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <span>Sync Google Fit</span>
+              </button>
+              <button class="btn btn-ghost btn-full" onclick="connectWearable('apple')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <span>Sync Apple Health</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="glass" style="padding: 24px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Telemetry Preview</h3>
+              <div id="wearables-preview-empty" style="text-align: center; color: var(--muted); padding: 40px 0;">
+                No device synced. Connect a wearable to import sensor telemetry.
+              </div>
+              <div id="wearables-preview-data" style="display: none;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+                  <div class="stat-card glass" style="border-left: 2px solid #ff4d4d; min-height: 70px; padding: 12px;">
+                    <div class="stat-info">
+                      <div class="stat-value" id="wearable-hr" style="font-size: 18px;">—</div>
+                      <div class="stat-label" style="font-size: 10px;">Heart Rate (bpm)</div>
+                    </div>
+                  </div>
+                  <div class="stat-card glass" style="border-left: 2px solid #3b82f6; min-height: 70px; padding: 12px;">
+                    <div class="stat-info">
+                      <div class="stat-value" id="wearable-temp" style="font-size: 18px;">—</div>
+                      <div class="stat-label" style="font-size: 10px;">Core Temp (°C)</div>
+                    </div>
+                  </div>
+                  <div class="stat-card glass" style="border-left: 2px solid #10b981; min-height: 70px; padding: 12px;">
+                    <div class="stat-info">
+                      <div class="stat-value" id="wearable-spo2" style="font-size: 18px;">—</div>
+                      <div class="stat-label" style="font-size: 10px;">Oxygen Sat (%)</div>
+                    </div>
+                  </div>
+                  <div class="stat-card glass" style="border-left: 2px solid #C9A84C; min-height: 70px; padding: 12px;">
+                    <div class="stat-info">
+                      <div class="stat-value" id="wearable-bp" style="font-size: 18px;">—</div>
+                      <div class="stat-label" style="font-size: 10px;">Blood Pressure</div>
+                    </div>
+                  </div>
+                </div>
+                <div style="font-size: 11px; color: var(--muted); text-align: left; margin-bottom: 16px;">
+                  Sensor Source: <strong id="wearable-source-name" style="color: var(--gold);">Fitbit Telemetry</strong><br>
+                  Captured at: <span id="wearable-timestamp">—</span>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-gold btn-full" id="btn-sync-blockchain" style="display: none;" onclick="commitWearablesToBlockchain()">COMMIT TELEMETRY TO BLOCKCHAIN</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- APPOINTMENTS VIEW -->
+      <section id="view-appointments" class="view">
+        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2>Clinic Appointments</h2>
+            <p class="view-sub">Book and manage clinical consults with your healthcare specialists</p>
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="showBookAppointmentModal()">Book Slot</button>
+        </div>
+        <div class="glass" style="padding: 24px; border-radius: var(--radius); margin-top: 20px;">
+          <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Scheduled Consultations</h3>
+          <div id="appointments-list" class="records-list"></div>
+        </div>
+      </section>
+
+      <!-- AI TRIAGE VIEW -->
+      <section id="view-triage" class="view">
+        <div class="view-header">
+          <h2>AI Clinical Triage Chatbot</h2>
+          <p class="view-sub">Real-time symptom verification, risk scoring, and care directions</p>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
+          <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+            <div id="triage-chat-container" style="height: 320px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px; border-radius: 8px; max-width: 80%; align-self: flex-start;">
+                <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM CLINICAL AI:</span>
+                Welcome to the AI Triage Hub. Please describe your symptoms and how long they have persisted so we can assign a clinical prioritization level.
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <input type="text" id="triage-input" placeholder="Describe symptoms (e.g. chest pain, cough, mild fever)..." style="flex: 1; padding: 12px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: white;" onkeydown="if(event.key==='Enter') sendTriageSymptom();">
+              <button class="btn btn-gold" onclick="sendTriageSymptom()">Submit</button>
+            </div>
+          </div>
+
+          <div class="glass" style="padding: 20px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between; min-height: 400px;">
+            <div>
+              <h3 style="color: var(--gold); font-size: 14px; margin-bottom: 14px; text-transform: uppercase;">Prioritization Status</h3>
+              <div id="triage-status-badge" style="padding: 12px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); text-align: center; font-weight: 700; font-size: 16px; color: var(--muted); margin-bottom: 16px;">NO ACTIVE TRIAGE</div>
+              <div class="modal-field"><div class="modal-field-label">Reasoning Logic</div><div class="modal-field-value" id="triage-reason">—</div></div>
+              <div class="modal-field" style="margin-top:12px;"><div class="modal-field-label">Action Plan</div><div class="modal-field-value" id="triage-recommendation">—</div></div>
+            </div>
+            <div style="font-size: 10px; color: var(--muted); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+              ⚠️ <strong>Legal Disclaimer:</strong> Triage logic is automated and heuristic. It is intended for initial screening only. If you are experiencing a life-threatening symptom, seek immediate emergency help.
             </div>
           </div>
         </div>

@@ -775,7 +775,7 @@ def get_single_record(
         raise HTTPException(403, "Access denied")
 
     chain = record_service.get_chain(patient_id)
-    block = chain[block_index] if 0 <= block_index < len(chain) else None
+    block = next((b for b in chain if b.index == block_index), None)
     if block is None:
         raise HTTPException(404, "Block not found")
 
@@ -889,6 +889,299 @@ def get_system_config():
     return {
         "environment": os.environ.get("ENVIRONMENT", "production"),
     }
+
+# ── Phase 4 Integrations Schemas & Routes ────────────────────────────────
+
+class AppointmentCreate(BaseModel):
+    patient_id: str
+    doctor_name: str
+    department: str
+    appointment_date: str
+    appointment_time: str
+    notes: Optional[str] = ""
+
+class TriageRequest(BaseModel):
+    symptoms: str
+    duration_days: int
+
+class LisWebhookPayload(BaseModel):
+    patient_id: str
+    doctor_name: str
+    institution: str
+    title: str
+    test_name: str
+    result_value: str
+    reference_range: str
+    unit: str
+    notes: Optional[str] = ""
+
+# Global mock DB for appointments
+appointments_db = [
+    {
+        "id": "apt001",
+        "patient_id": "VIP-001",
+        "doctor_name": "Prof. Dr. Ahmet Yilmaz",
+        "department": "Cardiology",
+        "appointment_date": "2026-06-12",
+        "appointment_time": "10:30",
+        "status": "scheduled",
+        "notes": "Routine cardiology follow-up."
+    },
+    {
+        "id": "apt002",
+        "patient_id": "VIP-001",
+        "doctor_name": "Dr. Sarah Smith",
+        "department": "Neurology",
+        "appointment_date": "2026-06-15",
+        "appointment_time": "14:00",
+        "status": "scheduled",
+        "notes": "Migraine progress review."
+    }
+]
+
+@app.get("/api/appointments/{patient_id}", summary="Get Patient Appointments")
+def get_appointments(patient_id: str, u: dict = Depends(current_user)):
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+    return [apt for apt in appointments_db if apt["patient_id"] == patient_id]
+
+@app.post("/api/appointments", summary="Create Appointment")
+def create_appointment(req: AppointmentCreate, u: dict = Depends(current_user)):
+    if u["role"] == "vip_patient" and u.get("patient_id") != req.patient_id:
+        raise HTTPException(403, "Access denied")
+    
+    new_apt = {
+        "id": f"apt{secrets.token_hex(4)}",
+        "patient_id": req.patient_id,
+        "doctor_name": req.doctor_name,
+        "department": req.department,
+        "appointment_date": req.appointment_date,
+        "appointment_time": req.appointment_time,
+        "status": "scheduled",
+        "notes": req.notes or ""
+    }
+    appointments_db.append(new_apt)
+    return {"success": True, "appointment": new_apt}
+
+@app.delete("/api/appointments/{appointment_id}", summary="Cancel Appointment")
+def cancel_appointment(appointment_id: str, u: dict = Depends(current_user)):
+    apt = next((a for a in appointments_db if a["id"] == appointment_id), None)
+    if not apt:
+        raise HTTPException(404, "Appointment not found")
+        
+    if u["role"] == "vip_patient" and u.get("patient_id") != apt["patient_id"]:
+        raise HTTPException(403, "Access denied")
+        
+    appointments_db.remove(apt)
+    return {"success": True, "message": "Appointment cancelled successfully"}
+
+@app.post("/api/ai/triage", summary="AI Medical Triage Chatbot")
+def ai_triage(req: TriageRequest):
+    symptoms_lower = req.symptoms.lower()
+    
+    if any(kw in symptoms_lower for kw in ["chest pain", "breath", "stroke", "paralysis", "speech", "heart attack", "unconscious", "head injury"]):
+        level = "red"
+        status = "URGENT / EMERGENCY"
+        recommendation = "Please seek immediate medical attention at the nearest emergency department or call emergency services (112)."
+        reason = "Symptoms indicate a potential life-threatening emergency."
+    elif any(kw in symptoms_lower for kw in ["fever", "severe pain", "fracture", "blood", "vomiting", "infection", "migraine", "abdominal pain"]):
+        level = "orange"
+        status = "CLINIC APPOINTMENT"
+        recommendation = "We recommend booking a consultation with your physician or visiting an outpatient clinic within 24 hours."
+        reason = "Symptoms warrant physical clinical examination and potential diagnostics."
+    else:
+        level = "green"
+        status = "SELF-CARE / MONITOR"
+        recommendation = "Monitor your symptoms closely. Ensure adequate rest, hydration, and consult a doctor if condition worsens."
+        reason = "Mild symptom classification. Supportive self-care is appropriate."
+        
+    return {
+        "status": status,
+        "level": level,
+        "recommendation": recommendation,
+        "reason": reason,
+        "timestamp": datetime.now().isoformat(),
+        "disclaimer": "Disclaimer: This AI Triage is for informational purposes only. It is not a substitute for professional medical advice."
+    }
+
+@app.get("/api/enabiz/fhir/export/{patient_id}", summary="FHIR e-Nabiz Export Bridge")
+def fhir_export(patient_id: str, u: dict = Depends(current_user)):
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    chain_data = record_service.get_chain(patient_id)
+    
+    patient_resource = {
+        "resourceType": "Patient",
+        "id": patient_id,
+        "active": True,
+        "name": [
+            {
+                "use": "official",
+                "text": u.get("full_name", "VIP Patient")
+            }
+        ]
+    }
+    
+    fhir_bundle = {
+        "resourceType": "Bundle",
+        "id": f"bundle-{secrets.token_hex(4)}",
+        "type": "collection",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "entry": [
+            {
+                "fullUrl": f"urn:uuid:patient-{patient_id}",
+                "resource": patient_resource
+            }
+        ]
+    }
+    
+    for idx, block in enumerate(chain_data):
+        if block.index == 0:
+            continue
+            
+        try:
+            data = record_service.get_final_block_data(patient_id, block.index, password=None, username=u["username"])
+        except Exception:
+            continue
+            
+        if not data or not isinstance(data, dict):
+            continue
+            
+        rec_type = data.get("record_type")
+        title = data.get("title", "")
+        
+        if rec_type == "vital_signs" and "data" in data:
+            v = data["data"]
+            obs_resource = {
+                "resourceType": "Observation",
+                "id": f"obs-{idx}",
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs",
+                                "display": "Vital Signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "85353-1",
+                            "display": "Vital signs panel"
+                        }
+                    ],
+                    "text": title
+                },
+                "subject": {
+                    "reference": f"Patient/{patient_id}"
+                },
+                "effectiveDateTime": data.get("record_date", datetime.now().isoformat()),
+                "component": []
+            }
+            
+            if "heart_rate" in v:
+                obs_resource["component"].append({
+                    "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4", "display": "Heart rate"}]},
+                    "valueQuantity": {"value": float(v["heart_rate"]), "unit": "beats/minute", "system": "http://unitsofmeasure.org", "code": "/min"}
+                })
+            if "temperature" in v:
+                obs_resource["component"].append({
+                    "code": {"coding": [{"system": "http://loinc.org", "code": "8310-5", "display": "Body temperature"}]},
+                    "valueQuantity": {"value": float(v["temperature"]), "unit": "C", "system": "http://unitsofmeasure.org", "code": "Cel"}
+                })
+            if "oxygen_sat" in v:
+                obs_resource["component"].append({
+                    "code": {"coding": [{"system": "http://loinc.org", "code": "2708-6", "display": "Oxygen saturation"}]},
+                    "valueQuantity": {"value": float(v["oxygen_sat"]), "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"}
+                })
+            if "blood_pressure" in v:
+                obs_resource["component"].append({
+                    "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure"}]},
+                    "valueString": v["blood_pressure"]
+                })
+            
+            fhir_bundle["entry"].append({
+                "fullUrl": f"urn:uuid:observation-{idx}",
+                "resource": obs_resource
+            })
+            
+        elif rec_type == "prescription" and "data" in data:
+            med = data["data"]
+            med_request = {
+                "resourceType": "MedicationRequest",
+                "id": f"medreq-{idx}",
+                "status": "active",
+                "intent": "order",
+                "medicationCodeableConcept": {
+                    "text": med.get("medication", "Unknown Medication")
+                },
+                "subject": {
+                    "reference": f"Patient/{patient_id}"
+                },
+                "authoredOn": data.get("record_date", datetime.now().isoformat()),
+                "requester": {
+                    "display": data.get("doctor_name", "Doctor")
+                },
+                "dosageInstruction": [
+                    {
+                        "text": f"Dose: {med.get('dose')}, Freq: {med.get('frequency')}, Duration: {med.get('duration')} days"
+                    }
+                ]
+            }
+            fhir_bundle["entry"].append({
+                "fullUrl": f"urn:uuid:medrequest-{idx}",
+                "resource": med_request
+            })
+            
+    return fhir_bundle
+
+@app.post("/api/webhooks/lis", summary="LIS Hospital Webhook Gateway")
+def lis_webhook(payload: LisWebhookPayload):
+    block_data = {
+        "record_type":       "lab_result",
+        "record_type_label": RECORD_TYPES["lab_result"],
+        "title":             payload.title,
+        "doctor_name":       payload.doctor_name,
+        "institution":       payload.institution,
+        "record_date":       datetime.now().strftime("%Y-%m-%d"),
+        "access_level":      "doctor_shared",
+        "is_confidential":   False,
+        "data": {
+            "test_name":       payload.test_name,
+            "result_value":    payload.result_value,
+            "reference_range": payload.reference_range,
+            "unit":            payload.unit
+        },
+        "notes":             f"LIS Webhook Import. {payload.notes or ''}",
+        "created_by":        "LIS_GATEWAY",
+        "created_at":        datetime.now(timezone.utc).isoformat(),
+        "patient_id":        payload.patient_id,
+        "file_name":         None,
+        "file_type":         None,
+        "file_data":         None,
+    }
+    
+    try:
+        block = record_service.add_record(
+            patient_id=payload.patient_id,
+            data=block_data,
+            is_protected=False,
+            protection_password=None,
+            username="LIS_GATEWAY"
+        )
+        return {
+            "success": True,
+            "block_index": block.index,
+            "message": "LIS laboratory block appended to blockchain successfully"
+        }
+    except Exception as ex:
+        raise HTTPException(500, f"Failed to save webhook record to blockchain: {str(ex)}")
 
 # ──────────────────────────────────────────────────────────────
 # FRONTEND SERVER

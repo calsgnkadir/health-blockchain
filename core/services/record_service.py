@@ -177,10 +177,9 @@ class RecordService:
         project_name = self._get_project_name(patient_id)
         chain = self._get_or_create_chain(patient_id)
 
-        if block_index < 0 or block_index >= len(chain):
+        block = next((b for b in chain if b.index == block_index), None)
+        if not block:
             return None
-
-        block = chain[block_index]
 
         event_bus.publish(RecordReadEvent(
             project_name=project_name,
@@ -263,7 +262,8 @@ class RecordService:
         project_name = self._get_project_name(patient_id)
         chain = self._get_or_create_chain(patient_id)
 
-        if block_index < 0 or block_index >= len(chain):
+        block = next((b for b in chain if b.index == block_index), None)
+        if not block:
             return None
 
         # Find latest correction block if any
@@ -289,7 +289,7 @@ class RecordService:
             extra={"correction_index": correction_block.index}
         ))
 
-        original_block = chain[block_index]
+        original_block = block
         corrected_data = correction_block.data["corrected_data"]
 
         if original_block.is_protected:
