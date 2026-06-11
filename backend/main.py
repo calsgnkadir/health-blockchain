@@ -30,9 +30,11 @@ import sys
 import time
 import threading
 import secrets
+import base64
 
 # ── Path Configuration ───────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _PROJECT_ROOT)
 from core.security import (
     verify_password, hash_password,
     get_device_id, validate_password,
