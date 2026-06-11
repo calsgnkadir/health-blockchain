@@ -17,5 +17,7 @@ Write-Host '  Doktor : dr.smith / Doctor@2026Secure!'
 Write-Host '  VIP    : vip001 / VIPPatient@2026!'
 Write-Host ""
 
+$env:ENVIRONMENT="development"
+$env:VHV_DEMO_MODE="true"
 Set-Location $backend
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
