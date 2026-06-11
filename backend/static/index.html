@@ -66,21 +66,10 @@
           </div>
         </form>
 
-        <div class="demo-credentials" style="display:none;">
+        <div class="demo-credentials" id="demo-credentials-box" style="display:none;">
           <p class="demo-title">Demo Accounts</p>
-          <div class="demo-list">
-            <div class="demo-item" onclick="fillCreds('admin','Admin@2026Secure!')">
-              <span class="role-badge badge-admin">ADMIN</span>
-              <span>admin / Admin@2026Secure!</span>
-            </div>
-            <div class="demo-item" onclick="fillCreds('dr.smith','Doctor@2026Secure!')">
-              <span class="role-badge badge-doctor">DOCTOR</span>
-              <span>dr.smith / Doctor@2026Secure!</span>
-            </div>
-            <div class="demo-item" onclick="fillCreds('vip001','VIPPatient@2026!')">
-              <span class="role-badge badge-vip">VIP</span>
-              <span>vip001 / VIPPatient@2026!</span>
-            </div>
+          <div class="demo-list" id="demo-credentials-list">
+            <!-- Dynamically loaded if demo mode is enabled on the server -->
           </div>
         </div>
       </div>
@@ -138,6 +127,10 @@
         </a>
         <a class="nav-item" data-page="security" onclick="navigate('security')">
           Security &amp; 2FA
+        </a>
+
+        <a class="nav-item" data-page="consent" id="nav-consent" onclick="navigate('consent')">
+          Consent Management
         </a>
 
         <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
@@ -487,6 +480,67 @@
         </div>
       </section>
 
+      <!-- CONSENT MANAGEMENT VIEW -->
+      <section id="view-consent" class="view">
+        <div class="view-header">
+          <h2>Consent Management</h2>
+          <p class="view-sub">Manage provider access permissions and emergency break-glass overrides</p>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
+          <!-- Grant Consent Form -->
+          <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+            <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Grant Provider Consent</h3>
+            <div id="consent-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+            <div id="consent-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
+            <form id="consent-form" onsubmit="grantConsent(event)">
+              <div class="field-group" style="margin-bottom: 14px;">
+                <label>Doctor Username <span class="req">*</span></label>
+                <input type="text" id="consent-doctor" placeholder="e.g. dr.smith" required />
+              </div>
+              <div class="field-group" style="margin-bottom: 14px;">
+                <label>Record Type <span class="req">*</span></label>
+                <select id="consent-record-type" required>
+                  <option value="all">All Records</option>
+                  <option value="diagnosis">Diagnosis</option>
+                  <option value="lab_result">Lab Result</option>
+                  <option value="prescription">Prescription</option>
+                  <option value="imaging">Imaging (MRI/CT/X-Ray)</option>
+                  <option value="vital_signs">Vital Signs</option>
+                </select>
+              </div>
+              <div class="field-group" style="margin-bottom: 20px;">
+                <label>Duration (Days) <span class="req">*</span></label>
+                <input type="number" id="consent-duration" min="1" max="365" value="30" required />
+              </div>
+              <button type="submit" class="btn btn-gold btn-full">GRANT CONSENT</button>
+            </form>
+          </div>
+
+          <!-- Active Consents & Break Glass Override -->
+          <div style="display: flex; flex-direction: column; gap: 24px;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Active Consent Permissions</h3>
+              <div id="consents-list" class="records-list"></div>
+            </div>
+
+            <div class="glass" style="padding: 20px; border-radius: var(--radius); border-top: 3px solid var(--danger);">
+              <h3 style="color: var(--danger); font-size: 15px; margin-bottom: 12px;">🚨 Emergency Break-Glass Override</h3>
+              <p style="font-size:12px; color:var(--muted); line-height:1.4; margin-bottom:16px;">
+                Doctors can temporarily bypass consent checks in medical emergencies. This action is audited, notified to the patient immediately, and logs the hardware device fingerprint.
+              </p>
+              <div id="breakglass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+              <div id="breakglass-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
+              <form id="break-glass-form" onsubmit="triggerBreakGlass(event)">
+                <div class="field-group" style="margin-bottom: 14px;">
+                  <label>Emergency Reason <span class="req">*</span></label>
+                  <textarea id="breakglass-reason" placeholder="State the emergency clinical reason (e.g. unconscious patient in trauma bay)..." rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-error btn-full">EXECUTE BREAK-GLASS OVERRIDE</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- WEARABLES VIEW -->
       <section id="view-wearables" class="view">
@@ -623,6 +677,6 @@
   </div>
 </div>
 
-<script src="/static/js/app.js?v=3.1"></script>
+<script type="module" src="/static/js/app.js"></script>
 </body>
 </html>

@@ -168,6 +168,7 @@ class Block:
             "device_id": self.device_id,
             "hash": self.hash,
             "merkle_root": self.merkle_root,
+            "protection_password": self.protection_password,
         }
 
     @classmethod

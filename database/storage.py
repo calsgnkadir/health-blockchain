@@ -74,6 +74,12 @@ def list_projects() -> List[str]:
 # LMDB CORE HELPERS (Cached Environment Management)
 # ──────────────────────────────────────────────
 
+import contextvars
+
+# Global context variables to track active LMDB transactions for Unit of Work
+active_txn = contextvars.ContextVar("active_txn", default=None)
+active_project = contextvars.ContextVar("active_project", default=None)
+
 _map_sizes: Dict[str, int] = {}
 _envs: Dict[str, lmdb.Environment] = {}
 _env_lock = threading.Lock()
@@ -101,7 +107,14 @@ def open_db(project_name: str) -> lmdb.Environment:
 def run_write_transaction(project_name: str, txn_func) -> Any:
     """
     Executes write transaction on LMDB with automatic resize support.
+    If an active transaction exists in the context for this project, it is reused.
     """
+    current_txn = active_txn.get()
+    current_proj = active_project.get()
+    
+    if current_txn is not None and current_proj == project_name:
+        return txn_func(current_txn)
+
     if project_name not in _map_sizes:
         _map_sizes[project_name] = LMDB_MAP_SIZE
     
@@ -153,9 +166,16 @@ def load_all_blocks(project_name: str) -> List[dict]:
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
         for key, value in cursor:
-            if key.startswith(b"meta_") or key.startswith(b"salt_") \
-                    or key.startswith(b"audit_") or key.startswith(b"user_") \
-                    or key.startswith(b"access_log_") or key.startswith(b"pwd_hash_"):
+            if (
+                key.startswith(b"meta_")
+                or key.startswith(b"salt_")
+                or key.startswith(b"audit_")
+                or key.startswith(b"user_")
+                or key.startswith(b"access_log_")
+                or key.startswith(b"pwd_hash_")
+                or key.startswith(b"consent_")
+                or key.startswith(b"notif_")
+            ):
                 continue
             try:
                 block_data = json.loads(value.decode("utf-8"))

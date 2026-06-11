@@ -33,10 +33,10 @@ import secrets
 
 # ── Path Configuration ───────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.blockchain import Blockchain
 from core.security import (
     verify_password, hash_password,
     get_device_id, validate_password,
+    encrypt_data, decrypt_data,
 )
 import database.storage as storage
 import core.totp as totp
@@ -48,6 +48,15 @@ from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 from core.services.auth_service import AuthService
 from core.services.record_service import RecordService
 from core.services.audit_service import AuditService
+from core.services.consent_validator import ConsentValidator
+from core.cqrs.commands import (
+    AddRecordCommand, AddCorrectionCommand, CreateUserCommand,
+    GrantConsentCommand, RevokeConsentCommand, CommandHandler
+)
+from core.cqrs.queries import (
+    GetPatientRecordsQuery, DecryptRecordQuery, ExportFHIRBundleQuery,
+    GetNotificationsQuery, GetConsentsQuery, QueryHandler
+)
 
 user_repository = LMDBUserRepository()
 block_repository = LMDBBlockRepository()
@@ -57,6 +66,10 @@ crypto_strategy = AESGCMStrategy()
 auth_service = AuthService(user_repository)
 record_service = RecordService(block_repository, crypto_strategy)
 audit_service = AuditService(audit_repository, record_service)
+consent_validator = ConsentValidator(block_repository)
+
+command_handler = CommandHandler(record_service, auth_service, block_repository)
+query_handler = QueryHandler(record_service, block_repository, consent_validator)
 
 
 # ── Application ─────────────────────────────────────────────────
@@ -119,24 +132,52 @@ def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
     """Loads RSA private and public keys, generating them if they do not exist."""
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from core.security import get_device_id
+
+    # Check env vars first
+    env_priv = os.getenv("VHV_JWT_PRIVATE_KEY")
+    env_pub = os.getenv("VHV_JWT_PUBLIC_KEY")
+    if env_priv and env_pub:
+        return env_priv.strip(), env_pub.strip()
+
+    # Get passphrase
+    passphrase = os.getenv("VHV_JWT_PASSPHRASE", get_device_id()).encode("utf-8")
 
     if os.path.exists(_JWT_PRIVATE_KEY_FILE) and os.path.exists(_JWT_PUBLIC_KEY_FILE):
-        with open(_JWT_PRIVATE_KEY_FILE, "r") as f:
-            private_pem = f.read()
-        with open(_JWT_PUBLIC_KEY_FILE, "r") as f:
-            public_pem = f.read()
-        return private_pem, public_pem
+        try:
+            with open(_JWT_PRIVATE_KEY_FILE, "rb") as f:
+                private_data = f.read()
+            # Try to load as encrypted key
+            private_key = serialization.load_pem_private_key(private_data, password=passphrase)
+            private_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode("utf-8")
+            
+            with open(_JWT_PUBLIC_KEY_FILE, "r") as f:
+                public_pem = f.read()
+            return private_pem, public_pem
+        except Exception as e:
+            print(f"[WARNING] Failed to load encrypted JWT private key: {e}. Generating new key pair.")
 
     # Generate keys
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048
     )
-    private_pem = private_key.private_bytes(
+    private_pem_unencrypted = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption()
     ).decode("utf-8")
+
+    # Encrypt for saving
+    private_pem_encrypted = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.BestAvailableEncryption(passphrase)
+    )
 
     public_key = private_key.public_key()
     public_pem = public_key.public_bytes(
@@ -145,13 +186,13 @@ def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
     ).decode("utf-8")
 
     # Save to files
-    with open(_JWT_PRIVATE_KEY_FILE, "w") as f:
-        f.write(private_pem)
+    with open(_JWT_PRIVATE_KEY_FILE, "wb") as f:
+        f.write(private_pem_encrypted)
     with open(_JWT_PUBLIC_KEY_FILE, "w") as f:
         f.write(public_pem)
 
-    print("[OK] Generated new RSA key pair for JWT signing.")
-    return private_pem, public_pem
+    print("[OK] Generated new secure (encrypted) RSA key pair for JWT signing.")
+    return private_pem_unencrypted, public_pem
 
 JWT_PRIVATE_KEY, JWT_PUBLIC_KEY = _load_or_generate_jwt_rsa_keys()
 ALGORITHM = "RS256"
@@ -178,24 +219,13 @@ def _check_rate_limit(ip: str) -> bool:
         return True
 
 def _get_client_ip(request: Request) -> str:
-    """Extracts client IP from X-Forwarded-For if behind a proxy, otherwise client host."""
-    xff = request.headers.get("X-Forwarded-For")
-    if xff:
-        return xff.split(",")[0].strip()
+    """Extracts client IP, respecting X-Forwarded-For ONLY if TRUST_PROXIES is enabled."""
+    trust_proxies = os.getenv("TRUST_PROXIES", "false").lower() == "true"
+    if trust_proxies:
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
-
-# ── Blockchain Cache ──────────────────────────────────────────
-_blockchains: Dict[str, Blockchain] = {}
-_bc_lock = threading.Lock()
-
-def get_blockchain(patient_id: str) -> Blockchain:
-    with _bc_lock:
-        if patient_id not in _blockchains:
-            proj = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
-            if not storage.project_exists(proj):
-                storage.create_project(proj)
-            _blockchains[patient_id] = Blockchain(proj)
-        return _blockchains[patient_id]
 
 # ── Health Record Categories ────────────────────────────────
 RECORD_TYPES = {
@@ -225,9 +255,10 @@ ACCESS_LEVELS = {
 async def startup_event():
     """Initialize user database on startup."""
     env = os.environ.get("ENVIRONMENT", "production")
-    if env == "development":
+    demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
+    if env == "development" or demo_mode:
         storage.seed_default_users()
-        print("[INFO] Seeding default users (Development Mode)")
+        print("[INFO] Seeding default users (Development/Demo Mode)")
     else:
         print("[INFO] Production Mode — Skipping default user seeding")
     print(f"[OK] VIP Health Vault API v3.0 ready - Device: {get_device_id()[:16]}...")
@@ -286,6 +317,14 @@ class LoginReq(BaseModel):
     username: str
     password: str
     code: Optional[str] = None
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\.\-]{3,50}$", v):
+            raise ValueError("Username must contain only alphanumeric characters, underscores, dots, or hyphens.")
+        return v
 
 
 @app.post("/api/auth/login", summary="User Login")
@@ -436,6 +475,23 @@ class UserCreate(BaseModel):
             raise ValueError(f"Invalid role. Allowed roles: {allowed}")
         return v
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\.\-]{3,50}$", v):
+            raise ValueError("Username must be between 3 and 50 characters and contain only alphanumeric characters, underscores, dots, or hyphens.")
+        return v
+
+    @field_validator("patient_id")
+    @classmethod
+    def validate_patient_id(cls, v):
+        import re
+        if v is not None:
+            if not re.match(r"^[a-zA-Z0-9_\-]{3,50}$", v):
+                raise ValueError("Patient ID must be between 3 and 50 characters and contain only alphanumeric characters, underscores, or hyphens.")
+        return v
+
 
 @app.get("/api/admin/users", summary="All Users")
 def list_users(u: dict = Depends(require_role("admin"))):
@@ -451,7 +507,7 @@ def create_user(data: UserCreate, u: dict = Depends(require_role("admin"))):
     if user_repository.user_exists(data.username):
         raise HTTPException(409, f"Username already exists: {data.username}")
 
-    new_user = auth_service.create_user(
+    cmd = CreateUserCommand(
         username=data.username,
         password=data.password,
         role=data.role,
@@ -461,6 +517,7 @@ def create_user(data: UserCreate, u: dict = Depends(require_role("admin"))):
         institution=data.institution,
         creator_username=u["username"]
     )
+    new_user = command_handler.handle_create_user(cmd)
 
     return {"success": True, "user_id": new_user.id}
 
@@ -565,6 +622,82 @@ class ImagingSchema(BaseModel):
     findings: str
     radiologist: str
 
+# ── HELPER FUNCTIONS ──────────────────────────────────────────────
+def check_patient_id(patient_id: str):
+    import re
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
+        raise HTTPException(400, "Invalid patient_id format")
+
+def is_abnormal(value_str: str, range_str: str) -> bool:
+    try:
+        val = float(value_str)
+        if "-" in range_str:
+            parts = range_str.split("-")
+            low = float(parts[0].strip())
+            high = float(parts[1].strip())
+            return val < low or val > high
+    except Exception:
+        pass
+    return False
+
+def create_notification(patient_id: str, title: str, message: str, severity: str = "info") -> None:
+    project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    if not storage.project_exists(project_name):
+        storage.create_project(project_name)
+    
+    notif_id = f"notif_{time.time_ns()}"
+    notif_data = {
+        "id": notif_id,
+        "patient_id": patient_id,
+        "title": title,
+        "message": message,
+        "severity": severity,
+        "timestamp": time.time(),
+        "read": False
+    }
+    
+    def txn_notif(txn):
+        key = f"notif_{notif_id}".encode("utf-8")
+        txn.put(key, json.dumps(notif_data).encode("utf-8"))
+        
+    storage.run_write_transaction(project_name, txn_notif)
+
+
+# ── CONSENT & NOTIFICATION REQUEST SCHEMAS ──────────────────────────
+class ConsentGrantReq(BaseModel):
+    patient_id: str
+    doctor_username: str
+    record_type: str
+    duration_days: int
+
+    @field_validator("patient_id")
+    @classmethod
+    def validate_patient_id(cls, v):
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", v):
+            raise ValueError("patient_id must contain only alphanumeric characters, underscores, and hyphens.")
+        return v
+
+    @field_validator("doctor_username")
+    @classmethod
+    def validate_doctor_username(cls, v):
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\-\.]+$", v):
+            raise ValueError("doctor_username must contain only alphanumeric characters, underscores, hyphens, and dots.")
+        return v
+
+    @field_validator("duration_days")
+    @classmethod
+    def validate_duration(cls, v):
+        if v <= 0:
+            raise ValueError("duration_days must be positive")
+        return v
+
+class BreakGlassReq(BaseModel):
+    reason: str
+
+
+# ── HEALTH RECORD SCHEMAS & VALIDATIONS ────────────────────────────
 class RecordCreate(BaseModel):
     patient_id:      str
     record_type:     str
@@ -580,6 +713,14 @@ class RecordCreate(BaseModel):
     file_name:       Optional[str] = None
     file_type:       Optional[str] = None
     file_data:       Optional[str] = None
+
+    @field_validator("patient_id")
+    @classmethod
+    def validate_patient_id(cls, v):
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", v):
+            raise ValueError("patient_id must contain only alphanumeric characters, underscores, and hyphens.")
+        return v
 
     @field_validator("record_type")
     @classmethod
@@ -599,15 +740,26 @@ class RecordCreate(BaseModel):
     @classmethod
     def file_data_size(cls, v):
         if v is not None:
-            # 2MB binary is approximately 2.7MB base64 encoded
             max_len = int(2 * 1024 * 1024 * 4 / 3)
             if len(v) > max_len:
                 raise ValueError("Attachment size exceeds the 2MB limit")
         return v
 
+class DecryptRequest(BaseModel):
+    password: str
+    block_index: int
+
+    @field_validator("block_index")
+    @classmethod
+    def validate_block_index(cls, v):
+        if v < 0:
+            raise ValueError("block_index must be a non-negative integer.")
+        return v
+
+
+# ── HEALTH RECORD ENDPOINTS ────────────────────────────────────────
 @app.post("/api/records", summary="Add Health Record")
 def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
-    # Authorization checks
     if u["role"] == "vip_patient" and u.get("patient_id") != rec.patient_id:
         raise HTTPException(403, "You can only access your own records")
     if u["role"] not in ("doctor", "admin", "vip_patient"):
@@ -632,19 +784,9 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         elif rec.record_type == "imaging":
             ImagingSchema(**rec.data)
     except ValidationError as e:
-        err_msgs = []
-        for error in e.errors():
-            loc = ".".join(str(x) for x in error["loc"])
-            err_msgs.append(f"{loc}: {error['msg']}")
-        raise HTTPException(
-            status_code=422,
-            detail=f"Validation failed: {', '.join(err_msgs)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Validation error: {str(e)}"
-        )
+        err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
+        raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
 
     block_data = {
         "record_type":       rec.record_type,
@@ -662,16 +804,48 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
         "patient_id":        rec.patient_id,
         "file_name":         rec.file_name,
         "file_type":         rec.file_type,
-        "file_data":         rec.file_data,
+        "file_data":         None,
     }
 
-    block = record_service.add_record(
+    # Off-chain file storage logic
+    file_hash = None
+    if rec.file_data:
+        OFFCHAIN_DIR = os.path.join(_PROJECT_ROOT, "backend", "offchain_storage")
+        os.makedirs(OFFCHAIN_DIR, exist_ok=True)
+        
+        file_pwd = secrets.token_hex(16)
+        enc_data_b64, file_salt_bytes = encrypt_data(rec.file_data, file_pwd)
+        
+        import hashlib
+        file_hash = hashlib.sha256(enc_data_b64.encode("utf-8")).hexdigest()
+        
+        file_path = os.path.join(OFFCHAIN_DIR, file_hash)
+        with open(file_path, "w") as f:
+            f.write(enc_data_b64)
+            
+        block_data["file_hash"] = file_hash
+        block_data["file_salt"] = base64.b64encode(file_salt_bytes).decode("utf-8")
+        block_data["file_pwd"] = file_pwd
+
+    # Write block using CQRS AddRecordCommand
+    cmd = AddRecordCommand(
         patient_id=rec.patient_id,
         data=block_data,
         is_protected=rec.is_confidential,
         protection_password=rec.confidential_password if rec.is_confidential else None,
-        username=u["username"],
+        username=u["username"]
     )
+    block = command_handler.handle_add_record(cmd)
+
+    # Handle notifications for prescription
+    if rec.record_type == "prescription":
+        med_name = rec.data.get("medication", "İlaç")
+        create_notification(
+            patient_id=rec.patient_id,
+            title="YENİ İLAÇ REÇETESİ",
+            message=f"Reçetenize yeni bir ilaç eklendi: {med_name}. Lütfen kullanım talimatlarına uyun.",
+            severity="info"
+        )
 
     return {
         "success":     True,
@@ -683,70 +857,34 @@ def add_record(rec: RecordCreate, u: dict = Depends(current_user)):
 
 @app.get("/api/records/{patient_id}", summary="Get Patient Records")
 def get_records(patient_id: str, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
     role = u["role"]
-
-    # Authorization checks
     if role == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    chain = record_service.get_chain(patient_id)
-    final_data = record_service.get_final_data(patient_id)
-    records = []
+    # Enforce consent validation for doctors
+    ignore_consent = False
+    if role == "doctor":
+        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        access_logs = storage.load_access_logs(proj_name, limit=5)
+        for log in access_logs:
+            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
+                if time.time() - log.get("timestamp", 0) < 900:  # 15 mins window
+                    ignore_consent = True
+                    break
 
-    for block in chain:
-        if block.index == 0:
-            continue  # Skip Genesis block
-        data = final_data.get(block.index)
-        if data is None:
-            continue
-
-        # Do not show audit blocks as medical records
-        if isinstance(data, dict) and data.get("type") == "audit":
-            continue
-
-        # Doctors cannot see private records
-        if role == "doctor" and isinstance(data, dict) and data.get("access_level") == "private":
-            continue
-
-        entry = {
-            "block_index":    block.index,
-            "timestamp":      block.timestamp,
-            "timestamp_iso":  datetime.fromtimestamp(block.timestamp, tz=timezone.utc).isoformat(),
-            "is_protected":   block.is_protected,
-            "is_correction":  isinstance(data, dict) and data.get("type") == "correction",
-            "hash_preview":   block.hash[:24] + "...",
-            "device_id":      block.device_id[:16] + "..." if block.device_id else None,
-        }
-
-        if block.is_protected:
-            entry["title"]        = "ENCRYPTED VIP RECORD"
-            entry["record_type"]  = "protected"
-            entry["data"]         = None
-            entry["file_name"]    = None
-            entry["file_type"]    = None
-            entry["file_data"]    = None
-        elif isinstance(data, dict):
-            entry["title"]        = data.get("title", "Untitled")
-            entry["record_type"]  = data.get("record_type", "other")
-            entry["record_type_label"] = data.get("record_type_label", "")
-            entry["access_level"] = data.get("access_level", "")
-            entry["doctor_name"]  = data.get("doctor_name", "")
-            entry["institution"]  = data.get("institution", "")
-            entry["record_date"]  = data.get("record_date", "")
-            entry["data"]         = data.get("data", {})
-            entry["notes"]        = data.get("notes", "")
-            entry["file_name"]    = data.get("file_name")
-            entry["file_type"]    = data.get("file_type")
-            entry["file_data"]    = data.get("file_data")
-        else:
-            entry["title"] = str(data)[:80]
-            entry["data"]  = None
-
-        records.append(entry)
-
+    query = GetPatientRecordsQuery(
+        patient_id=patient_id,
+        requester_username=u["username"],
+        requester_role=role,
+        ignore_consent=ignore_consent
+    )
+    records = query_handler.handle_get_patient_records(query)
+    
+    # Sort records by timestamp descending
     records.sort(key=lambda x: x["timestamp"], reverse=True)
 
-    # Access audit log
+    # Publish access viewed event
     from core.events.event_bus import SystemAuditEvent, event_bus
     event_bus.publish(SystemAuditEvent(
         project_name=record_service._get_project_name(patient_id),
@@ -756,6 +894,7 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
         extra={"record_count": len(records)}
     ))
 
+    chain = record_service.get_chain(patient_id)
     return {
         "patient_id":   patient_id,
         "total_blocks": len(chain),
@@ -764,13 +903,11 @@ def get_records(patient_id: str, u: dict = Depends(current_user)):
     }
 
 
-@app.get("/api/records/{patient_id}/{block_index}", summary="Get Single Record (Public)")
-def get_single_record(
-    patient_id: str,
-    block_index: int,
-    u: dict = Depends(current_user),
-):
-    """Returns metadata for a single block. Encrypted blocks return a placeholder — use POST /decrypt."""
+from fastapi import Path
+
+@app.get("/api/records/{patient_id}/{block_index}", summary="Get Single Record")
+def get_single_record(patient_id: str, block_index: int = Path(..., ge=0), u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
@@ -790,36 +927,214 @@ def get_single_record(
     return {"block_index": block_index, "is_protected": False, "data": data}
 
 
-class DecryptRequest(BaseModel):
-    password: str
-
-
 @app.post("/api/records/{patient_id}/{block_index}/decrypt", summary="Decrypt Encrypted Record")
-def decrypt_record(
-    patient_id: str,
-    block_index: int,
-    req: DecryptRequest,
-    u: dict = Depends(current_user),
-):
-    """
-    Decrypts a confidential block using the provided password.
-    Password is sent in the request body — never in the URL.
-    """
+def decrypt_record(patient_id: str, block_index: int = Path(..., ge=0), req: DecryptRequest = None, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    if not req.password:
+    if not req or not req.password:
         raise HTTPException(400, "Password is required to decrypt this record")
 
-    data = record_service.get_final_block_data(patient_id, block_index, password=req.password, username=u["username"])
+    # Enforce consent validation for doctors
+    ignore_consent = False
+    if u["role"] == "doctor":
+        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        access_logs = storage.load_access_logs(proj_name, limit=5)
+        for log in access_logs:
+            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
+                if time.time() - log.get("timestamp", 0) < 900:  # 15 mins window
+                    ignore_consent = True
+                    break
 
-    if isinstance(data, str) and (
-        "INCORRECT" in data or "SECURE" in data or "ERROR" in data
-    ):
+    query = DecryptRecordQuery(
+        patient_id=patient_id,
+        block_index=block_index,
+        password=req.password,
+        requester_username=u["username"],
+        requester_role=u["role"],
+        ignore_consent=ignore_consent
+    )
+    data = query_handler.handle_decrypt_record(query)
+
+    if isinstance(data, str) and ("INCORRECT" in data or "SECURE" in data or "ERROR" in data):
         raise HTTPException(403, "Incorrect password — decryption failed")
 
     return {"block_index": block_index, "data": data}
 
+
+# ── OFF-CHAIN FILE DOWNLOAD ENDPOINT ────────────────────────────────
+@app.get("/api/records/offchain/download/{patient_id}/{block_index}", summary="Download Off-chain File")
+def download_offchain_file(patient_id: str, block_index: int, password: Optional[str] = None, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    role = u["role"]
+    ignore_consent = False
+    
+    if role == "doctor":
+        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        access_logs = storage.load_access_logs(proj_name, limit=5)
+        for log in access_logs:
+            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
+                if time.time() - log.get("timestamp", 0) < 900:
+                    ignore_consent = True
+                    break
+        if not ignore_consent:
+            has_any = (
+                consent_validator.has_consent(patient_id, u["username"], "all")
+                or consent_validator.has_consent(patient_id, u["username"], "imaging")
+                or consent_validator.has_consent(patient_id, u["username"], "lab_result")
+            )
+            if not has_any:
+                raise HTTPException(403, "Access denied: Patient consent is required to download this file.")
+                
+    if role == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    try:
+        data = record_service.get_final_block_data(patient_id, block_index, password=password, username=u["username"])
+        if isinstance(data, str) and ("SECURE" in data or "INCORRECT" in data or "ERROR" in data):
+            raise HTTPException(400, f"Decryption failed: {data}")
+            
+        if not isinstance(data, dict) or not data.get("file_hash"):
+            raise HTTPException(404, "File not found or not stored off-chain")
+            
+        file_hash = data["file_hash"]
+        file_salt = base64.b64decode(data["file_salt"])
+        file_pwd = data["file_pwd"]
+        file_name = data.get("file_name", "download")
+        file_type = data.get("file_type", "application/octet-stream")
+        
+        OFFCHAIN_DIR = os.path.join(_PROJECT_ROOT, "backend", "offchain_storage")
+        file_path = os.path.join(OFFCHAIN_DIR, file_hash)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(404, "Encrypted file not found on off-chain storage")
+            
+        with open(file_path, "r") as f:
+            enc_data_b64 = f.read()
+            
+        decrypted_b64 = decrypt_data(enc_data_b64, file_pwd, file_salt)
+        file_bytes = base64.b64decode(decrypted_b64)
+        
+        return Response(
+            content=file_bytes,
+            media_type=file_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={file_name}"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to download off-chain file: {str(e)}")
+
+
+# ── PATIENT CONSENT ENDPOINTS ───────────────────────────────────────
+@app.get("/api/consent/{patient_id}", summary="Get Patient Consent Rules")
+def get_consents(patient_id: str, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+    
+    project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    if not storage.project_exists(project_name):
+        return {"consents": []}
+        
+    env = storage.open_db(project_name)
+    consents = []
+    with env.begin(write=False) as txn:
+        cursor = txn.cursor()
+        for key, value in cursor:
+            if key.startswith(b"consent_"):
+                try:
+                    cdata = json.loads(value.decode("utf-8"))
+                    consents.append(cdata)
+                except Exception:
+                    continue
+    return {"consents": consents}
+
+@app.post("/api/consent", summary="Grant or Update Doctor Consent")
+def grant_consent(data: ConsentGrantReq, u: dict = Depends(current_user)):
+    if u["role"] == "vip_patient" and u.get("patient_id") != data.patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    doc = user_repository.load_user(data.doctor_username)
+    if not doc or doc.role != "doctor":
+        raise HTTPException(404, "Doctor not found")
+        
+    cmd = GrantConsentCommand(
+        patient_id=data.patient_id,
+        doctor_username=data.doctor_username,
+        record_type=data.record_type,
+        duration_days=data.duration_days,
+        username=u["username"]
+    )
+    command_handler.handle_grant_consent(cmd)
+    return {"success": True, "message": "Consent granted successfully"}
+
+@app.delete("/api/consent/{patient_id}/{doctor_username}/{record_type}", summary="Revoke Doctor Consent")
+def revoke_consent(patient_id: str, doctor_username: str, record_type: str, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    cmd = RevokeConsentCommand(
+        patient_id=patient_id,
+        doctor_username=doctor_username,
+        record_type=record_type,
+        username=u["username"]
+    )
+    command_handler.handle_revoke_consent(cmd)
+    return {"success": True, "message": "Consent revoked successfully"}
+
+@app.post("/api/consent/{patient_id}/break-glass", summary="Break Glass Emergency Override")
+def break_glass(patient_id: str, data: BreakGlassReq, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    if u["role"] != "doctor":
+        raise HTTPException(403, "Only doctors can invoke emergency override")
+        
+    consent_validator.break_glass_override(
+        patient_id=patient_id,
+        doctor_username=u["username"],
+        reason=data.reason,
+        device_id=get_device_id()
+    )
+    return {"success": True, "message": "Emergency access granted. Audit entry logged."}
+
+
+# ── SMART NOTIFICATION ENDPOINTS ──────────────────────────────────
+@app.get("/api/notifications/{patient_id}", summary="Get Patient Notifications")
+def get_notifications(patient_id: str, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    query = GetNotificationsQuery(patient_id=patient_id, username=u["username"])
+    notifs = query_handler.handle_get_notifications(query)
+    return {"notifications": notifs}
+
+@app.post("/api/notifications/{patient_id}/{notif_id}/read", summary="Mark Notification as Read")
+def mark_notification_read(patient_id: str, notif_id: str, u: dict = Depends(current_user)):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+        
+    project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    
+    def txn_read(txn):
+        key = f"notif_{notif_id}".encode("utf-8")
+        val = txn.get(key)
+        if val:
+            data = json.loads(val.decode("utf-8"))
+            data["read"] = True
+            txn.put(key, json.dumps(data).encode("utf-8"))
+            return True
+        return False
+        
+    success = storage.run_write_transaction(project_name, txn_read)
+    if not success:
+        raise HTTPException(404, "Notification not found")
+    return {"success": True}
 
 # ──────────────────────────────────────────────────────────────
 # BLOCKCHAIN STATUS / EXPLORER
@@ -888,6 +1203,27 @@ def system_status(u: dict = Depends(require_role("admin"))):
 def get_system_config():
     return {
         "environment": os.environ.get("ENVIRONMENT", "production"),
+    }
+
+
+@app.get("/api/config", summary="Dynamic Configuration and Demo mode")
+def get_config():
+    demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
+    env = os.environ.get("ENVIRONMENT", "production")
+    if env == "development":
+        demo_mode = True
+        
+    accounts = []
+    if demo_mode:
+        accounts = [
+            {"role": "ADMIN", "username": "admin", "password": "Admin@2026Secure!"},
+            {"role": "DOCTOR", "username": "dr.smith", "password": "Doctor@2026Secure!"},
+            {"role": "VIP", "username": "vip001", "password": "VIPPatient@2026!"}
+        ]
+    return {
+        "environment": env,
+        "demo_mode": demo_mode,
+        "demo_accounts": accounts
     }
 
 # ── Phase 4 Integrations Schemas & Routes ────────────────────────────────
@@ -961,6 +1297,18 @@ def create_appointment(req: AppointmentCreate, u: dict = Depends(current_user)):
         "notes": req.notes or ""
     }
     appointments_db.append(new_apt)
+    
+    # Trigger smart notification
+    try:
+        create_notification(
+            patient_id=req.patient_id,
+            title="RANDEVU OLUŞTURULDU",
+            message=f"Hekim {req.doctor_name} ({req.department}) ile {req.appointment_date} günü saat {req.appointment_time} için randevunuz başarıyla oluşturuldu.",
+            severity="info"
+        )
+    except Exception as ex:
+        print(f"[WARNING] Failed to trigger appointment notification: {ex}")
+        
     return {"success": True, "appointment": new_apt}
 
 @app.delete("/api/appointments/{appointment_id}", summary="Cancel Appointment")
@@ -1009,137 +1357,12 @@ def fhir_export(patient_id: str, u: dict = Depends(current_user)):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
         
-    chain_data = record_service.get_chain(patient_id)
-    
-    patient_resource = {
-        "resourceType": "Patient",
-        "id": patient_id,
-        "active": True,
-        "name": [
-            {
-                "use": "official",
-                "text": u.get("full_name", "VIP Patient")
-            }
-        ]
-    }
-    
-    fhir_bundle = {
-        "resourceType": "Bundle",
-        "id": f"bundle-{secrets.token_hex(4)}",
-        "type": "collection",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "entry": [
-            {
-                "fullUrl": f"urn:uuid:patient-{patient_id}",
-                "resource": patient_resource
-            }
-        ]
-    }
-    
-    for idx, block in enumerate(chain_data):
-        if block.index == 0:
-            continue
-            
-        try:
-            data = record_service.get_final_block_data(patient_id, block.index, password=None, username=u["username"])
-        except Exception:
-            continue
-            
-        if not data or not isinstance(data, dict):
-            continue
-            
-        rec_type = data.get("record_type")
-        title = data.get("title", "")
-        
-        if rec_type == "vital_signs" and "data" in data:
-            v = data["data"]
-            obs_resource = {
-                "resourceType": "Observation",
-                "id": f"obs-{idx}",
-                "status": "final",
-                "category": [
-                    {
-                        "coding": [
-                            {
-                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-                                "code": "vital-signs",
-                                "display": "Vital Signs"
-                            }
-                        ]
-                    }
-                ],
-                "code": {
-                    "coding": [
-                        {
-                            "system": "http://loinc.org",
-                            "code": "85353-1",
-                            "display": "Vital signs panel"
-                        }
-                    ],
-                    "text": title
-                },
-                "subject": {
-                    "reference": f"Patient/{patient_id}"
-                },
-                "effectiveDateTime": data.get("record_date", datetime.now().isoformat()),
-                "component": []
-            }
-            
-            if "heart_rate" in v:
-                obs_resource["component"].append({
-                    "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4", "display": "Heart rate"}]},
-                    "valueQuantity": {"value": float(v["heart_rate"]), "unit": "beats/minute", "system": "http://unitsofmeasure.org", "code": "/min"}
-                })
-            if "temperature" in v:
-                obs_resource["component"].append({
-                    "code": {"coding": [{"system": "http://loinc.org", "code": "8310-5", "display": "Body temperature"}]},
-                    "valueQuantity": {"value": float(v["temperature"]), "unit": "C", "system": "http://unitsofmeasure.org", "code": "Cel"}
-                })
-            if "oxygen_sat" in v:
-                obs_resource["component"].append({
-                    "code": {"coding": [{"system": "http://loinc.org", "code": "2708-6", "display": "Oxygen saturation"}]},
-                    "valueQuantity": {"value": float(v["oxygen_sat"]), "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"}
-                })
-            if "blood_pressure" in v:
-                obs_resource["component"].append({
-                    "code": {"coding": [{"system": "http://loinc.org", "code": "85354-9", "display": "Blood pressure"}]},
-                    "valueString": v["blood_pressure"]
-                })
-            
-            fhir_bundle["entry"].append({
-                "fullUrl": f"urn:uuid:observation-{idx}",
-                "resource": obs_resource
-            })
-            
-        elif rec_type == "prescription" and "data" in data:
-            med = data["data"]
-            med_request = {
-                "resourceType": "MedicationRequest",
-                "id": f"medreq-{idx}",
-                "status": "active",
-                "intent": "order",
-                "medicationCodeableConcept": {
-                    "text": med.get("medication", "Unknown Medication")
-                },
-                "subject": {
-                    "reference": f"Patient/{patient_id}"
-                },
-                "authoredOn": data.get("record_date", datetime.now().isoformat()),
-                "requester": {
-                    "display": data.get("doctor_name", "Doctor")
-                },
-                "dosageInstruction": [
-                    {
-                        "text": f"Dose: {med.get('dose')}, Freq: {med.get('frequency')}, Duration: {med.get('duration')} days"
-                    }
-                ]
-            }
-            fhir_bundle["entry"].append({
-                "fullUrl": f"urn:uuid:medrequest-{idx}",
-                "resource": med_request
-            })
-            
-    return fhir_bundle
+    query = ExportFHIRBundleQuery(
+        patient_id=patient_id,
+        requester_username=u["username"],
+        requester_role=u["role"]
+    )
+    return query_handler.handle_export_fhir_bundle(query)
 
 @app.post("/api/webhooks/lis", summary="LIS Hospital Webhook Gateway")
 def lis_webhook(payload: LisWebhookPayload):
@@ -1168,13 +1391,32 @@ def lis_webhook(payload: LisWebhookPayload):
     }
     
     try:
-        block = record_service.add_record(
+        # Route via CQRS for transactional safety
+        cmd = AddRecordCommand(
             patient_id=payload.patient_id,
             data=block_data,
             is_protected=False,
             protection_password=None,
             username="LIS_GATEWAY"
         )
+        block = command_handler.handle_add_record(cmd)
+        
+        # Check if value is abnormal and trigger warning notification
+        if is_abnormal(payload.result_value, payload.reference_range):
+            create_notification(
+                patient_id=payload.patient_id,
+                title="KRİTİK LABORATUVAR SONUCU",
+                message=f"Yeni gelen tahlil sonucunuzda ({payload.test_name}) referans dışı değer ({payload.result_value} {payload.unit}, Ref: {payload.reference_range}) saptandı. Lütfen hekiminize danışın.",
+                severity="warning"
+            )
+        else:
+            create_notification(
+                patient_id=payload.patient_id,
+                title="YENİ LABORATUVAR SONUCU",
+                message=f"Tahlil sonucunuz ({payload.test_name}: {payload.result_value} {payload.unit}) sisteme yüklendi ve blockchain'e kaydedildi.",
+                severity="info"
+            )
+            
         return {
             "success": True,
             "block_index": block.index,
@@ -1182,6 +1424,9 @@ def lis_webhook(payload: LisWebhookPayload):
         }
     except Exception as ex:
         raise HTTPException(500, f"Failed to save webhook record to blockchain: {str(ex)}")
+
+
+
 
 # ──────────────────────────────────────────────────────────────
 # FRONTEND SERVER
