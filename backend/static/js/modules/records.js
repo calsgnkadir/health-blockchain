@@ -837,6 +837,8 @@ export function initRecordsListeners() {
         addNotification('Record Saved', `New ${payload.record_type} record successfully added to block #${res.block_index}.`, 'success');
 
         document.getElementById('add-record-form').reset();
+        const fileNameLabel = document.getElementById('file-name-label');
+        if (fileNameLabel) fileNameLabel.textContent = 'No file chosen';
         document.getElementById('dynamic-fields').innerHTML = '';
         if (fileInput) fileInput.value = '';
         document.getElementById('rec-confidential-password').value = '';

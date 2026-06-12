@@ -420,9 +420,10 @@
 
               <div class="field-group">
                 <label>File Attachment (PDF or Image - Max 2MB)</label>
-                <div class="input-wrap">
-                  <input id="rec-file" type="file" accept=".pdf,.png,.jpg,.jpeg"
-                    style="padding: 8px 0; border: none; background: transparent; color: white;" />
+                <div class="file-upload-wrap" style="display: flex; align-items: center; gap: 12px; background: rgba(10, 10, 25, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--radius-sm); padding: 8px 12px; backdrop-filter: blur(8px);">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('rec-file').click()" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); font-weight: 600;">Choose File</button>
+                  <span id="file-name-label" style="color: var(--muted-hi); font-size: 13px;">No file chosen</span>
+                  <input id="rec-file" type="file" accept=".pdf,.png,.jpg,.jpeg" style="display: none;" onchange="document.getElementById('file-name-label').textContent = this.files.length ? this.files[0].name : 'No file chosen'" />
                 </div>
               </div>
 

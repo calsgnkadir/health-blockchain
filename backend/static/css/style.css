@@ -172,7 +172,7 @@ body {
 /* ── Sidebar ────────────────────────────────────────── */
 #sidebar {
   width: var(--sidebar-w);
-  min-height: 100vh;
+  height: 100vh;
   background: rgba(10, 10, 25, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -223,6 +223,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
 }
 .nav-item-content {
   display: flex;
