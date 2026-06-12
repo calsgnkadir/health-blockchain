@@ -112,16 +112,28 @@
           <div class="nav-category" id="cat-dashboard">
             <span class="nav-category-title">Ana Panel</span>
             <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
-              Dashboard (Özet Ekranı)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Özet Gösterge Paneli</span>
+                <span class="nav-desc">Sistem genel durumu, son kayıtlar ve anlık yaşamsal bulgu grafikleri.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="chain-status" onclick="navigate('chain-status')">
-              Chain Status (Zincir Durumu)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Zincir Durumu Doğrulama</span>
+                <span class="nav-desc">Blokların listesini inceleyin ve şifreleme bütünlüğünü kontrol edin.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="audit" id="nav-audit" onclick="navigate('audit')" style="display:none">
-              Access History (Erişim Günlükleri)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Sistem Denetim Geçmişi</span>
+                <span class="nav-desc">Tüm okuma, yazma ve veri erişim işlemlerinin log kayıtları (Admin).</span>
+              </div>
             </a>
             <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
-              Users (Kullanıcı Yönetimi)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Kullanıcı Yönetimi</span>
+                <span class="nav-desc">Sistem rolleri, hekimler ve hasta kimlik eşleştirmeleri (Admin).</span>
+              </div>
             </a>
           </div>
 
@@ -129,16 +141,28 @@
           <div class="nav-category" id="cat-ledger">
             <span class="nav-category-title">Sağlık Defteri</span>
             <a class="nav-item" data-page="records" onclick="navigate('records')">
-              Health Records (Sağlık Kayıtları)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Tıbbi Sağlık Kayıtları</span>
+                <span class="nav-desc">Tüm blockchain kayıtlarınızı listeleyin ve gizli verileri şifreleyin.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="add-record" id="nav-add" onclick="navigate('add-record')">
-              Add Record (Kayıt Ekle)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Yeni Blok Kaydı Ekle</span>
+                <span class="nav-desc">Değiştirilemez biçimde yeni klinik teşhis, aşı, bulgu veya dosya ekleyin.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="vaccines" onclick="navigate('vaccines')">
-              Vaccine Passport (Aşı Kartı)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Aşı Pasaportu</span>
+                <span class="nav-desc">Resmi otoriteler için doğrulanmış ve mühürlenmiş aşı geçmişi kartı.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="medications" onclick="navigate('medications')">
-              Medications (İlaç &amp; Reçete)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Aktif İlaçlar &amp; Reçeteler</span>
+                <span class="nav-desc">Hekimlerin yazdığı ilaç dozu, kullanım sıklığı ve aktif kullanım süreleri.</span>
+              </div>
             </a>
           </div>
 
@@ -146,10 +170,16 @@
           <div class="nav-category" id="cat-security">
             <span class="nav-category-title">Erişim &amp; Güvenlik</span>
             <a class="nav-item" data-page="consent" id="nav-consent" onclick="navigate('consent')">
-              Consent Management (Rıza Yetkileri)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Hekim Rıza İzinleri</span>
+                <span class="nav-desc">Hekimlerinize kayıt erişim izni tanımlayın veya Acil Durum modunu açın.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="security" onclick="navigate('security')">
-              Security &amp; 2FA (Güvenlik Ayarları)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Güvenlik Ayarları &amp; 2FA</span>
+                <span class="nav-desc">Google Authenticator ile iki aşamalı (2FA) doğrulama ayarlarını yönetin.</span>
+              </div>
             </a>
           </div>
 
@@ -157,13 +187,22 @@
           <div class="nav-category" id="cat-integrations">
             <span class="nav-category-title">Akıllı Entegrasyonlar</span>
             <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
-              Wearables (Giyilebilir Cihazlar)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Giyilebilir Akıllı Saat</span>
+                <span class="nav-desc">Fitbit, Google Fit veya Apple Health telemetry verilerini otomatik eşleyin.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="appointments" onclick="navigate('appointments')">
-              Appointments (Randevular)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Randevu Takip Sistemi</span>
+                <span class="nav-desc">Klinik hekimleri ile oluşturulan aktif randevular ve saatleri.</span>
+              </div>
             </a>
             <a class="nav-item" data-page="triage" onclick="navigate('triage')">
-              AI Triage (Semptom Analizi)
+              <div class="nav-item-content">
+                <span class="nav-item-title">Yapay Zeka Triage Asistanı</span>
+                <span class="nav-desc">Semptomlarınızı yapay zeka ile analiz ederek klinik öncelik seviyesi belirleyin.</span>
+              </div>
             </a>
           </div>
         </nav>
