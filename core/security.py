@@ -350,43 +350,6 @@ def decrypt_data(encrypted_data: str, password: str, salt: bytes) -> str:
         raise ValueError(f"Decryption error: {e}")
 
 
-# ──────────────────────────────────────────────
-# BACKWARD COMPATIBILITY — Legacy API (without salt parameter)
-# ──────────────────────────────────────────────
-
-def encrypt_data_legacy(data: str, password: str = None) -> str:
-    """
-    For legacy API compatibility. Use encrypt_data() in new code.
-    Uses static salt (not secure, only for legacy data verification).
-    """
-    device_id = get_device_id()
-    pwd = password if password else device_id
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=b"health_blockchain_salt",
-        iterations=100_000,
-    )
-    key = base64.urlsafe_b64encode(kdf.derive((device_id + pwd).encode()))
-    fernet = Fernet(key)
-    return base64.urlsafe_b64encode(fernet.encrypt(data.encode())).decode()
-
-
-def decrypt_data_legacy(encrypted_data: str, password: str = None) -> str:
-    """For legacy API compatibility."""
-    device_id = get_device_id()
-    pwd = password if password else device_id
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=b"health_blockchain_salt",
-        iterations=100_000,
-    )
-    key = base64.urlsafe_b64encode(kdf.derive((device_id + pwd).encode()))
-    fernet = Fernet(key)
-    encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
-    return fernet.decrypt(encrypted_bytes).decode()
-
 
 # ──────────────────────────────────────────────
 # 7. HMAC-SHA256 SIGNATURE (Device Bound)

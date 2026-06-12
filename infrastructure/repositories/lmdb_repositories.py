@@ -5,32 +5,38 @@ from core.ports.repositories import IUserRepository, IBlockRepository, IAuditRep
 import database.storage as storage
 
 class LMDBUserRepository(IUserRepository):
+    def __init__(self, db_manager: Optional[storage.LMDBConnectionManager] = None):
+        self.db_manager = db_manager
+
     def save_user(self, user: User) -> None:
-        storage.save_user(user.to_dict())
+        storage.save_user(user.to_dict(), self.db_manager)
 
     def load_user(self, username: str) -> Optional[User]:
-        data = storage.load_user(username)
+        data = storage.load_user(username, self.db_manager)
         if data:
             return User.from_dict(data)
         return None
 
     def load_all_users(self) -> List[User]:
-        users_data = storage.load_all_users()
+        users_data = storage.load_all_users(self.db_manager)
         return [User.from_dict(u) for u in users_data]
 
     def user_exists(self, username: str) -> bool:
-        return storage.user_exists(username)
+        return storage.user_exists(username, self.db_manager)
 
     def delete_user(self, username: str) -> bool:
-        return storage.delete_user(username)
+        return storage.delete_user(username, self.db_manager)
 
 
 class LMDBBlockRepository(IBlockRepository):
+    def __init__(self, db_manager: Optional[storage.LMDBConnectionManager] = None):
+        self.db_manager = db_manager
+
     def save_block(self, project_name: str, block: Block) -> None:
-        storage.save_block_to_db(project_name, block.index, block.to_dict())
+        storage.save_block_to_db(project_name, block.index, block.to_dict(), self.db_manager)
 
     def load_all_blocks(self, project_name: str) -> List[Block]:
-        raw_blocks = storage.load_all_blocks(project_name)
+        raw_blocks = storage.load_all_blocks(project_name, self.db_manager)
         blocks = []
         for b in raw_blocks:
             pwd_hash = self.load_block_pwd_hash(project_name, b["index"])
@@ -54,7 +60,8 @@ class LMDBBlockRepository(IBlockRepository):
         if not self.project_exists(project_name):
             return -1
         try:
-            env = storage.open_db(project_name)
+            manager = self.db_manager or storage.default_db_manager
+            env = manager.open_db(project_name)
             with env.begin(write=False) as txn:
                 val = txn.get(b"meta_last_index")
                 if val:
@@ -62,41 +69,43 @@ class LMDBBlockRepository(IBlockRepository):
         except Exception:
             pass
         
-        # Fallback
-        blocks = storage.load_all_blocks(project_name)
+        blocks = storage.load_all_blocks(project_name, self.db_manager)
         if blocks:
             return blocks[-1]["index"]
         return -1
 
     def project_exists(self, project_name: str) -> bool:
-        return storage.project_exists(project_name)
+        manager = self.db_manager or storage.default_db_manager
+        return manager.project_exists(project_name)
 
     def create_project(self, project_name: str) -> bool:
-        return storage.create_project(project_name)
+        manager = self.db_manager or storage.default_db_manager
+        return manager.create_project(project_name)
 
     def list_projects(self) -> List[str]:
-        return storage.list_projects()
+        manager = self.db_manager or storage.default_db_manager
+        return manager.list_projects()
 
     def reset_db(self, project_name: str) -> None:
-        storage.reset_db(project_name)
+        storage.reset_db(project_name, self.db_manager)
 
     def save_block_salt(self, project_name: str, block_index: int, salt: bytes) -> None:
-        storage.save_block_salt(project_name, block_index, salt)
+        storage.save_block_salt(project_name, block_index, salt, self.db_manager)
 
     def load_block_salt(self, project_name: str, block_index: int) -> Optional[bytes]:
-        return storage.load_block_salt(project_name, block_index)
+        return storage.load_block_salt(project_name, block_index, self.db_manager)
 
     def get_patient_salt(self, project_name: str) -> bytes:
-        return storage.get_patient_salt(project_name)
+        return storage.get_patient_salt(project_name, self.db_manager)
 
     def save_patient_salt(self, project_name: str, salt: bytes) -> None:
-        storage.save_patient_salt(project_name, salt)
+        storage.save_patient_salt(project_name, salt, self.db_manager)
 
     def save_block_pwd_hash(self, project_name: str, block_index: int, pwd_hash: str) -> None:
-        storage.save_block_pwd_hash(project_name, block_index, pwd_hash)
+        storage.save_block_pwd_hash(project_name, block_index, pwd_hash, self.db_manager)
 
     def load_block_pwd_hash(self, project_name: str, block_index: int) -> Optional[str]:
-        return storage.load_block_pwd_hash(project_name, block_index)
+        return storage.load_block_pwd_hash(project_name, block_index, self.db_manager)
 
     def get_by_date_range(self, project_name: str, start_date: str, end_date: str) -> List[Block]:
         blocks = self.load_all_blocks(project_name)
@@ -118,6 +127,9 @@ class LMDBBlockRepository(IBlockRepository):
 
 
 class LMDBAuditRepository(IAuditRepository):
+    def __init__(self, db_manager: Optional[storage.LMDBConnectionManager] = None):
+        self.db_manager = db_manager
+
     def append_audit_log(
         self,
         project_name: str,
@@ -127,10 +139,10 @@ class LMDBAuditRepository(IAuditRepository):
         device_id: Optional[str] = None,
         extra: Optional[dict] = None,
     ) -> None:
-        storage.append_audit_log(project_name, action, username, block_index, device_id, extra)
+        storage.append_audit_log(project_name, action, username, block_index, device_id, extra, self.db_manager)
 
     def load_audit_logs(self, project_name: str, limit: int = 100) -> List[dict]:
-        return storage.load_audit_logs(project_name, limit)
+        return storage.load_audit_logs(project_name, limit, self.db_manager)
 
     def append_access_log(
         self,
@@ -140,7 +152,7 @@ class LMDBAuditRepository(IAuditRepository):
         device_id: Optional[str] = None,
         extra: Optional[dict] = None,
     ) -> None:
-        storage.append_access_log(project_name, username, action, device_id, extra)
+        storage.append_access_log(project_name, username, action, device_id, extra, self.db_manager)
 
     def load_access_logs(self, project_name: str, limit: int = 100) -> List[dict]:
-        return storage.load_access_logs(project_name, limit)
+        return storage.load_access_logs(project_name, limit, self.db_manager)

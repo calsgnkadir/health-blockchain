@@ -37,10 +37,20 @@ export async function loadChainStatus() {
     recs.forEach((r, i) => {
       const broken = status.broken_at !== null && r.block_index >= status.broken_at;
       vis.innerHTML += `
-        <div class="chain-block-viz ${broken?'broken-block':'valid-block'}">
-          <div class="blk-header">BLOCK #${r.block_index} · ${formatTs(r.timestamp)}</div>
-          <div class="blk-hash">${r.hash_preview}</div>
-          <div style="margin-top:4px;font-size:11px;color:var(--muted)">${r.title}</div>
+        <div class="card-flip-container ${broken?'broken-block':'valid-block'}">
+          <div class="card-flip-inner">
+            <div class="card-front">
+              <div class="blk-header">BLOCK #${r.block_index} · ${formatTs(r.timestamp)}</div>
+              <div class="blk-hash">${r.hash_preview}</div>
+              <div style="margin-top:8px;font-size:12px;color:var(--muted);font-weight:600">${r.title}</div>
+            </div>
+            <div class="card-back">
+              <div class="blk-header" style="color:var(--accent-ledger)">PROOF #${r.block_index}</div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Hash:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.hash_preview}</span></div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Merkle:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.merkle_root_preview}</span></div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Sig:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.signature_preview}</span></div>
+            </div>
+          </div>
         </div>
         ${i < recs.length-1 ? '<div class="chain-connector"></div>' : ''}`;
     });

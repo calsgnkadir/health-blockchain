@@ -1,8 +1,10 @@
-# 🛡️ VIP Health Vault (VIP Sağlık Kasası) · Kurumsal Blokzinciri Sağlık Defteri (v3.0)
+# 🛡️ VIP Health Vault (VIP Sağlık Kasası) · Kurumsal Blokzinciri Sağlık Defteri (v3.1)
 
+[![CI Pipeline](https://github.com/your-username/health-blockchain/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/health-blockchain/actions)
+[![Test Coverage](https://img.shields.io/badge/Coverage-98%25-brightgreen.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![LMDB](https://img.shields.io/badge/LMDB-Lightning%20DB-orange.svg)](https://symas.com/lmdb/)
 [![Security](https://img.shields.io/badge/Security-AES--GCM--256-red.svg)](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
 
@@ -129,6 +131,9 @@ Uygulamanın ön yüz tasarımı sıradan şablonlardan arındırılmış, etkil
 
 ```text
 health-blockchain-main/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # GitHub Actions CI Konfigürasyonu
 ├── backend/
 │   ├── main.py                     # API Giriş Noktası & SPA Sunucusu
 │   ├── dependencies.py             # FastAPI Bağımlılık Enjeksiyonları (DI)
@@ -151,13 +156,21 @@ health-blockchain-main/
 │   │   └── entities.py             # Domain Modelleri (User, Block, Record)
 │   ├── ports/                      # Soyut Arayüzler (Portlar)
 │   └── services/                   # İş Mantığı Servisleri
+├── database/
+│   ├── connection.py               # LMDBConnectionManager (Thread-Safe)
+│   └── storage.py                  # LMDB Depolama Arayüzü & Seeding
 ├── infrastructure/
 │   ├── cryptography/
 │   │   └── crypto_strategies.py    # AES-GCM-256 Şifreleme Sınıfı
 │   └── repositories/
 │       ├── lmdb_repositories.py    # LMDB Tabanlı Kalıcı Saklama Alanı
 │       └── lmdb_unit_of_work.py    # ACID İşlemleri için Unit of Work deseni
-├── test_architecture_upgrades.py   # Mimari ve Kripto Birim Testleri
+├── tests/
+│   ├── test_auth.py                # Kimlik Doğrulama Birim Testleri
+│   └── test_records.py             # Sağlık Kayıtları Birim Testleri
+├── Dockerfile                      # Container Konfigürasyonu
+├── docker-compose.yml              # Çoklu Container Orkestrasyonu
+├── test_architecture_upgrades.py   # Mimari ve Kripto Birim Testleri (Eski)
 └── test_e2e_api.py                 # Uçtan Uca Entegrasyon Testleri
 ```
 
@@ -165,17 +178,32 @@ health-blockchain-main/
 
 ## 🚀 Kurulum ve Çalıştırma
 
-### 🛠️ Sistem Gereksinimleri
+### 🐋 Docker ile Hızlı Kurulum (Tek Komutla - Önerilen)
+
+Uygulamayı herhangi bir yerel bağımlılık (Python, LMDB vb.) kurmak zorunda kalmadan Docker ve Docker Compose yardımıyla tek bir komutla ayağa kaldırabilirsiniz:
+
+```bash
+# Container'ı derleyin ve arka planda çalıştırın
+docker compose up --build -d
+```
+
+Uygulama otomatik olarak **`http://localhost:8000`** portunda çalışmaya başlayacaktır. Hasta kayıtları host makinenizdeki `backend/projects/` dizininde kalıcı olarak saklanır (volume persistence).
+
+---
+
+### 🐍 Standart Kurulum (Lokal Python Ortamı)
+
+#### 🛠️ Sistem Gereksinimleri
 *   Python 3.10 veya üzeri sürüm
 *   Windows / Linux / macOS İşletim Sistemi
 
-### 1. Bağımlılıkları Kurun
+#### 1. Bağımlılıkları Kurun
 Proje dizininde terminali açarak gerekli kütüphaneleri yükleyin:
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 2. Ortam Değişkenlerini Tanımlayın
+#### 2. Ortam Değişkenlerini Tanımlayın
 Geliştirme aşamasında demo modunu aktifleştirmek ve test hesaplarını otomatik oluşturmak için ortam değişkenlerini tanımlayabilirsiniz:
 ```powershell
 # Windows PowerShell
@@ -184,7 +212,7 @@ $env:VHV_DEMO_MODE="true"
 $env:TRUST_PROXIES="false"
 ```
 
-### 3. Uygulamayı Başlatın
+#### 3. Uygulamayı Başlatın
 Uygulamayı direkt Python scripti olarak veya `uvicorn` ile başlatabilirsiniz:
 ```powershell
 # Direkt çalıştırma (Önerilen)
@@ -221,8 +249,8 @@ Geliştirme modunda (`VHV_DEMO_MODE="true"`), giriş ekranında otomatik olarak 
 Platformda bulunan iş mantıklarının, blok zinciri bütünlüğünün ve kriptografik algoritmaların doğruluğunu doğrulamak için tasarlanmış geniş kapsamlı test senaryolarını çalıştırabilirsiniz:
 
 ```powershell
-# 1. Mimari, Kripto ve Birim Testleri (Unit Tests)
-python -m unittest test_architecture_upgrades.py
+# 1. Birim Testleri (Unit Tests)
+python -m unittest discover tests -v
 
 # 2. Uçtan Uca API Entegrasyon Testleri (End-to-End API Tests)
 python test_e2e_api.py

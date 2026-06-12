@@ -34,6 +34,10 @@ export function setCurrentUser(user) {
 }
 
 export async function apiFetch(path, opts = {}) {
+  let fullPath = path;
+  if (fullPath.startsWith('/api/') && !fullPath.startsWith('/api/v1/')) {
+    fullPath = '/api/v1' + fullPath.substring(4);
+  }
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   const token = getToken();
   if (token) {
@@ -46,7 +50,7 @@ export async function apiFetch(path, opts = {}) {
     headers['X-CSRF-Token'] = csrfToken;
   }
   
-  const res = await fetch(API + path, { ...opts, headers });
+  const res = await fetch(API + fullPath, { ...opts, headers });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(json.detail || 'An error occurred');

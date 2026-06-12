@@ -3,30 +3,38 @@ import os
 import re
 from fastapi import APIRouter, HTTPException, Depends
 from backend.dependencies import (
-    user_repository, command_handler, consent_validator, current_user
+    get_user_repository, get_command_handler, get_consent_validator, current_user, get_db_manager
 )
 from backend.schemas.requests import ConsentReq, BreakGlassReq
 from core.cqrs.commands import GrantConsentCommand, RevokeConsentCommand
 from core.security import get_device_id
 import database.storage as storage
+from database.connection import LMDBConnectionManager
+from infrastructure.repositories.lmdb_repositories import LMDBUserRepository
+from core.cqrs.commands import CommandHandler
+from core.services.consent_validator import ConsentValidator
 
-router = APIRouter(prefix="/api/consent", tags=["consent"])
+router = APIRouter(prefix="/api/v1/consent", tags=["consent"])
 
 def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
 
 @router.get("/{patient_id}", summary="Get Patient Consent Rules")
-def get_consents(patient_id: str, u: dict = Depends(current_user)):
+def get_consents(
+    patient_id: str, 
+    u: dict = Depends(current_user),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager)
+):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
     
     project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
-    if not storage.project_exists(project_name):
+    if not db_manager.project_exists(project_name):
         return {"consents": []}
         
-    env = storage.open_db(project_name)
+    env = db_manager.open_db(project_name)
     consents = []
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
@@ -40,7 +48,12 @@ def get_consents(patient_id: str, u: dict = Depends(current_user)):
     return {"consents": consents}
 
 @router.post("", summary="Grant or Update Doctor Consent")
-def grant_consent(data: ConsentReq, u: dict = Depends(current_user)):
+def grant_consent(
+    data: ConsentReq, 
+    u: dict = Depends(current_user),
+    user_repository: LMDBUserRepository = Depends(get_user_repository),
+    command_handler: CommandHandler = Depends(get_command_handler)
+):
     if u["role"] == "vip_patient" and u.get("patient_id") != data.patient_id:
         raise HTTPException(403, "Access denied")
         
@@ -59,7 +72,13 @@ def grant_consent(data: ConsentReq, u: dict = Depends(current_user)):
     return {"success": True, "message": "Consent granted successfully"}
 
 @router.delete("/{patient_id}/{doctor_username}/{record_type}", summary="Revoke Doctor Consent")
-def revoke_consent(patient_id: str, doctor_username: str, record_type: str, u: dict = Depends(current_user)):
+def revoke_consent(
+    patient_id: str, 
+    doctor_username: str, 
+    record_type: str, 
+    u: dict = Depends(current_user),
+    command_handler: CommandHandler = Depends(get_command_handler)
+):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -74,7 +93,12 @@ def revoke_consent(patient_id: str, doctor_username: str, record_type: str, u: d
     return {"success": True, "message": "Consent revoked successfully"}
 
 @router.post("/{patient_id}/break-glass", summary="Break Glass Emergency Override")
-def break_glass(patient_id: str, data: BreakGlassReq, u: dict = Depends(current_user)):
+def break_glass(
+    patient_id: str, 
+    data: BreakGlassReq, 
+    u: dict = Depends(current_user),
+    consent_validator: ConsentValidator = Depends(get_consent_validator)
+):
     check_patient_id(patient_id)
     if u["role"] != "doctor":
         raise HTTPException(403, "Only doctors can invoke emergency override")

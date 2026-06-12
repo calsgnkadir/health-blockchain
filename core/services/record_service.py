@@ -211,22 +211,16 @@ class RecordService:
 
             try:
                 decrypted_str = self.crypto_strategy.decrypt_data(block.data, password, salt)
-            except Exception:
-                # Fallback to legacy Fernet decryption strategy
-                try:
-                    from infrastructure.cryptography.crypto_strategies import FernetLegacyStrategy
-                    legacy = FernetLegacyStrategy()
-                    decrypted_str = legacy.decrypt_data(block.data, password, salt)
-                except Exception as e:
-                    event_bus.publish(RecordReadEvent(
-                        project_name=project_name,
-                        username=username,
-                        block_index=block_index,
-                        device_id=get_device_id(),
-                        action="BLOCK_READ_FAILED",
-                        extra={"reason": f"DECRYPTION_ERROR: {str(e)}"}
-                    ))
-                    return f"DECRYPTION ERROR: {str(e)}"
+            except Exception as e:
+                event_bus.publish(RecordReadEvent(
+                    project_name=project_name,
+                    username=username,
+                    block_index=block_index,
+                    device_id=get_device_id(),
+                    action="BLOCK_READ_FAILED",
+                    extra={"reason": f"DECRYPTION_ERROR: {str(e)}"}
+                ))
+                return f"DECRYPTION ERROR: {str(e)}"
 
             try:
                 result = json.loads(decrypted_str)
@@ -314,21 +308,16 @@ class RecordService:
 
             try:
                 decrypted_str = self.crypto_strategy.decrypt_data(corrected_data, password, salt)
-            except Exception:
-                try:
-                    from infrastructure.cryptography.crypto_strategies import FernetLegacyStrategy
-                    legacy = FernetLegacyStrategy()
-                    decrypted_str = legacy.decrypt_data(corrected_data, password, salt)
-                except Exception as e:
-                    event_bus.publish(RecordReadEvent(
-                        project_name=project_name,
-                        username=username,
-                        block_index=block_index,
-                        device_id=get_device_id(),
-                        action="BLOCK_READ_FAILED",
-                        extra={"reason": f"DECRYPTION_ERROR: {str(e)}", "correction_index": correction_block.index}
-                    ))
-                    return f"DECRYPTION ERROR: {str(e)}"
+            except Exception as e:
+                event_bus.publish(RecordReadEvent(
+                    project_name=project_name,
+                    username=username,
+                    block_index=block_index,
+                    device_id=get_device_id(),
+                    action="BLOCK_READ_FAILED",
+                    extra={"reason": f"DECRYPTION_ERROR: {str(e)}", "correction_index": correction_block.index}
+                ))
+                return f"DECRYPTION ERROR: {str(e)}"
 
             try:
                 result = json.loads(decrypted_str)

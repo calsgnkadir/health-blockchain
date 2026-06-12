@@ -9,7 +9,7 @@ def test_e2e_flow():
 
     # 1. Fetch config and check demo accounts
     print("\n1. Fetching API config...")
-    r = session.get(f"{BASE_URL}/api/config")
+    r = session.get(f"{BASE_URL}/api/v1/config")
     if r.status_code != 200:
         print(f"FAILED to get config: {r.status_code} {r.text}")
         sys.exit(1)
@@ -35,7 +35,7 @@ def test_e2e_flow():
         "username": vip_cred["username"],
         "password": vip_cred["password"]
     }
-    r = session.post(f"{BASE_URL}/api/auth/login", json=login_payload, headers=headers)
+    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers=headers)
     if r.status_code != 200:
         print(f"FAILED to login as VIP: {r.status_code} {r.text}")
         sys.exit(1)
@@ -47,7 +47,7 @@ def test_e2e_flow():
     
     # 3. Check me endpoint for VIP
     session.headers.update({"Authorization": f"Bearer {vip_token}"})
-    r = session.get(f"{BASE_URL}/api/auth/me")
+    r = session.get(f"{BASE_URL}/api/v1/auth/me")
     assert r.status_code == 200
     print("Me response for VIP:", r.json())
 
@@ -66,14 +66,14 @@ def test_e2e_flow():
     csrf_token = session.cookies.get("csrf_token")
     headers = {"X-CSRF-Token": csrf_token}
     
-    r = session.post(f"{BASE_URL}/api/consent", json=consent_payload, headers=headers)
+    r = session.post(f"{BASE_URL}/api/v1/consent", json=consent_payload, headers=headers)
     if r.status_code != 200:
         print(f"FAILED to grant consent: {r.status_code} {r.text}")
         sys.exit(1)
     print("Consent granted successfully:", r.json())
 
     # Verify consent in consents list
-    r = session.get(f"{BASE_URL}/api/consent/{vip_patient_id}")
+    r = session.get(f"{BASE_URL}/api/v1/consent/{vip_patient_id}")
     assert r.status_code == 200
     consents_list = r.json().get("consents", [])
     print("Active Consents:", consents_list)
@@ -83,7 +83,7 @@ def test_e2e_flow():
 
     # 5. Logout VIP
     print("\n5. Logging out VIP patient...")
-    r = session.post(f"{BASE_URL}/api/auth/logout", headers=headers)
+    r = session.post(f"{BASE_URL}/api/v1/auth/logout", headers=headers)
     assert r.status_code == 200
     print("Logged out successfully.")
 
@@ -99,7 +99,7 @@ def test_e2e_flow():
     # Update csrf
     csrf_token = session.cookies.get("csrf_token")
     headers = {"X-CSRF-Token": csrf_token}
-    r = session.post(f"{BASE_URL}/api/auth/login", json=login_payload, headers=headers)
+    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers=headers)
     if r.status_code != 200:
         print(f"FAILED to login as Doctor: {r.status_code} {r.text}")
         sys.exit(1)
@@ -111,7 +111,7 @@ def test_e2e_flow():
     # 7. Access Patient VIP-001 records as Doctor
     session.headers.update({"Authorization": f"Bearer {doc_token}"})
     print(f"\n7. Retrieving patient '{vip_patient_id}' records as Doctor '{doc_username}'...")
-    r = session.get(f"{BASE_URL}/api/records/{vip_patient_id}")
+    r = session.get(f"{BASE_URL}/api/v1/records/{vip_patient_id}")
     if r.status_code != 200:
         print(f"FAILED to access records: {r.status_code} {r.text}")
         sys.exit(1)
@@ -122,7 +122,7 @@ def test_e2e_flow():
     # 8. Log out Doctor
     print("\n8. Logging out Doctor...")
     csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/auth/logout", headers={"X-CSRF-Token": csrf_token})
+    r = session.post(f"{BASE_URL}/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
     assert r.status_code == 200
     session.headers.pop("Authorization", None)
 
@@ -133,13 +133,13 @@ def test_e2e_flow():
         "password": vip_cred["password"]
     }
     csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
+    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
     vip_token = r.json()["access_token"]
     session.headers.update({"Authorization": f"Bearer {vip_token}"})
 
     print(f"Revoking consent for Doctor '{doc_username}'...")
     csrf_token = session.cookies.get("csrf_token")
-    r = session.delete(f"{BASE_URL}/api/consent/{vip_patient_id}/{doc_username}/all", headers={"X-CSRF-Token": csrf_token})
+    r = session.delete(f"{BASE_URL}/api/v1/consent/{vip_patient_id}/{doc_username}/all", headers={"X-CSRF-Token": csrf_token})
     if r.status_code != 200:
         print(f"FAILED to revoke consent: {r.status_code} {r.text}")
         sys.exit(1)
@@ -147,7 +147,7 @@ def test_e2e_flow():
 
     # Log out VIP
     csrf_token = session.cookies.get("csrf_token")
-    session.post(f"{BASE_URL}/api/auth/logout", headers={"X-CSRF-Token": csrf_token})
+    session.post(f"{BASE_URL}/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
     session.headers.pop("Authorization", None)
 
     # 10. Login as Doctor again and verify access is DENIED
@@ -157,12 +157,12 @@ def test_e2e_flow():
         "password": doc_cred["password"]
     }
     csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
+    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
     doc_token = r.json()["access_token"]
     session.headers.update({"Authorization": f"Bearer {doc_token}"})
 
     print(f"Attempting to retrieve patient '{vip_patient_id}' records as Doctor '{doc_username}' (should return empty list due to revoked consent)...")
-    r = session.get(f"{BASE_URL}/api/records/{vip_patient_id}")
+    r = session.get(f"{BASE_URL}/api/v1/records/{vip_patient_id}")
     print(f"Status Code: {r.status_code}, Response: {r.text}")
     assert r.status_code == 200
     res_data = r.json()

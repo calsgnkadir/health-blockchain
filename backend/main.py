@@ -15,6 +15,19 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
+# Load .env file if it exists
+_dotenv_path = os.path.join(_PROJECT_ROOT, ".env")
+if os.path.exists(_dotenv_path):
+    with open(_dotenv_path, "r", encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith("#"):
+                continue
+            if "=" in _line:
+                _key, _val = _line.split("=", 1)
+                os.environ[_key.strip()] = _val.strip().strip('"').strip("'")
+
+
 from core.security import get_device_id
 import database.storage as storage
 
@@ -31,10 +44,10 @@ from backend.routers.misc import router as misc_router
 
 app = FastAPI(
     title="VIP Health Vault API",
-    version="3.0.0",
+    version="3.1.0",
     description="Blockchain-based VIP health record system",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
 )
 
 # CORS Middleware

@@ -17,6 +17,7 @@ from core.security import (
 import database.storage as storage
 
 # Clean Architecture Dependency Injection
+from database.connection import LMDBConnectionManager
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository, LMDBBlockRepository, LMDBAuditRepository
 from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 from core.services.auth_service import AuthService
@@ -26,18 +27,53 @@ from core.services.consent_validator import ConsentValidator
 from core.cqrs.commands import CommandHandler
 from core.cqrs.queries import QueryHandler
 
-user_repository = LMDBUserRepository()
-block_repository = LMDBBlockRepository()
-audit_repository = LMDBAuditRepository()
-crypto_strategy = AESGCMStrategy()
+def get_db_manager() -> LMDBConnectionManager:
+    from database.storage import default_db_manager
+    return default_db_manager
 
-auth_service = AuthService(user_repository)
-record_service = RecordService(block_repository, crypto_strategy)
-audit_service = AuditService(audit_repository, record_service)
-consent_validator = ConsentValidator(block_repository)
+def get_user_repository(db_manager: LMDBConnectionManager = Depends(get_db_manager)) -> LMDBUserRepository:
+    return LMDBUserRepository(db_manager)
 
-command_handler = CommandHandler(record_service, auth_service, block_repository)
-query_handler = QueryHandler(record_service, block_repository, consent_validator)
+def get_block_repository(db_manager: LMDBConnectionManager = Depends(get_db_manager)) -> LMDBBlockRepository:
+    return LMDBBlockRepository(db_manager)
+
+def get_audit_repository(db_manager: LMDBConnectionManager = Depends(get_db_manager)) -> LMDBAuditRepository:
+    return LMDBAuditRepository(db_manager)
+
+def get_crypto_strategy() -> AESGCMStrategy:
+    return AESGCMStrategy()
+
+def get_auth_service(user_repo: LMDBUserRepository = Depends(get_user_repository)) -> AuthService:
+    return AuthService(user_repo)
+
+def get_record_service(
+    block_repo: LMDBBlockRepository = Depends(get_block_repository),
+    crypto_strat: AESGCMStrategy = Depends(get_crypto_strategy)
+) -> RecordService:
+    return RecordService(block_repo, crypto_strat)
+
+def get_audit_service(
+    audit_repo: LMDBAuditRepository = Depends(get_audit_repository),
+    record_serv: RecordService = Depends(get_record_service)
+) -> AuditService:
+    return AuditService(audit_repo, record_serv)
+
+def get_consent_validator(block_repo: LMDBBlockRepository = Depends(get_block_repository)) -> ConsentValidator:
+    return ConsentValidator(block_repo)
+
+def get_command_handler(
+    record_serv: RecordService = Depends(get_record_service),
+    auth_serv: AuthService = Depends(get_auth_service),
+    block_repo: LMDBBlockRepository = Depends(get_block_repository)
+) -> CommandHandler:
+    return CommandHandler(record_serv, auth_serv, block_repo)
+
+def get_query_handler(
+    record_serv: RecordService = Depends(get_record_service),
+    block_repo: LMDBBlockRepository = Depends(get_block_repository),
+    consent_val: ConsentValidator = Depends(get_consent_validator)
+) -> QueryHandler:
+    return QueryHandler(record_serv, block_repo, consent_val)
 
 # ── JWT RSA Key Configuration ──────────────────────────────
 _JWT_PRIVATE_KEY_FILE = os.path.join(os.path.dirname(__file__), ".jwt_private.pem")
@@ -127,7 +163,8 @@ def create_token(user: dict) -> str:
 
 def current_user(
     access_token: Optional[str] = Cookie(None),
-    creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
+    user_repo: LMDBUserRepository = Depends(get_user_repository)
 ) -> dict:
     token = access_token
     if not token and creds:
@@ -139,7 +176,7 @@ def current_user(
     try:
         payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
-        user = user_repository.load_user(username)
+        user = user_repo.load_user(username)
         if not user:
             raise HTTPException(401, "Invalid token — user not found")
         return user.to_dict()

@@ -96,6 +96,8 @@ class QueryHandler:
                 "is_protected":   block.is_protected,
                 "is_correction":  isinstance(data, dict) and data.get("type") == "correction",
                 "hash_preview":   block.hash[:24] + "...",
+                "merkle_root_preview": block.merkle_root[:24] + "..." if block.merkle_root else "N/A",
+                "signature_preview":   block.signature[:24] + "..." if block.signature else "N/A",
                 "device_id":      block.device_id[:16] + "..." if block.device_id else None,
             }
 

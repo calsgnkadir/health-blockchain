@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends
 from backend.dependencies import (
-    current_user, require_role, record_service, audit_service,
-    query_handler, command_handler
+    current_user, require_role, get_record_service, get_audit_service,
+    get_query_handler, get_command_handler, get_db_manager
 )
 from backend.schemas.requests import (
     AppointmentCreate, TriageRequest, LisWebhookPayload,
@@ -19,8 +19,13 @@ from core.cqrs.queries import ExportFHIRBundleQuery, GetNotificationsQuery
 from core.cqrs.commands import AddRecordCommand
 from core.security import get_device_id
 import database.storage as storage
+from database.connection import LMDBConnectionManager
+from core.services.record_service import RecordService
+from core.services.audit_service import AuditService
+from core.cqrs.commands import CommandHandler
+from core.cqrs.queries import QueryHandler
 
-router = APIRouter(tags=["misc"])
+router = APIRouter(prefix="/api/v1", tags=["misc"])
 
 # Global mock DB for appointments
 appointments_db = [
@@ -59,14 +64,18 @@ def is_abnormal(value_str: str, range_str: str) -> bool:
     return False
 
 # ── APPOINTMENT ENDPOINTS ──────────────────────────────────────
-@router.get("/api/appointments/{patient_id}", summary="Get Patient Appointments")
+@router.get("/appointments/{patient_id}", summary="Get Patient Appointments")
 def get_appointments(patient_id: str, u: dict = Depends(current_user)):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
     return [apt for apt in appointments_db if apt["patient_id"] == patient_id]
 
-@router.post("/api/appointments", summary="Create Appointment")
-def create_appointment(req: AppointmentCreate, u: dict = Depends(current_user)):
+@router.post("/appointments", summary="Create Appointment")
+def create_appointment(
+    req: AppointmentCreate, 
+    u: dict = Depends(current_user),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager)
+):
     if u["role"] == "vip_patient" and u.get("patient_id") != req.patient_id:
         raise HTTPException(403, "Access denied")
     
@@ -82,20 +91,20 @@ def create_appointment(req: AppointmentCreate, u: dict = Depends(current_user)):
     }
     appointments_db.append(new_apt)
     
-    # Trigger smart notification
     try:
         create_notification(
             patient_id=req.patient_id,
             title="RANDEVU OLUŞTURULDU",
             message=f"Hekim {req.doctor_name} ({req.department}) ile {req.appointment_date} günü saat {req.appointment_time} için randevunuz başarıyla oluşturuldu.",
-            severity="info"
+            severity="info",
+            db_manager=db_manager
         )
     except Exception as ex:
         print(f"[WARNING] Failed to trigger appointment notification: {ex}")
         
     return {"success": True, "appointment": new_apt}
 
-@router.delete("/api/appointments/{appointment_id}", summary="Cancel Appointment")
+@router.delete("/appointments/{appointment_id}", summary="Cancel Appointment")
 def cancel_appointment(appointment_id: str, u: dict = Depends(current_user)):
     apt = next((a for a in appointments_db if a["id"] == appointment_id), None)
     if not apt:
@@ -108,7 +117,7 @@ def cancel_appointment(appointment_id: str, u: dict = Depends(current_user)):
     return {"success": True, "message": "Appointment cancelled successfully"}
 
 # ── AI MEDICAL TRIAGE ──────────────────────────────────────────
-@router.post("/api/ai/triage", summary="AI Medical Triage Chatbot")
+@router.post("/ai/triage", summary="AI Medical Triage Chatbot")
 def ai_triage(req: TriageRequest):
     symptoms_lower = req.symptoms.lower()
     
@@ -138,8 +147,12 @@ def ai_triage(req: TriageRequest):
     }
 
 # ── FHIR EXPORT ───────────────────────────────────────────────
-@router.get("/api/enabiz/fhir/export/{patient_id}", summary="FHIR e-Nabiz Export Bridge")
-def fhir_export(patient_id: str, u: dict = Depends(current_user)):
+@router.get("/enabiz/fhir/export/{patient_id}", summary="FHIR e-Nabiz Export Bridge")
+def fhir_export(
+    patient_id: str, 
+    u: dict = Depends(current_user),
+    query_handler: QueryHandler = Depends(get_query_handler)
+):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
         
@@ -151,8 +164,12 @@ def fhir_export(patient_id: str, u: dict = Depends(current_user)):
     return query_handler.handle_export_fhir_bundle(query)
 
 # ── LIS WEBHOOK GATEWAY ────────────────────────────────────────
-@router.post("/api/webhooks/lis", summary="LIS Hospital Webhook Gateway")
-def lis_webhook(payload: LisWebhookPayload):
+@router.post("/webhooks/lis", summary="LIS Hospital Webhook Gateway")
+def lis_webhook(
+    payload: LisWebhookPayload,
+    command_handler: CommandHandler = Depends(get_command_handler),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager)
+):
     block_data = {
         "record_type":       "lab_result",
         "record_type_label": RECORD_TYPES["lab_result"],
@@ -192,14 +209,16 @@ def lis_webhook(payload: LisWebhookPayload):
                 patient_id=payload.patient_id,
                 title="KRİTİK LABORATUVAR SONUCU",
                 message=f"Yeni gelen tahlil sonucunuzda ({payload.test_name}) referans dışı değer ({payload.result_value} {payload.unit}, Ref: {payload.reference_range}) saptandı. Lütfen hekiminize danışın.",
-                severity="warning"
+                severity="warning",
+                db_manager=db_manager
             )
         else:
             create_notification(
                 patient_id=payload.patient_id,
                 title="YENİ LABORATUVAR SONUCU",
                 message=f"Tahlil sonucunuz ({payload.test_name}: {payload.result_value} {payload.unit}) sisteme yüklendi ve blockchain'e kaydedildi.",
-                severity="info"
+                severity="info",
+                db_manager=db_manager
             )
             
         return {
@@ -211,8 +230,12 @@ def lis_webhook(payload: LisWebhookPayload):
         raise HTTPException(500, f"Failed to save webhook record to blockchain: {str(ex)}")
 
 # ── SMART NOTIFICATIONS ───────────────────────────────────────
-@router.get("/api/notifications/{patient_id}", summary="Get Patient Notifications")
-def get_notifications(patient_id: str, u: dict = Depends(current_user)):
+@router.get("/notifications/{patient_id}", summary="Get Patient Notifications")
+def get_notifications(
+    patient_id: str, 
+    u: dict = Depends(current_user),
+    query_handler: QueryHandler = Depends(get_query_handler)
+):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -221,8 +244,13 @@ def get_notifications(patient_id: str, u: dict = Depends(current_user)):
     notifs = query_handler.handle_get_notifications(query)
     return {"notifications": notifs}
 
-@router.post("/api/notifications/{patient_id}/{notif_id}/read", summary="Mark Notification as Read")
-def mark_notification_read(patient_id: str, notif_id: str, u: dict = Depends(current_user)):
+@router.post("/notifications/{patient_id}/{notif_id}/read", summary="Mark Notification as Read")
+def mark_notification_read(
+    patient_id: str, 
+    notif_id: str, 
+    u: dict = Depends(current_user),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager)
+):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -239,14 +267,18 @@ def mark_notification_read(patient_id: str, notif_id: str, u: dict = Depends(cur
             return True
         return False
         
-    success = storage.run_write_transaction(project_name, txn_read)
+    success = db_manager.run_write_transaction(project_name, txn_read)
     if not success:
         raise HTTPException(404, "Notification not found")
     return {"success": True}
 
 # ── BLOCKCHAIN STATUS / EXPLORER ──────────────────────────────
-@router.get("/api/blockchain/{patient_id}/status", summary="Chain Status")
-def chain_status(patient_id: str, u: dict = Depends(current_user)):
+@router.get("/blockchain/{patient_id}/status", summary="Chain Status")
+def chain_status(
+    patient_id: str, 
+    u: dict = Depends(current_user),
+    record_service: RecordService = Depends(get_record_service)
+):
     chain = record_service.get_chain(patient_id)
     brk = record_service.find_broken_link_index(patient_id)
     return {
@@ -257,22 +289,24 @@ def chain_status(patient_id: str, u: dict = Depends(current_user)):
         "device_id":    get_device_id()[:16] + "...",
     }
 
-@router.get("/api/blockchain/{patient_id}/audit", summary="Access History")
+@router.get("/blockchain/{patient_id}/audit", summary="Access History")
 def audit_log(
     patient_id: str,
     limit: int = 50,
     source: str = "db",
     u: dict = Depends(require_role("admin", "auditor")),
+    audit_service: AuditService = Depends(get_audit_service)
 ):
     logs = audit_service.get_audit_logs(patient_id, limit, source)
     return {"patient_id": patient_id, "logs": logs, "source": source}
 
-@router.get("/api/blockchain/{patient_id}/access-logs", summary="Patient Access Log")
+@router.get("/blockchain/{patient_id}/access-logs", summary="Patient Access Log")
 def get_access_logs(
     patient_id: str,
     limit: int = 100,
     source: str = "db",
-    u: dict = Depends(require_role("admin", "auditor", "vip_patient"))
+    u: dict = Depends(require_role("admin", "auditor", "vip_patient")),
+    audit_service: AuditService = Depends(get_audit_service)
 ):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -280,16 +314,19 @@ def get_access_logs(
     return {"patient_id": patient_id, "logs": logs, "source": source}
 
 # ── SYSTEM / CONFIG ───────────────────────────────────────────
-@router.get("/api/record-types", summary="Record Types")
+@router.get("/record-types", summary="Record Types")
 def record_types():
     return {
         "types":         [{"value": k, "label": v} for k, v in RECORD_TYPES.items()],
         "access_levels": [{"value": k, "label": v} for k, v in ACCESS_LEVELS.items()],
     }
 
-@router.get("/api/system/status", summary="System Status")
-def system_status(u: dict = Depends(require_role("admin"))):
-    projects = storage.list_projects()
+@router.get("/system/status", summary="System Status")
+def system_status(
+    u: dict = Depends(require_role("admin")),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager)
+):
+    projects = db_manager.list_projects()
     return {
         "status":       "operational",
         "version":      "3.0.0",
@@ -299,13 +336,13 @@ def system_status(u: dict = Depends(require_role("admin"))):
         "timestamp":    datetime.now(timezone.utc).isoformat(),
     }
 
-@router.get("/api/system/config", summary="Public System Configuration")
+@router.get("/system/config", summary="Public System Configuration")
 def get_system_config():
     return {
         "environment": os.environ.get("ENVIRONMENT", "production"),
     }
 
-@router.get("/api/config", summary="Dynamic Configuration and Demo mode")
+@router.get("/config", summary="Dynamic Configuration and Demo mode")
 def get_config():
     demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
     env = os.environ.get("ENVIRONMENT", "production")

@@ -1,14 +1,13 @@
-cryptography
-customtkinter
-packaging
-pillow
-fastapi
-uvicorn[standard]
-pyjwt
-lmdb
-argon2-cffi
-python-multipart
-keyring          # OS keyring — DPAPI on Windows (S-02, S-06)
-wmi              # Windows hardware fingerprint — BIOS UUID + disk serial (S-01)
-pyotp            # TOTP 2FA (S-11)
-qrcode[pil]      # 2FA QR code generation (S-11)
+cryptography==42.0.5
+packaging==23.2
+pillow==10.2.0
+fastapi==0.110.0
+uvicorn[standard]==0.28.0
+pyjwt==2.8.0
+lmdb==1.4.1
+argon2-cffi==23.1.0
+python-multipart==0.0.9
+keyring==24.3.1
+wmi==1.5.1
+pyotp==2.9.0
+qrcode[pil]==7.4.2

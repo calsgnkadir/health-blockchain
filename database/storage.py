@@ -1,5 +1,5 @@
 """
-database/storage.py — VIP Health Vault · LMDB Storage Layer v2.0
+database/storage.py — VIP Health Vault · LMDB Storage Layer v3.0
 =====================================================================
 Features:
   - Block storage (atomic write, sequential keys)
@@ -15,13 +15,14 @@ import time
 import base64
 import lmdb
 import shutil
-import threading
 from typing import Optional, List, Dict, Any
 
+from database.connection import LMDBConnectionManager, active_txn, active_project
+
+
 # ──────────────────────────────────────────────
-# CONSTANTS
+# CONSTANTS & SETUP
 # ──────────────────────────────────────────────
-# storage.py is inside database/; parent directory = project root
 _STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_STORAGE_DIR)
 PROJECTS_DIR = os.path.join(_PROJECT_ROOT, "backend", "projects")
@@ -43,142 +44,62 @@ if env_map_size:
 else:
     LMDB_MAP_SIZE = 2 * 1024 * 1024 * 1024
 
-USERS_DB_NAME = "__users__"               # Special project name for user database
+USERS_DB_NAME = "__users__"
 
+# Default instance for process-wide usage and backward compatibility
+default_db_manager = LMDBConnectionManager(PROJECTS_DIR, LMDB_MAP_SIZE)
 
 # ──────────────────────────────────────────────
-# DIRECTORY HELPERS
+# BACKWARD COMPATIBLE DELEGATES
 # ──────────────────────────────────────────────
 
 def ensure_projects_dir() -> str:
-    os.makedirs(PROJECTS_DIR, exist_ok=True)
-    return PROJECTS_DIR
-
+    return default_db_manager.ensure_projects_dir()
 
 def get_project_path(project_name: str) -> str:
-    ensure_projects_dir()
-    return os.path.join(PROJECTS_DIR, project_name)
-
+    return default_db_manager.get_project_path(project_name)
 
 def get_db_path(project_name: str) -> str:
-    project_path = get_project_path(project_name)
-    os.makedirs(project_path, exist_ok=True)
-    return os.path.join(project_path, "chaindata.lmdb")
-
+    return default_db_manager.get_db_path(project_name)
 
 def create_project(project_name: str) -> bool:
-    project_path = get_project_path(project_name)
-    if not os.path.exists(project_path):
-        os.makedirs(project_path)
-        return True
-    return False
-
+    return default_db_manager.create_project(project_name)
 
 def project_exists(project_name: str) -> bool:
-    return os.path.exists(get_project_path(project_name))
-
+    return default_db_manager.project_exists(project_name)
 
 def list_projects() -> List[str]:
-    ensure_projects_dir()
-    return [
-        d for d in os.listdir(PROJECTS_DIR)
-        if os.path.isdir(os.path.join(PROJECTS_DIR, d))
-        and not d.startswith("__")
-    ]
-
-
-# ──────────────────────────────────────────────
-# LMDB CORE HELPERS (Cached Environment Management)
-# ──────────────────────────────────────────────
-
-import contextvars
-
-# Global context variables to track active LMDB transactions for Unit of Work
-active_txn = contextvars.ContextVar("active_txn", default=None)
-active_project = contextvars.ContextVar("active_project", default=None)
-
-_map_sizes: Dict[str, int] = {}
-_envs: Dict[str, lmdb.Environment] = {}
-_env_lock = threading.Lock()
+    return default_db_manager.list_projects()
 
 def open_db(project_name: str) -> lmdb.Environment:
-    """
-    Opens or retrieves a cached LMDB Environment.
-    Environments are shared across threads to avoid Windows locking/sharing violations.
-    """
-    with _env_lock:
-        if project_name not in _envs:
-            path = get_db_path(project_name)
-            if project_name not in _map_sizes:
-                _map_sizes[project_name] = LMDB_MAP_SIZE
-            
-            while True:
-                try:
-                    _envs[project_name] = lmdb.open(path, map_size=_map_sizes[project_name], subdir=True)
-                    break
-                except lmdb.MapFullError:
-                    _map_sizes[project_name] += 100 * 1024 * 1024  # increase map size by 100 MB
-        return _envs[project_name]
-
+    return default_db_manager.open_db(project_name)
 
 def run_write_transaction(project_name: str, txn_func) -> Any:
-    """
-    Executes write transaction on LMDB with automatic resize support.
-    If an active transaction exists in the context for this project, it is reused.
-    """
-    current_txn = active_txn.get()
-    current_proj = active_project.get()
-    
-    if current_txn is not None and current_proj == project_name:
-        return txn_func(current_txn)
-
-    if project_name not in _map_sizes:
-        _map_sizes[project_name] = LMDB_MAP_SIZE
-    
-    for attempt in range(5):
-        try:
-            env = open_db(project_name)
-            with env.begin(write=True) as txn:
-                result = txn_func(txn)
-            return result
-        except lmdb.MapFullError:
-            # Close and remove cached environment to allow reopening with a larger map size
-            with _env_lock:
-                if project_name in _envs:
-                    try:
-                        _envs[project_name].close()
-                    except Exception:
-                        pass
-                    del _envs[project_name]
-            _map_sizes[project_name] += 100 * 1024 * 1024  # increase map size by 100 MB
-    raise lmdb.MapFullError("LMDB limit reached and map size could not be increased automatically.")
-
+    return default_db_manager.run_write_transaction(project_name, txn_func)
 
 def _block_key(index: int) -> bytes:
-    """Sequential block key: 10 digits like '0000000001'."""
     return f"{index:010d}".encode("utf-8")
-
 
 # ──────────────────────────────────────────────
 # BLOCK OPERATIONS
 # ──────────────────────────────────────────────
 
-def save_block_to_db(project_name: str, index: int, block_data: dict) -> None:
-    """Writes a single block atomically to LMDB."""
+def save_block_to_db(project_name: str, index: int, block_data: dict, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         key = _block_key(index)
         value = json.dumps(block_data, ensure_ascii=False).encode("utf-8")
         txn.put(key, value)
         txn.put(b"meta_last_index", str(index).encode("utf-8"))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def load_all_blocks(project_name: str) -> List[dict]:
-    """Loads all blocks sequentially."""
-    if not project_exists(project_name):
+def load_all_blocks(project_name: str, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+    manager = db_manager or default_db_manager
+    if not manager.project_exists(project_name):
         return []
 
-    env = open_db(project_name)
+    env = manager.open_db(project_name)
     blocks = []
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
@@ -202,16 +123,10 @@ def load_all_blocks(project_name: str) -> List[dict]:
     return blocks
 
 
-def reset_db(project_name: str) -> None:
-    """Resets the database (called before Genesis block)."""
-    with _env_lock:
-        if project_name in _envs:
-            try:
-                _envs[project_name].close()
-            except Exception:
-                pass
-            del _envs[project_name]
-    path = get_db_path(project_name)
+def reset_db(project_name: str, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
+    manager.close_db(project_name)
+    path = manager.get_db_path(project_name)
     if os.path.exists(path):
         try:
             shutil.rmtree(path)
@@ -223,43 +138,39 @@ def reset_db(project_name: str) -> None:
 # PER-PATIENT ENCRYPTION SALT MANAGEMENT
 # ──────────────────────────────────────────────
 
-def save_patient_salt(project_name: str, salt: bytes) -> None:
-    """Saves patient-specific (per-patient) salt to LMDB (meta_salt_<patient_id>)."""
+def save_patient_salt(project_name: str, salt: bytes, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         key = f"meta_salt_{project_name}".encode("utf-8")
         txn.put(key, base64.urlsafe_b64encode(salt))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def get_patient_salt(project_name: str) -> bytes:
-    """
-    Returns patient-specific (per-patient) salt.
-    Generates a new one if missing and stores with meta_salt_<patient_id> key.
-    """
-    env = open_db(project_name)
+def get_patient_salt(project_name: str, db_manager: Optional[LMDBConnectionManager] = None) -> bytes:
+    manager = db_manager or default_db_manager
+    env = manager.open_db(project_name)
     with env.begin(write=False) as txn:
         key = f"meta_salt_{project_name}".encode("utf-8")
         val = txn.get(key)
         if val:
             return base64.urlsafe_b64decode(val)
 
-    # If missing, generate and save
     salt = os.urandom(32)
-    save_patient_salt(project_name, salt)
+    save_patient_salt(project_name, salt, manager)
     return salt
 
 
-def save_block_salt(project_name: str, block_index: int, salt: bytes) -> None:
-    """Saves a block's encryption salt to LMDB."""
+def save_block_salt(project_name: str, block_index: int, salt: bytes, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         key = f"salt_{block_index:010d}".encode("utf-8")
         txn.put(key, base64.urlsafe_b64encode(salt))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def load_block_salt(project_name: str, block_index: int) -> Optional[bytes]:
-    """Reads a block's encryption salt from LMDB."""
-    env = open_db(project_name)
+def load_block_salt(project_name: str, block_index: int, db_manager: Optional[LMDBConnectionManager] = None) -> Optional[bytes]:
+    manager = db_manager or default_db_manager
+    env = manager.open_db(project_name)
     with env.begin(write=False) as txn:
         key = f"salt_{block_index:010d}".encode("utf-8")
         value = txn.get(key)
@@ -268,17 +179,17 @@ def load_block_salt(project_name: str, block_index: int) -> Optional[bytes]:
         return None
 
 
-def save_block_pwd_hash(project_name: str, block_index: int, pwd_hash: str) -> None:
-    """Writes the saved block's password hash (Argon2) to LMDB under a separate key."""
+def save_block_pwd_hash(project_name: str, block_index: int, pwd_hash: str, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         key = f"pwd_hash_{block_index:010d}".encode("utf-8")
         txn.put(key, pwd_hash.encode("utf-8"))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def load_block_pwd_hash(project_name: str, block_index: int) -> Optional[str]:
-    """Reads the block's password hash from LMDB."""
-    env = open_db(project_name)
+def load_block_pwd_hash(project_name: str, block_index: int, db_manager: Optional[LMDBConnectionManager] = None) -> Optional[str]:
+    manager = db_manager or default_db_manager
+    env = manager.open_db(project_name)
     with env.begin(write=False) as txn:
         key = f"pwd_hash_{block_index:010d}".encode("utf-8")
         val = txn.get(key)
@@ -297,11 +208,9 @@ def append_access_log(
     action: str,
     device_id: Optional[str] = None,
     extra: Optional[dict] = None,
+    db_manager: Optional[LMDBConnectionManager] = None,
 ) -> None:
-    """
-    Appends an access log entry for a specific patient.
-    Key format: access_log_<project_name>_<timestamp_ns>
-    """
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         ts_ns = time.time_ns()
         key = f"access_log_{project_name}_{ts_ns:020d}".encode("utf-8")
@@ -314,15 +223,15 @@ def append_access_log(
             **(extra or {}),
         }
         txn.put(key, json.dumps(entry, ensure_ascii=False).encode("utf-8"))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def load_access_logs(project_name: str, limit: int = 100) -> List[dict]:
-    """Returns the last 'limit' access logs (newest to oldest)."""
-    if not project_exists(project_name):
+def load_access_logs(project_name: str, limit: int = 100, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+    manager = db_manager or default_db_manager
+    if not manager.project_exists(project_name):
         return []
 
-    env = open_db(project_name)
+    env = manager.open_db(project_name)
     logs = []
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
@@ -349,11 +258,9 @@ def append_audit_log(
     block_index: Optional[int] = None,
     device_id: Optional[str] = None,
     extra: Optional[dict] = None,
+    db_manager: Optional[LMDBConnectionManager] = None,
 ) -> None:
-    """
-    Creates an audit entry. Every entry is stored with a timestamp in LMDB.
-    Format: audit_<timestamp_ns> → JSON
-    """
+    manager = db_manager or default_db_manager
     def txn_block(txn):
         ts_ns = time.time_ns()
         key = f"audit_{ts_ns:020d}".encode("utf-8")
@@ -367,15 +274,15 @@ def append_audit_log(
             **(extra or {}),
         }
         txn.put(key, json.dumps(entry, ensure_ascii=False).encode("utf-8"))
-    run_write_transaction(project_name, txn_block)
+    manager.run_write_transaction(project_name, txn_block)
 
 
-def load_audit_logs(project_name: str, limit: int = 100) -> List[dict]:
-    """Returns the last 'limit' audit logs (newest to oldest)."""
-    if not project_exists(project_name):
+def load_audit_logs(project_name: str, limit: int = 100, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+    manager = db_manager or default_db_manager
+    if not manager.project_exists(project_name):
         return []
 
-    env = open_db(project_name)
+    env = manager.open_db(project_name)
     logs = []
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
@@ -396,26 +303,23 @@ def load_audit_logs(project_name: str, limit: int = 100) -> List[dict]:
 # USER DATABASE (Argon2 hashed)
 # ──────────────────────────────────────────────
 
-def _ensure_users_db() -> None:
-    create_project(USERS_DB_NAME)
+def _ensure_users_db(db_manager: LMDBConnectionManager) -> None:
+    db_manager.create_project(USERS_DB_NAME)
 
 
-def save_user(user_data: dict) -> None:
-    """
-    Saves user to LMDB.
-    user_data: {username, password_hash, role, full_name, patient_id, ...}
-    """
-    _ensure_users_db()
+def save_user(user_data: dict, db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
+    _ensure_users_db(manager)
     def txn_block(txn):
         key = f"user_{user_data['username']}".encode("utf-8")
         txn.put(key, json.dumps(user_data, ensure_ascii=False).encode("utf-8"))
-    run_write_transaction(USERS_DB_NAME, txn_block)
+    manager.run_write_transaction(USERS_DB_NAME, txn_block)
 
 
-def load_user(username: str) -> Optional[dict]:
-    """Loads user by username."""
-    _ensure_users_db()
-    env = open_db(USERS_DB_NAME)
+def load_user(username: str, db_manager: Optional[LMDBConnectionManager] = None) -> Optional[dict]:
+    manager = db_manager or default_db_manager
+    _ensure_users_db(manager)
+    env = manager.open_db(USERS_DB_NAME)
     with env.begin(write=False) as txn:
         key = f"user_{username}".encode("utf-8")
         value = txn.get(key)
@@ -424,10 +328,10 @@ def load_user(username: str) -> Optional[dict]:
         return None
 
 
-def load_all_users() -> List[dict]:
-    """Returns all users."""
-    _ensure_users_db()
-    env = open_db(USERS_DB_NAME)
+def load_all_users(db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+    manager = db_manager or default_db_manager
+    _ensure_users_db(manager)
+    env = manager.open_db(USERS_DB_NAME)
     users = []
     with env.begin(write=False) as txn:
         cursor = txn.cursor()
@@ -440,31 +344,29 @@ def load_all_users() -> List[dict]:
     return users
 
 
-def user_exists(username: str) -> bool:
-    return load_user(username) is not None
+def user_exists(username: str, db_manager: Optional[LMDBConnectionManager] = None) -> bool:
+    return load_user(username, db_manager) is not None
 
 
-def delete_user(username: str) -> bool:
-    _ensure_users_db()
+def delete_user(username: str, db_manager: Optional[LMDBConnectionManager] = None) -> bool:
+    manager = db_manager or default_db_manager
+    _ensure_users_db(manager)
     def txn_block(txn):
         key = f"user_{username}".encode("utf-8")
         return txn.delete(key)
-    return run_write_transaction(USERS_DB_NAME, txn_block)
+    return manager.run_write_transaction(USERS_DB_NAME, txn_block)
 
 
 # ──────────────────────────────────────────────
 # DEFAULT USERS SEEDING — First Run
 # ──────────────────────────────────────────────
 
-def seed_default_users() -> None:
-    """
-    Seeds default users if the user database is empty.
-    In production, these default passwords must be changed!
-    """
+def seed_default_users(db_manager: Optional[LMDBConnectionManager] = None) -> None:
     from core.security import hash_password
 
-    if load_all_users():
-        return   # Users already exist
+    manager = db_manager or default_db_manager
+    if load_all_users(manager):
+        return
 
     defaults = [
         {
@@ -503,6 +405,6 @@ def seed_default_users() -> None:
     ]
 
     for user in defaults:
-        save_user(user)
+        save_user(user, manager)
 
     print("[OK] Default users seeded into LMDB successfully.")

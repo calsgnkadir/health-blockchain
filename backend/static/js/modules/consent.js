@@ -28,32 +28,36 @@ export async function loadConsents() {
     };
 
     container.innerHTML = `
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; color: #fff;">
-          <thead>
-            <tr style="border-bottom: 1px solid var(--border); color: var(--muted-hi); font-size: 13px;">
-              <th style="padding: 10px 8px;">Doctor</th>
-              <th style="padding: 10px 8px;">Record Type</th>
-              <th style="padding: 10px 8px;">Expires At</th>
-              <th style="padding: 10px 8px; text-align: right;">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${consents.map(c => {
-              const expDate = new Date(c.expiry_timestamp * 1000).toLocaleDateString('en-GB');
-              return `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px;">
-                  <td style="padding: 12px 8px; font-weight: 600;">Dr. ${c.doctor_username}</td>
-                  <td style="padding: 12px 8px;"><span class="badge badge-shared">${typeLabels[c.record_type] || c.record_type}</span></td>
-                  <td style="padding: 12px 8px;">${expDate}</td>
-                  <td style="padding: 12px 8px; text-align: right;">
-                    <button class="btn btn-error btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.revokeConsent('${c.doctor_username}', '${c.record_type}')">Revoke</button>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="consent-gantt-chart">
+        ${consents.map(c => {
+          const expDate = new Date(c.expiry_timestamp * 1000).toLocaleDateString('en-GB');
+          const grantedVal = c.granted_at || (c.expiry_timestamp - 30 * 86400);
+          const grantedDate = new Date(grantedVal * 1000).toLocaleDateString('en-GB');
+          
+          const now = Date.now() / 1000;
+          const totalDuration = c.expiry_timestamp - grantedVal;
+          const elapsed = now - grantedVal;
+          const pct = Math.max(0, Math.min(100, 100 - (elapsed / (totalDuration || 1)) * 100));
+          
+          return `
+            <div class="gantt-row">
+              <div class="gantt-label">
+                <div style="font-weight:700;color:#fff;">Dr. ${c.doctor_username}</div>
+                <div style="font-size:10px;color:var(--accent-ledger);font-weight:600;text-transform:uppercase;">${typeLabels[c.record_type] || c.record_type}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div class="gantt-timeline-track">
+                  <div class="gantt-bar" style="width: ${pct}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)">
+                  <span>Granted: ${grantedDate}</span>
+                  <span>Expires: ${expDate}</span>
+                  <button class="btn btn-error btn-sm" style="padding:2px 8px;font-size:10px;border-radius:4px;font-weight:600;" onclick="window.revokeConsent('${c.doctor_username}', '${c.record_type}')">Revoke</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   } catch (e) {
