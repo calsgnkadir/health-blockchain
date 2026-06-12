@@ -25,7 +25,24 @@ from typing import Optional, List, Dict, Any
 _STORAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_STORAGE_DIR)
 PROJECTS_DIR = os.path.join(_PROJECT_ROOT, "backend", "projects")
-LMDB_MAP_SIZE = 2 * 1024 * 1024 * 1024   # 2 GB
+
+env_map_size = os.getenv("VHV_LMDB_MAP_SIZE")
+if env_map_size:
+    try:
+        env_map_size_clean = env_map_size.strip().upper()
+        if env_map_size_clean.endswith("G"):
+            LMDB_MAP_SIZE = int(float(env_map_size_clean[:-1]) * 1024 * 1024 * 1024)
+        elif env_map_size_clean.endswith("M"):
+            LMDB_MAP_SIZE = int(float(env_map_size_clean[:-1]) * 1024 * 1024)
+        elif env_map_size_clean.endswith("K"):
+            LMDB_MAP_SIZE = int(float(env_map_size_clean[:-1]) * 1024)
+        else:
+            LMDB_MAP_SIZE = int(env_map_size_clean)
+    except Exception:
+        LMDB_MAP_SIZE = 2 * 1024 * 1024 * 1024
+else:
+    LMDB_MAP_SIZE = 2 * 1024 * 1024 * 1024
+
 USERS_DB_NAME = "__users__"               # Special project name for user database
 
 

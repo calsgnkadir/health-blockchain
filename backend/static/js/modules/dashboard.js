@@ -1,17 +1,11 @@
 /* dashboard.js — VIP Health Vault UI Dashboard Module */
-import { apiFetch, patientId, formatTs, emptyState } from './utils.js';
+import { apiFetch, patientId, formatTs, emptyState, appState } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
 
 let vitalsChartInstance = null;
 
 export function updateChainPill(valid) {
-  const pill = document.getElementById('chain-pill');
-  if (!pill) return;
-  const dot  = pill.querySelector('.chain-dot');
-  const txt  = document.getElementById('chain-pill-text');
-  pill.className = 'chain-pill' + (valid ? '' : ' invalid');
-  if (dot) dot.className  = 'chain-dot ' + (valid ? 'valid' : 'invalid');
-  if (txt) txt.textContent = valid ? 'Chain Valid' : 'Chain BROKEN!';
+  appState.updateChain(valid);
 }
 
 export function updateClinicalHighlights(records) {
@@ -305,19 +299,19 @@ export function navigate(page) {
   if (navEl) navEl.classList.add('active');
   
   const titles = {
-    dashboard:      'Dashboard',
-    records:        'Health Records',
-    'add-record':   'Add Record',
-    'chain-status': 'Chain Status',
-    vaccines:       'Vaccine Passport',
-    medications:    'Medications & Reminders',
-    users:          'Users',
-    audit:          'Access History',
-    security:       'Security Settings',
-    wearables:      'Wearables Integration Hub',
-    appointments:   'Clinic Appointments',
-    triage:         'AI Clinical Triage',
-    consent:        'Consent Management',
+    dashboard:      'Dashboard (Özet Ekranı)',
+    records:        'Sağlık Kayıtları (Health Records)',
+    'add-record':   'Yeni Kayıt Ekle (Add Record)',
+    'chain-status': 'Zincir Durumu (Chain Status)',
+    vaccines:       'Aşı Kartı (Vaccine Passport)',
+    medications:    'İlaçlar & Reçeteler (Medications)',
+    users:          'Kullanıcı Yönetimi (Users)',
+    audit:          'Erişim Günlükleri (Access History)',
+    security:       'Güvenlik Ayarları (Security & 2FA)',
+    wearables:      'Giyilebilir Cihaz Entegrasyonu (Wearables)',
+    appointments:   'Klinik Randevuları (Appointments)',
+    triage:         'Yapay Zeka Triage (AI Triage)',
+    consent:        'Rıza Yönetimi (Consent Management)',
   };
   
   document.getElementById('topbar-title').textContent = titles[page] || page;

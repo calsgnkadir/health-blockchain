@@ -1,5 +1,4 @@
-/* app.js — VIP Health Vault · ES6 Entrypoint & Router */
-import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser } from './modules/utils.js';
+import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners } from './modules/records.js';
@@ -48,23 +47,8 @@ window.enterApp = function() {
   const pageApp = document.getElementById('page-app');
   if (pageApp) pageApp.style.display = 'flex';
 
-  // Sidebar user info
-  const sbName = document.getElementById('sidebar-name');
-  if (sbName) sbName.textContent = currentUser.full_name;
-  const sbRole = document.getElementById('sidebar-role');
-  if (sbRole) sbRole.textContent = ROLE_LABEL[currentUser.role] || currentUser.role;
-  const sbAvatar = document.getElementById('sidebar-avatar');
-  if (sbAvatar) sbAvatar.textContent = currentUser.full_name.charAt(0).toUpperCase();
-  const tbUser = document.getElementById('topbar-user-name');
-  if (tbUser) tbUser.textContent = currentUser.full_name;
-
-  // Role-based nav
-  const navUsers = document.getElementById('nav-users');
-  if (navUsers) navUsers.style.display = (currentUser.role === 'admin') ? 'flex' : 'none';
-  const navAudit = document.getElementById('nav-audit');
-  if (navAudit) navAudit.style.display = (currentUser.role === 'admin' || currentUser.role === 'auditor') ? 'flex' : 'none';
-  const navAdd = document.getElementById('nav-add');
-  if (navAdd) navAdd.style.display = (currentUser.role === 'vip_patient') ? 'none' : 'flex';
+  // Use centralized state manager
+  appState.updateUser(currentUser);
 
   // Pre-fill patient ID for VIP patient
   const recPatId = document.getElementById('rec-patient-id');

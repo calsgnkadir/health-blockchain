@@ -95,6 +95,16 @@ class IBlockRepository(ABC):
         """Loads a block's password hash."""
         pass
 
+    @abstractmethod
+    def get_by_date_range(self, project_name: str, start_date: str, end_date: str) -> List[Block]:
+        """Gets blocks within a date range (inclusive)."""
+        pass
+
+    @abstractmethod
+    def get_by_type(self, project_name: str, record_type: str) -> List[Block]:
+        """Gets blocks by record type."""
+        pass
+
 
 class IAuditRepository(ABC):
     @abstractmethod

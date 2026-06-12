@@ -1,5 +1,4 @@
-/* notifications.js — VIP Health Vault UI Notifications Module */
-import { apiFetch, patientId, getCurrentUser } from './utils.js';
+import { apiFetch, patientId, getCurrentUser, appState } from './utils.js';
 
 let localNotificationsCache = [];
 
@@ -94,14 +93,7 @@ export async function updateNotificationsUI() {
 
   const unreadCount = combined.filter(n => !n.read).length;
 
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.textContent = unreadCount;
-      badge.style.display = 'block';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
+  appState.updateNotifications(unreadCount);
 
   if (listEl) {
     if (combined.length === 0) {

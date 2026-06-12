@@ -98,6 +98,24 @@ class LMDBBlockRepository(IBlockRepository):
     def load_block_pwd_hash(self, project_name: str, block_index: int) -> Optional[str]:
         return storage.load_block_pwd_hash(project_name, block_index)
 
+    def get_by_date_range(self, project_name: str, start_date: str, end_date: str) -> List[Block]:
+        blocks = self.load_all_blocks(project_name)
+        result = []
+        for b in blocks:
+            if isinstance(b.data, dict) and "record_date" in b.data:
+                rec_date = b.data["record_date"]
+                if start_date <= rec_date <= end_date:
+                    result.append(b)
+        return result
+
+    def get_by_type(self, project_name: str, record_type: str) -> List[Block]:
+        blocks = self.load_all_blocks(project_name)
+        result = []
+        for b in blocks:
+            if isinstance(b.data, dict) and b.data.get("record_type") == record_type:
+                result.append(b)
+        return result
+
 
 class LMDBAuditRepository(IAuditRepository):
     def append_audit_log(

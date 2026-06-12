@@ -1,7 +1,7 @@
 import time
 import secrets
 from typing import Any, Optional
-from core.domain.entities import Block, calculate_merkle_root
+from core.domain.entities import Block, calculate_merkle_root, User
 from core.security import signaturedata, get_device_id
 
 class BlockFactory:
@@ -114,3 +114,33 @@ class BlockFactory:
             protection_hash=None,
             device_id=device,
         )
+
+class UserFactory:
+    @staticmethod
+    def create_user(
+        id: str,
+        username: str,
+        password_hash: str,
+        role: str,
+        full_name: str,
+        patient_id: Optional[str] = None,
+        totp_secret: Optional[str] = None,
+        totp_enabled: bool = False,
+        specialty: Optional[str] = None,
+        institution: Optional[str] = None,
+        clearance: Optional[str] = None,
+    ) -> User:
+        return User(
+            id=id,
+            username=username,
+            password_hash=password_hash,
+            role=role,
+            full_name=full_name,
+            patient_id=patient_id,
+            totp_secret=totp_secret,
+            totp_enabled=totp_enabled,
+            specialty=specialty,
+            institution=institution,
+            clearance=clearance,
+        )
+

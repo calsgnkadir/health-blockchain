@@ -77,3 +77,71 @@ export function patientId() {
   const user = getCurrentUser();
   return user && user.role === 'vip_patient' ? user.patient_id : 'VIP-001';
 }
+
+// Centralized UI State Manager
+export const appState = {
+  currentUser: null,
+  chainValid: true,
+  activePage: 'dashboard',
+  notificationsCount: 0,
+
+  updateUser(user) {
+    this.currentUser = user;
+    this.render();
+  },
+
+  updateChain(valid) {
+    this.chainValid = valid;
+    this.render();
+  },
+
+  updatePage(page) {
+    this.activePage = page;
+    this.render();
+  },
+
+  updateNotifications(count) {
+    this.notificationsCount = count;
+    this.render();
+  },
+
+  render() {
+    // 1. Render User Info
+    if (this.currentUser) {
+      const sbName = document.getElementById('sidebar-name');
+      if (sbName) sbName.textContent = this.currentUser.full_name;
+      const sbRole = document.getElementById('sidebar-role');
+      if (sbRole) sbRole.textContent = ROLE_LABEL[this.currentUser.role] || this.currentUser.role;
+      const sbAvatar = document.getElementById('sidebar-avatar');
+      if (sbAvatar) sbAvatar.textContent = this.currentUser.full_name.charAt(0).toUpperCase();
+      const tbUser = document.getElementById('topbar-user-name');
+      if (tbUser) tbUser.textContent = this.currentUser.full_name;
+
+      // Role-based navigation visibility
+      const navUsers = document.getElementById('nav-users');
+      if (navUsers) navUsers.style.display = (this.currentUser.role === 'admin') ? 'flex' : 'none';
+      const navAudit = document.getElementById('nav-audit');
+      if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
+      const navAdd = document.getElementById('nav-add');
+      if (navAdd) navAdd.style.display = (this.currentUser.role === 'vip_patient') ? 'none' : 'flex';
+    }
+
+    // 2. Render Chain Pill
+    const pill = document.getElementById('chain-pill');
+    if (pill) {
+      const dot = pill.querySelector('.chain-dot');
+      const txt = document.getElementById('chain-pill-text');
+      pill.className = 'chain-pill' + (this.chainValid ? '' : ' invalid');
+      if (dot) dot.className = 'chain-dot ' + (this.chainValid ? 'valid' : 'invalid');
+      if (txt) txt.textContent = this.chainValid ? 'Chain Valid' : 'Chain BROKEN!';
+    }
+
+    // 3. Render Notifications count
+    const badge = document.getElementById('noti-badge-count');
+    if (badge) {
+      badge.textContent = this.notificationsCount;
+      badge.style.display = this.notificationsCount > 0 ? 'inline-block' : 'none';
+    }
+  }
+};
+

@@ -1,682 +1,796 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VIP Health Vault — Ultra-Secure Medical Records</title>
-  <meta name="description" content="Blockchain-based ultra-secure VIP medical record system. Immutable, encrypted, auditable.">
+  <meta name="description"
+    content="Blockchain-based ultra-secure VIP medical record system. Immutable, encrypted, auditable.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css?v=3.1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
-<!-- ================= PARTICLE CANVAS ================= -->
-<canvas id="particles-canvas"></canvas>
+  <!-- ================= PARTICLE CANVAS ================= -->
+  <canvas id="particles-canvas"></canvas>
 
-<!-- ================= APP SHELL ======================= -->
-<div id="app">
+  <!-- ================= APP SHELL ======================= -->
+  <div id="app">
 
-  <!-- LOGIN PAGE -->
-  <div id="page-login" class="page active">
-    <div class="login-wrap">
-      <div class="login-brand">
-        <div>
-          <h1 class="brand-name">VIP Health Vault</h1>
-          <p class="brand-sub">Ultra-Secure Blockchain Medical Records</p>
-        </div>
-      </div>
-
-      <div class="login-card glass">
-        <div class="login-header">
-          <h2>Secure Access</h2>
-          <p>Unauthorized access is monitored and logged</p>
+    <!-- LOGIN PAGE -->
+    <div id="page-login" class="page active">
+      <div class="login-wrap">
+        <div class="login-brand">
+          <div>
+            <h1 class="brand-name">VIP Health Vault</h1>
+            <p class="brand-sub">Ultra-Secure Blockchain Medical Records</p>
+          </div>
         </div>
 
-        <div id="login-error" class="alert alert-error" style="display:none"></div>
+        <div class="login-card glass">
+          <div class="login-header">
+            <h2>Secure Access</h2>
+            <p>Unauthorized access is monitored and logged</p>
+          </div>
 
-        <form id="login-form" autocomplete="off">
-          <div id="login-fields-group">
-            <div class="field-group">
-              <label>Username</label>
-              <div class="input-wrap">
-                <input id="inp-username" type="text" placeholder="username" required />
+          <div id="login-error" class="alert alert-error" style="display:none"></div>
+
+          <form id="login-form" autocomplete="off">
+            <div id="login-fields-group">
+              <div class="field-group">
+                <label>Username</label>
+                <div class="input-wrap">
+                  <input id="inp-username" type="text" placeholder="username" required />
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Password</label>
+                <div class="input-wrap">
+                  <input id="inp-password" type="password" placeholder="••••••••" required />
+                </div>
               </div>
             </div>
-            <div class="field-group">
-              <label>Password</label>
+            <div class="field-group" id="login-mfa-group" style="display:none">
+              <label>Two-Factor Authentication (2FA) Code</label>
               <div class="input-wrap">
-                <input id="inp-password" type="password" placeholder="••••••••" required />
+                <input id="inp-mfa" type="text" placeholder="6-digit code" autocomplete="one-time-code" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-gold btn-full" id="btn-login">
+              <span id="btn-login-text">ENTER VAULT</span>
+              <span id="btn-login-spin" class="spinner" style="display:none"></span>
+            </button>
+            <div id="login-mfa-back" style="display:none; text-align:center; margin-top:14px;">
+              <a href="#" onclick="resetLoginForm(event)"
+                style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to
+                Username/Password</a>
+            </div>
+          </form>
+
+          <div class="demo-credentials" id="demo-credentials-box" style="display:none;">
+            <p class="demo-title">Demo Accounts</p>
+            <div class="demo-list" id="demo-credentials-list">
+              <!-- Dynamically loaded if demo mode is enabled on the server -->
+            </div>
+          </div>
+        </div>
+
+        <div class="login-footer">
+          <span class="security-badge">AES-256 + PBKDF2 (600K iter)</span>
+          <span class="security-badge">SHA-256 Immutable Chain</span>
+          <span class="security-badge">Argon2 Password Protection</span>
+          <span class="security-badge">Hardware Device Binding</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN APP (after login) -->
+    <div id="page-app" class="page" style="display:none">
+
+      <!-- SIDEBAR -->
+      <aside id="sidebar">
+        <div class="sidebar-brand">
+          <span>VIP Health Vault</span>
+        </div>
+
+        <div class="sidebar-user">
+          <div class="user-avatar" id="sidebar-avatar">A</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-name">User</div>
+            <div class="user-role" id="sidebar-role">—</div>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <!-- ANA PANEL -->
+          <div class="nav-category" id="cat-dashboard">
+            <span class="nav-category-title">Ana Panel</span>
+            <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+              Dashboard (Özet Ekranı)
+            </a>
+            <a class="nav-item" data-page="chain-status" onclick="navigate('chain-status')">
+              Chain Status (Zincir Durumu)
+            </a>
+            <a class="nav-item" data-page="audit" id="nav-audit" onclick="navigate('audit')" style="display:none">
+              Access History (Erişim Günlükleri)
+            </a>
+            <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
+              Users (Kullanıcı Yönetimi)
+            </a>
+          </div>
+
+          <!-- SAĞLIK DEFTERİ -->
+          <div class="nav-category" id="cat-ledger">
+            <span class="nav-category-title">Sağlık Defteri</span>
+            <a class="nav-item" data-page="records" onclick="navigate('records')">
+              Health Records (Sağlık Kayıtları)
+            </a>
+            <a class="nav-item" data-page="add-record" id="nav-add" onclick="navigate('add-record')">
+              Add Record (Kayıt Ekle)
+            </a>
+            <a class="nav-item" data-page="vaccines" onclick="navigate('vaccines')">
+              Vaccine Passport (Aşı Kartı)
+            </a>
+            <a class="nav-item" data-page="medications" onclick="navigate('medications')">
+              Medications (İlaç &amp; Reçete)
+            </a>
+          </div>
+
+          <!-- ERİŞİM & GÜVENLİK -->
+          <div class="nav-category" id="cat-security">
+            <span class="nav-category-title">Erişim &amp; Güvenlik</span>
+            <a class="nav-item" data-page="consent" id="nav-consent" onclick="navigate('consent')">
+              Consent Management (Rıza Yetkileri)
+            </a>
+            <a class="nav-item" data-page="security" onclick="navigate('security')">
+              Security &amp; 2FA (Güvenlik Ayarları)
+            </a>
+          </div>
+
+          <!-- AKILLI ENTEGRASYONLAR -->
+          <div class="nav-category" id="cat-integrations">
+            <span class="nav-category-title">Akıllı Entegrasyonlar</span>
+            <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
+              Wearables (Giyilebilir Cihazlar)
+            </a>
+            <a class="nav-item" data-page="appointments" onclick="navigate('appointments')">
+              Appointments (Randevular)
+            </a>
+            <a class="nav-item" data-page="triage" onclick="navigate('triage')">
+              AI Triage (Semptom Analizi)
+            </a>
+          </div>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <button class="btn-logout" onclick="logout()">Sign Out</button>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main id="main-content">
+
+        <!-- Top Bar -->
+        <header class="topbar">
+          <div class="topbar-title" id="topbar-title">Dashboard</div>
+          <div class="topbar-actions">
+            <!-- Notification Bell -->
+            <div class="notification-bell" onclick="toggleNotifications(event)" id="notification-bell-btn"
+              style="position: relative; margin-right: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"
+                style="color: var(--muted-hi); cursor: pointer; display: block;">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span class="bell-badge" id="noti-badge-count"
+                style="display:none; position: absolute; top: -4px; right: -4px; background: var(--danger); color: white; border-radius: 99px; font-size: 10px; font-weight: 700; padding: 2px 5px; line-height: 1;">0</span>
+
+              <!-- Notifications Dropdown -->
+              <div id="noti-dropdown" class="noti-dropdown glass" onclick="event.stopPropagation()"
+                style="display: none; position: absolute; right: 0; top: 32px; width: 300px; max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); z-index: 1000; padding: 8px 0;">
+                <div class="noti-header"
+                  style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 700; font-size: 13px; color: var(--gold);">
+                  <span>Notifications</span>
+                  <a href="#" onclick="clearAllNotifications(event)"
+                    style="color: var(--muted-hi); text-decoration: none; font-size: 11px;">Clear All</a>
+                </div>
+                <div id="noti-list" class="noti-list" style="padding: 4px 0;">
+                  <div style="padding: 16px; text-align: center; color: var(--muted); font-size: 12px;">No new alerts
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chain-pill" id="chain-pill">
+              <span class="chain-dot valid"></span>
+              <span id="chain-pill-text">Chain Valid</span>
+            </div>
+            <div class="topbar-user" id="topbar-user-name"></div>
+          </div>
+        </header>
+
+        <!-- DASHBOARD VIEW -->
+        <section id="view-dashboard" class="view active">
+          <div class="stats-grid">
+            <div class="stat-card glass">
+              <div class="stat-info">
+                <div class="stat-value" id="stat-total-blocks">—</div>
+                <div class="stat-label">Total Blocks</div>
+              </div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-info">
+                <div class="stat-value" id="stat-total-records">—</div>
+                <div class="stat-label">Health Records</div>
+              </div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-info">
+                <div class="stat-value" id="stat-integrity">VALID</div>
+                <div class="stat-label">Chain Integrity</div>
+              </div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-info">
+                <div class="stat-value" id="stat-encrypted">—</div>
+                <div class="stat-label">Encrypted Records</div>
               </div>
             </div>
           </div>
-          <div class="field-group" id="login-mfa-group" style="display:none">
-            <label>Two-Factor Authentication (2FA) Code</label>
-            <div class="input-wrap">
-              <input id="inp-mfa" type="text" placeholder="6-digit code" autocomplete="one-time-code" />
+
+          <!-- Patient Clinical Highlights (Allergy alerts + Vitals) -->
+          <div id="patient-highlights" style="display:none; margin-top:24px; margin-bottom:24px;">
+            <!-- Vitals Cards -->
+            <div id="vitals-highlight-deck"
+              style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
+              <div class="stat-card glass" style="border-left: 3px solid #ff4d4d;">
+                <div class="stat-info">
+                  <div class="stat-value" id="vital-bp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
+                  </div>
+                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Blood Pressure (mmHg)</div>
+                </div>
+              </div>
+              <div class="stat-card glass" style="border-left: 3px solid #C9A84C;">
+                <div class="stat-info">
+                  <div class="stat-value" id="vital-hr-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
+                  </div>
+                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Heart Rate (bpm)</div>
+                </div>
+              </div>
+              <div class="stat-card glass" style="border-left: 3px solid #3b82f6;">
+                <div class="stat-info">
+                  <div class="stat-value" id="vital-temp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
+                  </div>
+                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Temperature (°C)</div>
+                </div>
+              </div>
+              <div class="stat-card glass" style="border-left: 3px solid #10b981;">
+                <div class="stat-info">
+                  <div class="stat-value" id="vital-spo2-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
+                  </div>
+                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">SpO2 Saturation (%)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Allergy Warning Widget -->
+            <div id="allergy-warning-box" class="alert alert-error"
+              style="display:none; padding:16px; border-radius:8px; margin-bottom:20px; background: rgba(229, 115, 115, 0.1); border: 1px solid rgba(229, 115, 115, 0.3);">
+              <strong style="color:#ff8a80; font-size: 14px; display: block; margin-bottom: 6px;">⚠️ CRITICAL PATIENT
+                ALLERGIES:</strong>
+              <ul id="allergy-list-ul"
+                style="margin-left: 20px; list-style-type: disc; color: #ffbcaf; font-size:13px; line-height:1.4;"></ul>
             </div>
           </div>
-          <button type="submit" class="btn btn-gold btn-full" id="btn-login">
-            <span id="btn-login-text">ENTER VAULT</span>
-            <span id="btn-login-spin" class="spinner" style="display:none"></span>
-          </button>
-          <div id="login-mfa-back" style="display:none; text-align:center; margin-top:14px;">
-            <a href="#" onclick="resetLoginForm(event)" style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to Username/Password</a>
-          </div>
-        </form>
 
-        <div class="demo-credentials" id="demo-credentials-box" style="display:none;">
-          <p class="demo-title">Demo Accounts</p>
-          <div class="demo-list" id="demo-credentials-list">
-            <!-- Dynamically loaded if demo mode is enabled on the server -->
+          <!-- Vital Signs Trend Chart -->
+          <div id="vitals-chart-panel" class="glass"
+            style="display:none; margin-top:24px; margin-bottom:24px; padding:20px; border-radius:14px; border: 1px solid var(--border);">
+            <h3 style="color:var(--gold); font-size:15px; margin-bottom:14px;">📈 Vital Signs Trends</h3>
+            <div style="width:100%; height:260px; position:relative;">
+              <canvas id="vitalsChart"></canvas>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="login-footer">
-        <span class="security-badge">AES-256 + PBKDF2 (600K iter)</span>
-        <span class="security-badge">SHA-256 Immutable Chain</span>
-        <span class="security-badge">Argon2 Password Protection</span>
-        <span class="security-badge">Hardware Device Binding</span>
-      </div>
+          <div class="section-header">
+            <h2 class="section-title">Recent Records</h2>
+            <button class="btn btn-gold btn-sm" onclick="navigate('add-record')">+ New Record</button>
+          </div>
+          <div id="recent-records" class="records-list"></div>
+        </section>
+
+        <!-- RECORDS VIEW -->
+        <section id="view-records" class="view">
+          <div class="view-header"
+            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2>Health Records</h2>
+            </div>
+            <div>
+              <button class="btn btn-gold btn-sm" onclick="exportFHIRBundle()">Export e-Nabız FHIR Bundle</button>
+            </div>
+          </div>
+          <div class="view-header" style="margin-top: 0; padding-top: 0;">
+            <div class="filter-bar">
+              <input id="rec-search" type="text" placeholder="Search..." class="search-input" oninput="filterRecords()">
+              <select id="rec-type-filter" class="select-input" onchange="filterRecords()">
+                <option value="">All Types</option>
+              </select>
+            </div>
+          </div>
+          <div id="all-records" class="records-list"></div>
+        </section>
+
+        <!-- ADD RECORD VIEW -->
+        <section id="view-add-record" class="view">
+          <div class="view-header">
+            <h2>New Health Record</h2>
+            <p class="view-sub">Records are added to the blockchain and become immutable</p>
+          </div>
+          <div class="form-card glass">
+            <div id="add-error" class="alert alert-error" style="display:none"></div>
+            <div id="add-success" class="alert alert-success" style="display:none"></div>
+
+            <form id="add-record-form">
+              <div class="form-grid">
+                <div class="field-group">
+                  <label>Patient ID <span class="req">*</span></label>
+                  <input id="rec-patient-id" type="text" placeholder="VIP-001" required />
+                </div>
+                <div class="field-group">
+                  <label>Record Date <span class="req">*</span></label>
+                  <input id="rec-date" type="date" required />
+                </div>
+                <div class="field-group">
+                  <label>Record Type <span class="req">*</span></label>
+                  <select id="rec-type" required onchange="renderDynamicFields()">
+                    <option value="">Select...</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>Access Level <span class="req">*</span></label>
+                  <select id="rec-access">
+                    <option value="doctor_shared">Patient + Doctor</option>
+                    <option value="private">Patient Only</option>
+                    <option value="emergency">Emergency Access</option>
+                  </select>
+                </div>
+                <div class="field-group span-2">
+                  <label>Title <span class="req">*</span></label>
+                  <input id="rec-title" type="text" placeholder="Record title..." required />
+                </div>
+                <div class="field-group">
+                  <label>Doctor Name <span class="req">*</span></label>
+                  <input id="rec-doctor" type="text" placeholder="Prof. Dr. ..." required />
+                </div>
+                <div class="field-group">
+                  <label>Institution <span class="req">*</span></label>
+                  <input id="rec-institution" type="text" placeholder="Hospital / Clinic" required />
+                </div>
+              </div>
+
+              <!-- Dynamic Fields -->
+              <div id="dynamic-fields" class="dynamic-section"></div>
+
+              <div class="field-group">
+                <label>File Attachment (PDF or Image - Max 2MB)</label>
+                <div class="input-wrap">
+                  <input id="rec-file" type="file" accept=".pdf,.png,.jpg,.jpeg"
+                    style="padding: 8px 0; border: none; background: transparent; color: white;" />
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label>Notes</label>
+                <textarea id="rec-notes" rows="3" placeholder="Additional notes..."></textarea>
+              </div>
+
+              <div class="field-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="rec-confidential">
+                  <span class="checkbox-custom"></span>
+                  <span>Confidential Record (Encrypt with AES-256)</span>
+                </label>
+              </div>
+
+              <div class="field-group" id="confidential-password-group" style="display:none">
+                <label>Encryption Password <span class="req">*</span></label>
+                <input id="rec-confidential-password" type="password"
+                  placeholder="Min. 12 chars — uppercase, lowercase, number, special char" />
+                <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">
+                  This password encrypts the block. It cannot be recovered if lost.
+                </span>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="navigate('records')">Cancel</button>
+                <button type="submit" class="btn btn-gold" id="btn-add-rec">
+                  Save to Blockchain
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- CHAIN STATUS VIEW -->
+        <section id="view-chain-status" class="view">
+          <div class="view-header">
+            <h2>Blockchain Chain Status</h2>
+            <button class="btn btn-gold btn-sm" onclick="loadChainStatus()">Refresh</button>
+          </div>
+          <div id="chain-status-content" class="glass chain-status-box">
+            <div class="loading-spinner">Loading...</div>
+          </div>
+          <div class="section-header" style="margin-top:32px">
+            <h2 class="section-title">Block Chain Visualization</h2>
+          </div>
+          <div id="chain-visual" class="chain-visual"></div>
+        </section>
+
+        <!-- AUDIT LOG VIEW (admin only) -->
+        <section id="view-audit" class="view">
+          <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2>Access &amp; Audit Log</h2>
+              <p class="view-sub">System audit and patient data access records</p>
+            </div>
+            <button class="btn btn-gold btn-sm" onclick="refreshLogPage()">Refresh</button>
+          </div>
+          <div class="tab-container" style="display:flex; gap:10px; margin-bottom:20px;">
+            <button id="btn-audit-tab" class="btn btn-gold btn-sm" onclick="switchLogTab('audit')">System Audit
+              Log</button>
+            <button id="btn-access-tab" class="btn btn-ghost btn-sm" onclick="switchLogTab('access')">Patient Access
+              Log</button>
+          </div>
+          <div id="audit-list" class="records-list"></div>
+          <div id="access-log-list" class="records-list" style="display:none"></div>
+        </section>
+
+        <!-- USERS VIEW (admin only) -->
+        <section id="view-users" class="view">
+          <div class="view-header">
+            <h2>User Management</h2>
+          </div>
+          <div id="users-list" class="records-list"></div>
+        </section>
+
+        <!-- VACCINE PASSPORT VIEW -->
+        <section id="view-vaccines" class="view">
+          <div class="view-header">
+            <h2>Vaccine Passport</h2>
+            <p class="view-sub">Verified blockchain vaccination and immunization registry</p>
+          </div>
+          <div id="vaccine-passport-list" class="records-list"></div>
+        </section>
+
+        <!-- ACTIVE MEDICATIONS VIEW -->
+        <section id="view-medications" class="view">
+          <div class="view-header">
+            <h2>Active Medications &amp; Reminders</h2>
+            <p class="view-sub">Current active prescriptions and reminder schedule</p>
+          </div>
+          <div id="active-medications-list" class="records-list"></div>
+        </section>
+
+        <!-- SECURITY & 2FA VIEW -->
+        <section id="view-security" class="view">
+          <div class="view-header">
+            <h2>Security &amp; 2FA Settings</h2>
+            <p class="view-sub">Manage multi-factor authentication for your account</p>
+          </div>
+          <div id="security-error" class="alert alert-error" style="display:none"></div>
+          <div id="security-success" class="alert alert-success" style="display:none"></div>
+          <div class="glass form-card" style="max-width: 600px;">
+            <h3>Two-Factor Authentication (TOTP 2FA)</h3>
+            <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
+              Protect your VIP Health Vault account with an extra layer of security. After enabling, you must enter a
+              6-digit verification code from your authenticator app (e.g. Google Authenticator) during login.
+            </p>
+
+            <div id="mfa-status-box" style="margin-bottom: 24px;">
+              <!-- Will be dynamically filled -->
+            </div>
+
+            <div id="mfa-setup-section" style="display:none;">
+              <div class="field-group"
+                style="text-align: center; margin-bottom: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <p style="font-weight: 600; margin-bottom: 10px; color: var(--text);">1. Scan this QR Code with your
+                  Authenticator App</p>
+                <div
+                  style="margin: 15px auto; padding: 10px; background: white; border-radius: 8px; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
+                  <img id="mfa-qr-code-img" src="" alt="2FA QR Code" style="width: 160px; height: 160px;" />
+                </div>
+                <p style="font-size: 12px; color: var(--muted);">Or enter secret key manually: <code id="mfa-secret-key"
+                    style="font-family: var(--font-mono); font-size: 13px; color: var(--gold); font-weight: 600; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;"></code>
+                </p>
+              </div>
+
+              <div class="field-group" style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <label>2. Enter the 6-Digit Code from the App to Verify</label>
+                <div class="input-wrap">
+                  <input id="inp-2fa-verify-code" type="text" placeholder="e.g. 123456" maxlength="6" />
+                </div>
+                <button class="btn btn-gold" style="margin-top:15px;" onclick="enable2FA()">VERIFY &amp; ENABLE
+                  2FA</button>
+              </div>
+            </div>
+
+            <div id="mfa-disable-section" style="display:none; border-top: 1px solid var(--border); padding-top: 20px;">
+              <div class="field-group">
+                <label>Enter 2FA Code to Disable Two-Factor Authentication</label>
+                <div class="input-wrap">
+                  <input id="inp-2fa-disable-code" type="text" placeholder="e.g. 123456" maxlength="6" />
+                </div>
+                <button class="btn btn-error" style="margin-top:15px;" onclick="disable2FA()">DISABLE 2FA</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- WEARABLES VIEW -->
+        <section id="view-wearables" class="view">
+          <div class="view-header">
+            <h2>Wearables Integration Hub</h2>
+            <p class="view-sub">Synchronize telemetry data from Apple Health, Google Fit, or Fitbit</p>
+          </div>
+          <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+            <div class="glass" style="padding: 24px; border-radius: var(--radius); text-align: center;">
+              <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Device Connections</h3>
+              <p style="font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5;">
+                Authorize VIP Health Vault to securely pull data from your connected telemetry sensors. Data is
+                validated, cryptographically sealed, and committed as vital blocks.
+              </p>
+              <div style="display: flex; flex-direction: column; gap: 12px; max-width: 280px; margin: 0 auto;">
+                <button class="btn btn-ghost btn-full" onclick="connectWearable('fitbit')"
+                  style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                  <span>Sync Fitbit Account</span>
+                </button>
+                <button class="btn btn-ghost btn-full" onclick="connectWearable('google')"
+                  style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                  <span>Sync Google Fit</span>
+                </button>
+                <button class="btn btn-ghost btn-full" onclick="connectWearable('apple')"
+                  style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                  <span>Sync Apple Health</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="glass"
+              style="padding: 24px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Telemetry Preview</h3>
+                <div id="wearables-preview-empty" style="text-align: center; color: var(--muted); padding: 40px 0;">
+                  No device synced. Connect a wearable to import sensor telemetry.
+                </div>
+                <div id="wearables-preview-data" style="display: none;">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+                    <div class="stat-card glass"
+                      style="border-left: 2px solid #ff4d4d; min-height: 70px; padding: 12px;">
+                      <div class="stat-info">
+                        <div class="stat-value" id="wearable-hr" style="font-size: 18px;">—</div>
+                        <div class="stat-label" style="font-size: 10px;">Heart Rate (bpm)</div>
+                      </div>
+                    </div>
+                    <div class="stat-card glass"
+                      style="border-left: 2px solid #3b82f6; min-height: 70px; padding: 12px;">
+                      <div class="stat-info">
+                        <div class="stat-value" id="wearable-temp" style="font-size: 18px;">—</div>
+                        <div class="stat-label" style="font-size: 10px;">Core Temp (°C)</div>
+                      </div>
+                    </div>
+                    <div class="stat-card glass"
+                      style="border-left: 2px solid #10b981; min-height: 70px; padding: 12px;">
+                      <div class="stat-info">
+                        <div class="stat-value" id="wearable-spo2" style="font-size: 18px;">—</div>
+                        <div class="stat-label" style="font-size: 10px;">Oxygen Sat (%)</div>
+                      </div>
+                    </div>
+                    <div class="stat-card glass"
+                      style="border-left: 2px solid #C9A84C; min-height: 70px; padding: 12px;">
+                      <div class="stat-info">
+                        <div class="stat-value" id="wearable-bp" style="font-size: 18px;">—</div>
+                        <div class="stat-label" style="font-size: 10px;">Blood Pressure</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="font-size: 11px; color: var(--muted); text-align: left; margin-bottom: 16px;">
+                    Sensor Source: <strong id="wearable-source-name" style="color: var(--gold);">Fitbit
+                      Telemetry</strong><br>
+                    Captured at: <span id="wearable-timestamp">—</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-gold btn-full" id="btn-sync-blockchain" style="display: none;"
+                onclick="commitWearablesToBlockchain()">COMMIT TELEMETRY TO BLOCKCHAIN</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- APPOINTMENTS VIEW -->
+        <section id="view-appointments" class="view">
+          <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h2>Clinic Appointments</h2>
+              <p class="view-sub">Book and manage clinical consults with your healthcare specialists</p>
+            </div>
+            <button class="btn btn-gold btn-sm" onclick="showBookAppointmentModal()">Book Slot</button>
+          </div>
+          <div class="glass" style="padding: 24px; border-radius: var(--radius); margin-top: 20px;">
+            <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Scheduled Consultations</h3>
+            <div id="appointments-list" class="records-list"></div>
+          </div>
+        </section>
+
+        <!-- AI TRIAGE VIEW -->
+        <section id="view-triage" class="view">
+          <div class="view-header">
+            <h2>AI Clinical Triage Chatbot</h2>
+            <p class="view-sub">Real-time symptom verification, risk scoring, and care directions</p>
+          </div>
+          <div class="stats-grid"
+            style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <div id="triage-chat-container"
+                style="height: 320px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <div
+                  style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px; border-radius: 8px; max-width: 80%; align-self: flex-start;">
+                  <span
+                    style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM
+                    CLINICAL AI:</span>
+                  Welcome to the AI Triage Hub. Please describe your symptoms and how long they have persisted so we can
+                  assign a clinical prioritization level.
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <input type="text" id="triage-input"
+                  placeholder="Describe symptoms (e.g. chest pain, cough, mild fever)..."
+                  style="flex: 1; padding: 12px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: white;"
+                  onkeydown="if(event.key==='Enter') sendTriageSymptom();">
+                <button class="btn btn-gold" onclick="sendTriageSymptom()">Submit</button>
+              </div>
+            </div>
+
+            <div class="glass"
+              style="padding: 20px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between; min-height: 400px;">
+              <div>
+                <h3 style="color: var(--gold); font-size: 14px; margin-bottom: 14px; text-transform: uppercase;">
+                  Prioritization Status</h3>
+                <div id="triage-status-badge"
+                  style="padding: 12px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); text-align: center; font-weight: 700; font-size: 16px; color: var(--muted); margin-bottom: 16px;">
+                  NO ACTIVE TRIAGE</div>
+                <div class="modal-field">
+                  <div class="modal-field-label">Reasoning Logic</div>
+                  <div class="modal-field-value" id="triage-reason">—</div>
+                </div>
+                <div class="modal-field" style="margin-top:12px;">
+                  <div class="modal-field-label">Action Plan</div>
+                  <div class="modal-field-value" id="triage-recommendation">—</div>
+                </div>
+              </div>
+              <div
+                style="font-size: 10px; color: var(--muted); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                ⚠️ <strong>Legal Disclaimer:</strong> Triage logic is automated and heuristic. It is intended for
+                initial screening only. If you are experiencing a life-threatening symptom, seek immediate emergency
+                help.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CONSENT MANAGEMENT VIEW -->
+        <section id="view-consent" class="view">
+          <div class="view-header">
+            <h2>Consent Management (Hekim Rıza Yetkileri)</h2>
+            <p class="view-sub">Hekimlerin tıbbi kayıtlarınıza erişim izinlerini düzenleyin veya acil durum erişimi
+              (Break Glass) sağlayın.</p>
+          </div>
+
+          <div class="stats-grid"
+            style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
+            <!-- Left: Active Consents Table -->
+            <div class="glass" style="padding: 24px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Aktif Erişim İzinleri</h3>
+              <div id="consent-table-container">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Right: Grant Consent Form & Break Glass Panel -->
+            <div style="display:flex; flex-direction:column; gap:20px;">
+              <!-- Grant Consent Form -->
+              <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Erişim Yetkisi Tanımla</h3>
+                <div id="consent-grant-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+                <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
+                </div>
+
+                <form id="consent-grant-form" onsubmit="window.submitGrantConsent(event)">
+                  <div class="field-group" style="margin-bottom:12px;">
+                    <label>Hekim Kullanıcı Adı (Username)</label>
+                    <input type="text" id="consent-doctor-username" placeholder="e.g. dr.smith" required />
+                  </div>
+                  <div class="field-group" style="margin-bottom:12px;">
+                    <label>Kayıt Türü</label>
+                    <select id="consent-record-type" required>
+                      <option value="all">Tüm Kayıtlar (All Records)</option>
+                      <option value="diagnosis">Tanılar (Diagnosis)</option>
+                      <option value="lab_result">Laboratuvar (Lab Result)</option>
+                      <option value="prescription">Reçeteler (Prescription)</option>
+                      <option value="surgery">Ameliyat (Surgery)</option>
+                      <option value="vaccination">Aşı Pasaportu (Vaccination)</option>
+                      <option value="imaging">Görüntüleme (Imaging)</option>
+                      <option value="vital_signs">Yaşamsal Bulgular (Vital Signs)</option>
+                      <option value="allergy">Alerjiler (Allergy)</option>
+                      <option value="psychology">Psikoloji (Psychology)</option>
+                      <option value="genetic">Genetik (Genetics)</option>
+                      <option value="emergency">Acil Durum (Emergency)</option>
+                      <option value="other">Diğer (Other)</option>
+                    </select>
+                  </div>
+                  <div class="field-group" style="margin-bottom:16px;">
+                    <label>Süre (Gün)</label>
+                    <input type="number" id="consent-duration" min="1" max="365" value="30" required />
+                  </div>
+                  <button type="submit" class="btn btn-gold btn-full">Yetkiyi Kaydet</button>
+                </form>
+              </div>
+
+              <!-- Break Glass Panel (For Doctors only) -->
+              <div class="glass" id="break-glass-panel"
+                style="padding: 20px; border-radius: var(--radius); border: 1px solid rgba(229,115,115,0.3); display:none;">
+                <h3
+                  style="color: #ff8a80; font-size: 15px; margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
+                  <span>🚨 Emergency Override (Break Glass)</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height:1.4;">
+                  Acil tıbbi durumlarda, rıza kuralı olmaksızın hastanın tüm verilerine 15 dakika boyunca erişim yetkisi
+                  almak için bu butonu kullanın. Tüm işlemler denetim zincirine kalıcı olarak kaydedilir.
+                </p>
+                <div id="break-glass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+                <div id="break-glass-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
+                </div>
+                <form id="break-glass-form" onsubmit="window.submitBreakGlass(event)">
+                  <div class="field-group" style="margin-bottom:14px;">
+                    <label>Override Gerekçesi (Notes)</label>
+                    <textarea id="break-glass-reason"
+                      placeholder="Lütfen acil durum gerekçesini yazınız (örneğin: Akut bilinç kaybı, acil cerrahi müdahale)..."
+                      rows="3" required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-error btn-full">Break Glass (Erişimi Aç)</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer
+          style="margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px;">
+          VIP Health Vault System
+        </footer>
+
+      </main>
     </div>
   </div>
 
-  <!-- MAIN APP (after login) -->
-  <div id="page-app" class="page" style="display:none">
-
-    <!-- SIDEBAR -->
-    <aside id="sidebar">
-      <div class="sidebar-brand">
-        <span>VIP Health Vault</span>
-      </div>
-
-      <div class="sidebar-user">
-        <div class="user-avatar" id="sidebar-avatar">A</div>
-        <div class="user-info">
-          <div class="user-name" id="sidebar-name">User</div>
-          <div class="user-role" id="sidebar-role">—</div>
-        </div>
-      </div>
-
-      <nav class="sidebar-nav">
-        <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
-          Ana Panel
-        </a>
-        <a class="nav-item" data-page="records" onclick="navigate('records')">
-          Sağlık Kayıtları
-        </a>
-        <a class="nav-item" data-page="add-record" id="nav-add" onclick="navigate('add-record')">
-          Kayıt Ekle
-        </a>
-        <a class="nav-item" data-page="chain-status" onclick="navigate('chain-status')">
-          Blokzincir Durumu
-        </a>
-        <a class="nav-item" data-page="vaccines" onclick="navigate('vaccines')">
-          Aşı Pasaportu
-        </a>
-        <a class="nav-item" data-page="medications" onclick="navigate('medications')">
-          İlaçlar ve Hatırlatıcılar
-        </a>
-        <a class="nav-item" data-page="audit" id="nav-audit" onclick="navigate('audit')" style="display:none">
-          Erişim Geçmişi (Audit)
-        </a>
-        <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
-          Kullanıcı Yönetimi
-        </a>
-        <a class="nav-item" data-page="security" onclick="navigate('security')">
-          Güvenlik ve 2FA
-        </a>
-
-        <a class="nav-item" data-page="consent" id="nav-consent" onclick="navigate('consent')">
-          Rıza Yönetimi
-        </a>
-
-        <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
-          Giyilebilir Cihazlar (Wearables)
-        </a>
-        <a class="nav-item" data-page="appointments" onclick="navigate('appointments')">
-          Randevu Takibi
-        </a>
-        <a class="nav-item" data-page="triage" onclick="navigate('triage')">
-          Yapay Zeka Teşhisi (AI Triage)
-        </a>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <button class="btn-logout" onclick="logout()">Güvenli Çıkış</button>
-      </div>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main id="main-content">
-
-      <!-- Top Bar -->
-      <header class="topbar">
-        <div class="topbar-title" id="topbar-title">Dashboard</div>
-        <div class="topbar-actions">
-          <!-- Notification Bell -->
-          <div class="notification-bell" onclick="toggleNotifications(event)" id="notification-bell-btn" style="position: relative; margin-right: 8px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-hi); cursor: pointer; display: block;">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-            <span class="bell-badge" id="noti-badge-count" style="display:none; position: absolute; top: -4px; right: -4px; background: var(--danger); color: white; border-radius: 99px; font-size: 10px; font-weight: 700; padding: 2px 5px; line-height: 1;">0</span>
-            
-            <!-- Notifications Dropdown -->
-            <div id="noti-dropdown" class="noti-dropdown glass" onclick="event.stopPropagation()" style="display: none; position: absolute; right: 0; top: 32px; width: 300px; max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); z-index: 1000; padding: 8px 0;">
-              <div class="noti-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 700; font-size: 13px; color: var(--gold);">
-                <span>Notifications</span>
-                <a href="#" onclick="clearAllNotifications(event)" style="color: var(--muted-hi); text-decoration: none; font-size: 11px;">Clear All</a>
-              </div>
-              <div id="noti-list" class="noti-list" style="padding: 4px 0;">
-                <div style="padding: 16px; text-align: center; color: var(--muted); font-size: 12px;">No new alerts</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="chain-pill" id="chain-pill">
-            <span class="chain-dot valid"></span>
-            <span id="chain-pill-text">Chain Valid</span>
-          </div>
-          <div class="topbar-user" id="topbar-user-name"></div>
-        </div>
-      </header>
-
-      <!-- DASHBOARD VIEW -->
-      <section id="view-dashboard" class="view active">
-        <div class="stats-grid">
-          <div class="stat-card glass">
-            <div class="stat-info">
-              <div class="stat-value" id="stat-total-blocks">—</div>
-              <div class="stat-label">Total Blocks</div>
-            </div>
-          </div>
-          <div class="stat-card glass">
-            <div class="stat-info">
-              <div class="stat-value" id="stat-total-records">—</div>
-              <div class="stat-label">Health Records</div>
-            </div>
-          </div>
-          <div class="stat-card glass">
-            <div class="stat-info">
-              <div class="stat-value" id="stat-integrity">VALID</div>
-              <div class="stat-label">Chain Integrity</div>
-            </div>
-          </div>
-          <div class="stat-card glass">
-            <div class="stat-info">
-              <div class="stat-value" id="stat-encrypted">—</div>
-              <div class="stat-label">Encrypted Records</div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Patient Clinical Highlights (Allergy alerts + Vitals) -->
-        <div id="patient-highlights" style="display:none; margin-top:24px; margin-bottom:24px;">
-          <!-- Vitals Cards -->
-          <div id="vitals-highlight-deck" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-            <div class="stat-card glass" style="border-left: 3px solid #ff4d4d;">
-              <div class="stat-info">
-                <div class="stat-value" id="vital-bp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—</div>
-                <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Blood Pressure (mmHg)</div>
-              </div>
-            </div>
-            <div class="stat-card glass" style="border-left: 3px solid #C9A84C;">
-              <div class="stat-info">
-                <div class="stat-value" id="vital-hr-val" style="font-size: 20px; font-weight: 700; color: #fff;">—</div>
-                <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Heart Rate (bpm)</div>
-              </div>
-            </div>
-            <div class="stat-card glass" style="border-left: 3px solid #3b82f6;">
-              <div class="stat-info">
-                <div class="stat-value" id="vital-temp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—</div>
-                <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Temperature (°C)</div>
-              </div>
-            </div>
-            <div class="stat-card glass" style="border-left: 3px solid #10b981;">
-              <div class="stat-info">
-                <div class="stat-value" id="vital-spo2-val" style="font-size: 20px; font-weight: 700; color: #fff;">—</div>
-                <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">SpO2 Saturation (%)</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Allergy Warning Widget -->
-          <div id="allergy-warning-box" class="alert alert-error" style="display:none; padding:16px; border-radius:8px; margin-bottom:20px; background: rgba(229, 115, 115, 0.1); border: 1px solid rgba(229, 115, 115, 0.3);">
-            <strong style="color:#ff8a80; font-size: 14px; display: block; margin-bottom: 6px;">⚠️ CRITICAL PATIENT ALLERGIES:</strong>
-            <ul id="allergy-list-ul" style="margin-left: 20px; list-style-type: disc; color: #ffbcaf; font-size:13px; line-height:1.4;"></ul>
-          </div>
-        </div>
-
-        <!-- Vital Signs Trend Chart -->
-        <div id="vitals-chart-panel" class="glass" style="display:none; margin-top:24px; margin-bottom:24px; padding:20px; border-radius:14px; border: 1px solid var(--border);">
-          <h3 style="color:var(--gold); font-size:15px; margin-bottom:14px;">📈 Vital Signs Trends</h3>
-          <div style="width:100%; height:260px; position:relative;">
-            <canvas id="vitalsChart"></canvas>
-          </div>
-        </div>
-
-        <div class="section-header">
-          <h2 class="section-title">Recent Records</h2>
-          <button class="btn btn-gold btn-sm" onclick="navigate('add-record')">+ New Record</button>
-        </div>
-        <div id="recent-records" class="records-list"></div>
-      </section>
-
-      <!-- RECORDS VIEW -->
-      <section id="view-records" class="view">
-        <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-          <div>
-            <h2>Health Records</h2>
-          </div>
-          <div>
-            <button class="btn btn-gold btn-sm" onclick="exportFHIRBundle()">Export e-Nabız FHIR Bundle</button>
-          </div>
-        </div>
-        <div class="view-header" style="margin-top: 0; padding-top: 0;">
-          <div class="filter-bar">
-            <input id="rec-search" type="text" placeholder="Search..." class="search-input" oninput="filterRecords()">
-            <select id="rec-type-filter" class="select-input" onchange="filterRecords()">
-              <option value="">All Types</option>
-            </select>
-          </div>
-        </div>
-        <div id="all-records" class="records-list"></div>
-      </section>
-
-      <!-- ADD RECORD VIEW -->
-      <section id="view-add-record" class="view">
-        <div class="view-header">
-          <h2>New Health Record</h2>
-          <p class="view-sub">Records are added to the blockchain and become immutable</p>
-        </div>
-        <div class="form-card glass">
-          <div id="add-error" class="alert alert-error" style="display:none"></div>
-          <div id="add-success" class="alert alert-success" style="display:none"></div>
-
-          <form id="add-record-form">
-            <div class="form-grid">
-              <div class="field-group">
-                <label>Patient ID <span class="req">*</span></label>
-                <input id="rec-patient-id" type="text" placeholder="VIP-001" required />
-              </div>
-              <div class="field-group">
-                <label>Record Date <span class="req">*</span></label>
-                <input id="rec-date" type="date" required />
-              </div>
-              <div class="field-group">
-                <label>Record Type <span class="req">*</span></label>
-                <select id="rec-type" required onchange="renderDynamicFields()">
-                  <option value="">Select...</option>
-                </select>
-              </div>
-              <div class="field-group">
-                <label>Access Level <span class="req">*</span></label>
-                <select id="rec-access">
-                  <option value="doctor_shared">Patient + Doctor</option>
-                  <option value="private">Patient Only</option>
-                  <option value="emergency">Emergency Access</option>
-                </select>
-              </div>
-              <div class="field-group span-2">
-                <label>Title <span class="req">*</span></label>
-                <input id="rec-title" type="text" placeholder="Record title..." required />
-              </div>
-              <div class="field-group">
-                <label>Doctor Name <span class="req">*</span></label>
-                <input id="rec-doctor" type="text" placeholder="Prof. Dr. ..." required />
-              </div>
-              <div class="field-group">
-                <label>Institution <span class="req">*</span></label>
-                <input id="rec-institution" type="text" placeholder="Hospital / Clinic" required />
-              </div>
-            </div>
-
-            <!-- Dynamic Fields -->
-            <div id="dynamic-fields" class="dynamic-section"></div>
-
-            <div class="field-group">
-              <label>File Attachment (PDF or Image - Max 2MB)</label>
-              <div class="input-wrap">
-                <input id="rec-file" type="file" accept=".pdf,.png,.jpg,.jpeg" style="padding: 8px 0; border: none; background: transparent; color: white;" />
-              </div>
-            </div>
-
-            <div class="field-group">
-              <label>Notes</label>
-              <textarea id="rec-notes" rows="3" placeholder="Additional notes..."></textarea>
-            </div>
-
-            <div class="field-group">
-              <label class="checkbox-label">
-                <input type="checkbox" id="rec-confidential">
-                <span class="checkbox-custom"></span>
-                <span>Confidential Record (Encrypt with AES-256)</span>
-              </label>
-            </div>
-
-            <div class="field-group" id="confidential-password-group" style="display:none">
-              <label>Encryption Password <span class="req">*</span></label>
-              <input id="rec-confidential-password" type="password"
-                     placeholder="Min. 12 chars — uppercase, lowercase, number, special char" />
-              <span style="font-size:11px;color:var(--muted);margin-top:4px;display:block">
-                This password encrypts the block. It cannot be recovered if lost.
-              </span>
-            </div>
-
-            <div class="form-actions">
-              <button type="button" class="btn btn-ghost" onclick="navigate('records')">Cancel</button>
-              <button type="submit" class="btn btn-gold" id="btn-add-rec">
-                Save to Blockchain
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <!-- CHAIN STATUS VIEW -->
-      <section id="view-chain-status" class="view">
-        <div class="view-header">
-          <h2>Blockchain Chain Status</h2>
-          <button class="btn btn-gold btn-sm" onclick="loadChainStatus()">Refresh</button>
-        </div>
-        <div id="chain-status-content" class="glass chain-status-box">
-          <div class="loading-spinner">Loading...</div>
-        </div>
-        <div class="section-header" style="margin-top:32px">
-          <h2 class="section-title">Block Chain Visualization</h2>
-        </div>
-        <div id="chain-visual" class="chain-visual"></div>
-      </section>
-
-      <!-- AUDIT LOG VIEW (admin only) -->
-      <section id="view-audit" class="view">
-        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <h2>Access &amp; Audit Log</h2>
-            <p class="view-sub">System audit and patient data access records</p>
-          </div>
-          <button class="btn btn-gold btn-sm" onclick="refreshLogPage()">Refresh</button>
-        </div>
-        <div class="tab-container" style="display:flex; gap:10px; margin-bottom:20px;">
-          <button id="btn-audit-tab" class="btn btn-gold btn-sm" onclick="switchLogTab('audit')">System Audit Log</button>
-          <button id="btn-access-tab" class="btn btn-ghost btn-sm" onclick="switchLogTab('access')">Patient Access Log</button>
-        </div>
-        <div id="audit-list" class="records-list"></div>
-        <div id="access-log-list" class="records-list" style="display:none"></div>
-      </section>
-
-      <!-- USERS VIEW (admin only) -->
-      <section id="view-users" class="view">
-        <div class="view-header"><h2>User Management</h2></div>
-        <div id="users-list" class="records-list"></div>
-      </section>
-
-      <!-- VACCINE PASSPORT VIEW -->
-      <section id="view-vaccines" class="view">
-        <div class="view-header">
-          <h2>Vaccine Passport</h2>
-          <p class="view-sub">Verified blockchain vaccination and immunization registry</p>
-        </div>
-        <div id="vaccine-passport-list" class="records-list"></div>
-      </section>
-
-      <!-- ACTIVE MEDICATIONS VIEW -->
-      <section id="view-medications" class="view">
-        <div class="view-header">
-          <h2>Active Medications &amp; Reminders</h2>
-          <p class="view-sub">Current active prescriptions and reminder schedule</p>
-        </div>
-        <div id="active-medications-list" class="records-list"></div>
-      </section>
-
-      <!-- SECURITY & 2FA VIEW -->
-      <section id="view-security" class="view">
-        <div class="view-header">
-          <h2>Security &amp; 2FA Settings</h2>
-          <p class="view-sub">Manage multi-factor authentication for your account</p>
-        </div>
-        <div id="security-error" class="alert alert-error" style="display:none"></div>
-        <div id="security-success" class="alert alert-success" style="display:none"></div>
-        <div class="glass form-card" style="max-width: 600px;">
-          <h3>Two-Factor Authentication (TOTP 2FA)</h3>
-          <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
-            Protect your VIP Health Vault account with an extra layer of security. After enabling, you must enter a 6-digit verification code from your authenticator app (e.g. Google Authenticator) during login.
-          </p>
-
-          <div id="mfa-status-box" style="margin-bottom: 24px;">
-            <!-- Will be dynamically filled -->
-          </div>
-
-          <div id="mfa-setup-section" style="display:none;">
-            <div class="field-group" style="text-align: center; margin-bottom: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
-              <p style="font-weight: 600; margin-bottom: 10px; color: var(--text);">1. Scan this QR Code with your Authenticator App</p>
-              <div style="margin: 15px auto; padding: 10px; background: white; border-radius: 8px; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
-                <img id="mfa-qr-code-img" src="" alt="2FA QR Code" style="width: 160px; height: 160px;" />
-              </div>
-              <p style="font-size: 12px; color: var(--muted);">Or enter secret key manually: <code id="mfa-secret-key" style="font-family: var(--font-mono); font-size: 13px; color: var(--gold); font-weight: 600; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;"></code></p>
-            </div>
-
-            <div class="field-group" style="border-top: 1px solid var(--border); padding-top: 20px;">
-              <label>2. Enter the 6-Digit Code from the App to Verify</label>
-              <div class="input-wrap">
-                <input id="inp-2fa-verify-code" type="text" placeholder="e.g. 123456" maxlength="6" />
-              </div>
-              <button class="btn btn-gold" style="margin-top:15px;" onclick="enable2FA()">VERIFY &amp; ENABLE 2FA</button>
-            </div>
-          </div>
-
-          <div id="mfa-disable-section" style="display:none; border-top: 1px solid var(--border); padding-top: 20px;">
-            <div class="field-group">
-              <label>Enter 2FA Code to Disable Two-Factor Authentication</label>
-              <div class="input-wrap">
-                <input id="inp-2fa-disable-code" type="text" placeholder="e.g. 123456" maxlength="6" />
-              </div>
-              <button class="btn btn-error" style="margin-top:15px;" onclick="disable2FA()">DISABLE 2FA</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CONSENT MANAGEMENT VIEW -->
-      <section id="view-consent" class="view">
-        <div class="view-header">
-          <h2>Consent Management</h2>
-          <p class="view-sub">Manage provider access permissions and emergency break-glass overrides</p>
-        </div>
-        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
-          <!-- Grant Consent Form -->
-          <div class="glass" style="padding: 20px; border-radius: var(--radius);">
-            <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Grant Provider Consent</h3>
-            <div id="consent-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
-            <div id="consent-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
-            <form id="consent-form" onsubmit="grantConsent(event)">
-              <div class="field-group" style="margin-bottom: 14px;">
-                <label>Doctor Username <span class="req">*</span></label>
-                <input type="text" id="consent-doctor" placeholder="e.g. dr.smith" required />
-              </div>
-              <div class="field-group" style="margin-bottom: 14px;">
-                <label>Record Type <span class="req">*</span></label>
-                <select id="consent-record-type" required>
-                  <option value="all">All Records</option>
-                  <option value="diagnosis">Diagnosis</option>
-                  <option value="lab_result">Lab Result</option>
-                  <option value="prescription">Prescription</option>
-                  <option value="imaging">Imaging (MRI/CT/X-Ray)</option>
-                  <option value="vital_signs">Vital Signs</option>
-                </select>
-              </div>
-              <div class="field-group" style="margin-bottom: 20px;">
-                <label>Duration (Days) <span class="req">*</span></label>
-                <input type="number" id="consent-duration" min="1" max="365" value="30" required />
-              </div>
-              <button type="submit" class="btn btn-gold btn-full">GRANT CONSENT</button>
-            </form>
-          </div>
-
-          <!-- Active Consents & Break Glass Override -->
-          <div style="display: flex; flex-direction: column; gap: 24px;">
-            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
-              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Active Consent Permissions</h3>
-              <div id="consents-list" class="records-list"></div>
-            </div>
-
-            <div class="glass" style="padding: 20px; border-radius: var(--radius); border-top: 3px solid var(--danger);">
-              <h3 style="color: var(--danger); font-size: 15px; margin-bottom: 12px;">🚨 Emergency Break-Glass Override</h3>
-              <p style="font-size:12px; color:var(--muted); line-height:1.4; margin-bottom:16px;">
-                Doctors can temporarily bypass consent checks in medical emergencies. This action is audited, notified to the patient immediately, and logs the hardware device fingerprint.
-              </p>
-              <div id="breakglass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
-              <div id="breakglass-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
-              <form id="break-glass-form" onsubmit="triggerBreakGlass(event)">
-                <div class="field-group" style="margin-bottom: 14px;">
-                  <label>Emergency Reason <span class="req">*</span></label>
-                  <textarea id="breakglass-reason" placeholder="State the emergency clinical reason (e.g. unconscious patient in trauma bay)..." rows="3" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-error btn-full">EXECUTE BREAK-GLASS OVERRIDE</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- WEARABLES VIEW -->
-      <section id="view-wearables" class="view">
-        <div class="view-header">
-          <h2>Wearables Integration Hub</h2>
-          <p class="view-sub">Synchronize telemetry data from Apple Health, Google Fit, or Fitbit</p>
-        </div>
-        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
-          <div class="glass" style="padding: 24px; border-radius: var(--radius); text-align: center;">
-            <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Device Connections</h3>
-            <p style="font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5;">
-              Authorize VIP Health Vault to securely pull data from your connected telemetry sensors. Data is validated, cryptographically sealed, and committed as vital blocks.
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 12px; max-width: 280px; margin: 0 auto;">
-              <button class="btn btn-ghost btn-full" onclick="connectWearable('fitbit')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <span>Sync Fitbit Account</span>
-              </button>
-              <button class="btn btn-ghost btn-full" onclick="connectWearable('google')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <span>Sync Google Fit</span>
-              </button>
-              <button class="btn btn-ghost btn-full" onclick="connectWearable('apple')" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <span>Sync Apple Health</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="glass" style="padding: 24px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <h3 style="color: var(--gold); font-size: 16px; margin-bottom: 16px;">Telemetry Preview</h3>
-              <div id="wearables-preview-empty" style="text-align: center; color: var(--muted); padding: 40px 0;">
-                No device synced. Connect a wearable to import sensor telemetry.
-              </div>
-              <div id="wearables-preview-data" style="display: none;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
-                  <div class="stat-card glass" style="border-left: 2px solid #ff4d4d; min-height: 70px; padding: 12px;">
-                    <div class="stat-info">
-                      <div class="stat-value" id="wearable-hr" style="font-size: 18px;">—</div>
-                      <div class="stat-label" style="font-size: 10px;">Heart Rate (bpm)</div>
-                    </div>
-                  </div>
-                  <div class="stat-card glass" style="border-left: 2px solid #3b82f6; min-height: 70px; padding: 12px;">
-                    <div class="stat-info">
-                      <div class="stat-value" id="wearable-temp" style="font-size: 18px;">—</div>
-                      <div class="stat-label" style="font-size: 10px;">Core Temp (°C)</div>
-                    </div>
-                  </div>
-                  <div class="stat-card glass" style="border-left: 2px solid #10b981; min-height: 70px; padding: 12px;">
-                    <div class="stat-info">
-                      <div class="stat-value" id="wearable-spo2" style="font-size: 18px;">—</div>
-                      <div class="stat-label" style="font-size: 10px;">Oxygen Sat (%)</div>
-                    </div>
-                  </div>
-                  <div class="stat-card glass" style="border-left: 2px solid #C9A84C; min-height: 70px; padding: 12px;">
-                    <div class="stat-info">
-                      <div class="stat-value" id="wearable-bp" style="font-size: 18px;">—</div>
-                      <div class="stat-label" style="font-size: 10px;">Blood Pressure</div>
-                    </div>
-                  </div>
-                </div>
-                <div style="font-size: 11px; color: var(--muted); text-align: left; margin-bottom: 16px;">
-                  Sensor Source: <strong id="wearable-source-name" style="color: var(--gold);">Fitbit Telemetry</strong><br>
-                  Captured at: <span id="wearable-timestamp">—</span>
-                </div>
-              </div>
-            </div>
-            <button class="btn btn-gold btn-full" id="btn-sync-blockchain" style="display: none;" onclick="commitWearablesToBlockchain()">COMMIT TELEMETRY TO BLOCKCHAIN</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- APPOINTMENTS VIEW -->
-      <section id="view-appointments" class="view">
-        <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <h2>Clinic Appointments</h2>
-            <p class="view-sub">Book and manage clinical consults with your healthcare specialists</p>
-          </div>
-          <button class="btn btn-gold btn-sm" onclick="showBookAppointmentModal()">Book Slot</button>
-        </div>
-        <div class="glass" style="padding: 24px; border-radius: var(--radius); margin-top: 20px;">
-          <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Scheduled Consultations</h3>
-          <div id="appointments-list" class="records-list"></div>
-        </div>
-      </section>
-
-      <!-- AI TRIAGE VIEW -->
-      <section id="view-triage" class="view">
-        <div class="view-header">
-          <h2>AI Clinical Triage Chatbot</h2>
-          <p class="view-sub">Real-time symptom verification, risk scoring, and care directions</p>
-        </div>
-        <div class="stats-grid" style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
-          <div class="glass" style="padding: 20px; border-radius: var(--radius);">
-            <div id="triage-chat-container" style="height: 320px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px;">
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px; border-radius: 8px; max-width: 80%; align-self: flex-start;">
-                <span style="font-weight: 600; color: var(--gold); font-size: 12px; display: block; margin-bottom: 4px;">SYSTEM CLINICAL AI:</span>
-                Welcome to the AI Triage Hub. Please describe your symptoms and how long they have persisted so we can assign a clinical prioritization level.
-              </div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <input type="text" id="triage-input" placeholder="Describe symptoms (e.g. chest pain, cough, mild fever)..." style="flex: 1; padding: 12px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: white;" onkeydown="if(event.key==='Enter') sendTriageSymptom();">
-              <button class="btn btn-gold" onclick="sendTriageSymptom()">Submit</button>
-            </div>
-          </div>
-
-          <div class="glass" style="padding: 20px; border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between; min-height: 400px;">
-            <div>
-              <h3 style="color: var(--gold); font-size: 14px; margin-bottom: 14px; text-transform: uppercase;">Prioritization Status</h3>
-              <div id="triage-status-badge" style="padding: 12px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); text-align: center; font-weight: 700; font-size: 16px; color: var(--muted); margin-bottom: 16px;">NO ACTIVE TRIAGE</div>
-              <div class="modal-field"><div class="modal-field-label">Reasoning Logic</div><div class="modal-field-value" id="triage-reason">—</div></div>
-              <div class="modal-field" style="margin-top:12px;"><div class="modal-field-label">Action Plan</div><div class="modal-field-value" id="triage-recommendation">—</div></div>
-            </div>
-            <div style="font-size: 10px; color: var(--muted); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-              ⚠️ <strong>Legal Disclaimer:</strong> Triage logic is automated and heuristic. It is intended for initial screening only. If you are experiencing a life-threatening symptom, seek immediate emergency help.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- FOOTER -->
-      <footer style="margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px;">
-        VIP Health Vault System
-      </footer>
-
-    </main>
+  <!-- RECORD DETAIL MODAL -->
+  <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-box glass" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal()">x</button>
+      <div id="modal-content"></div>
+    </div>
   </div>
-</div>
 
-<!-- RECORD DETAIL MODAL -->
-<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
-  <div class="modal-box glass" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeModal()">x</button>
-    <div id="modal-content"></div>
-  </div>
-</div>
-
-<script type="module" src="/static/js/app.js"></script>
+  <script type="module" src="/static/js/app.js"></script>
 </body>
+
 </html>
