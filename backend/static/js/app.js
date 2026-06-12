@@ -541,7 +541,7 @@ window.exportFHIRBundle = async function() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    addNotification('FHIR Bundle Exported', `Official e-Nabiz HL7 FHIR Bundle downloaded for patient ${pid}.`, 'success');
+    addNotification('FHIR Bundle Exported', `Official HL7 FHIR Bundle downloaded for patient ${pid}.`, 'success');
   } catch(ex) {
     alert("Failed to export FHIR bundle: " + ex.message);
   }
