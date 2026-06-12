@@ -299,19 +299,19 @@ export function navigate(page) {
   if (navEl) navEl.classList.add('active');
   
   const titles = {
-    dashboard:      'Dashboard (Özet Ekranı)',
-    records:        'Sağlık Kayıtları (Health Records)',
-    'add-record':   'Yeni Kayıt Ekle (Add Record)',
-    'chain-status': 'Zincir Durumu (Chain Status)',
-    vaccines:       'Aşı Kartı (Vaccine Passport)',
-    medications:    'İlaçlar & Reçeteler (Medications)',
-    users:          'Kullanıcı Yönetimi (Users)',
-    audit:          'Erişim Günlükleri (Access History)',
-    security:       'Güvenlik Ayarları (Security & 2FA)',
-    wearables:      'Giyilebilir Cihaz Entegrasyonu (Wearables)',
-    appointments:   'Klinik Randevuları (Appointments)',
-    triage:         'Yapay Zeka Triage (AI Triage)',
-    consent:        'Rıza Yönetimi (Consent Management)',
+    dashboard:      'Dashboard Overview',
+    records:        'Medical Health Records',
+    'add-record':   'Add Health Record',
+    'chain-status': 'Chain Status Verification',
+    vaccines:       'Vaccine Passport',
+    medications:    'Medications & Prescriptions',
+    users:          'User Management',
+    audit:          'Access & Audit History',
+    security:       'Security & 2FA Settings',
+    wearables:      'Wearables Integration Hub',
+    appointments:   'Clinic Appointments',
+    triage:         'AI Symptom Triage',
+    consent:        'Consent Management',
   };
   
   document.getElementById('topbar-title').textContent = titles[page] || page;

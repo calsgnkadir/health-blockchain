@@ -110,98 +110,98 @@
         <nav class="sidebar-nav">
           <!-- ANA PANEL -->
           <div class="nav-category" id="cat-dashboard">
-            <span class="nav-category-title">Ana Panel</span>
+            <span class="nav-category-title">Main Panel</span>
             <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Özet Gösterge Paneli</span>
-                <span class="nav-desc">Sistem genel durumu, son kayıtlar ve anlık yaşamsal bulgu grafikleri.</span>
+                <span class="nav-item-title">Dashboard Overview</span>
+                <span class="nav-desc">System status, recent records, and real-time vitals graphs.</span>
               </div>
             </a>
             <a class="nav-item" data-page="chain-status" onclick="navigate('chain-status')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Zincir Durumu Doğrulama</span>
-                <span class="nav-desc">Blokların listesini inceleyin ve şifreleme bütünlüğünü kontrol edin.</span>
+                <span class="nav-item-title">Chain Status Verification</span>
+                <span class="nav-desc">Verify cryptographic block structures and chain integrity.</span>
               </div>
             </a>
             <a class="nav-item" data-page="audit" id="nav-audit" onclick="navigate('audit')" style="display:none">
               <div class="nav-item-content">
-                <span class="nav-item-title">Sistem Denetim Geçmişi</span>
-                <span class="nav-desc">Tüm okuma, yazma ve veri erişim işlemlerinin log kayıtları (Admin).</span>
+                <span class="nav-item-title">Access &amp; Audit History</span>
+                <span class="nav-desc">Comprehensive immutable audit logs for all data access (Admin).</span>
               </div>
             </a>
             <a class="nav-item" data-page="users" id="nav-users" onclick="navigate('users')" style="display:none">
               <div class="nav-item-content">
-                <span class="nav-item-title">Kullanıcı Yönetimi</span>
-                <span class="nav-desc">Sistem rolleri, hekimler ve hasta kimlik eşleştirmeleri (Admin).</span>
+                <span class="nav-item-title">User Management</span>
+                <span class="nav-desc">Configure system roles, doctors, and patient ID mappings (Admin).</span>
               </div>
             </a>
           </div>
 
-          <!-- SAĞLIK DEFTERİ -->
+          <!-- HEALTH LEDGER -->
           <div class="nav-category" id="cat-ledger">
-            <span class="nav-category-title">Sağlık Defteri</span>
+            <span class="nav-category-title">Health Ledger</span>
             <a class="nav-item" data-page="records" onclick="navigate('records')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Tıbbi Sağlık Kayıtları</span>
-                <span class="nav-desc">Tüm blockchain kayıtlarınızı listeleyin ve gizli verileri şifreleyin.</span>
+                <span class="nav-item-title">Medical Records</span>
+                <span class="nav-desc">Browse blockchain health blocks and decrypt confidential files.</span>
               </div>
             </a>
             <a class="nav-item" data-page="add-record" id="nav-add" onclick="navigate('add-record')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Yeni Blok Kaydı Ekle</span>
-                <span class="nav-desc">Değiştirilemez biçimde yeni klinik teşhis, aşı, bulgu veya dosya ekleyin.</span>
+                <span class="nav-item-title">Add Health Record</span>
+                <span class="nav-desc">Commit immutable clinical observations, files, and vitals to chain.</span>
               </div>
             </a>
             <a class="nav-item" data-page="vaccines" onclick="navigate('vaccines')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Aşı Pasaportu</span>
-                <span class="nav-desc">Resmi otoriteler için doğrulanmış ve mühürlenmiş aşı geçmişi kartı.</span>
+                <span class="nav-item-title">Vaccine Passport</span>
+                <span class="nav-desc">Official cryptographically sealed vaccine registry.</span>
               </div>
             </a>
             <a class="nav-item" data-page="medications" onclick="navigate('medications')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Aktif İlaçlar &amp; Reçeteler</span>
-                <span class="nav-desc">Hekimlerin yazdığı ilaç dozu, kullanım sıklığı ve aktif kullanım süreleri.</span>
+                <span class="nav-item-title">Medications &amp; Prescriptions</span>
+                <span class="nav-desc">Active prescriptions, dosage instructions, and reminders.</span>
               </div>
             </a>
           </div>
 
-          <!-- ERİŞİM & GÜVENLİK -->
+          <!-- ACCESS & SECURITY -->
           <div class="nav-category" id="cat-security">
-            <span class="nav-category-title">Erişim &amp; Güvenlik</span>
+            <span class="nav-category-title">Access &amp; Security</span>
             <a class="nav-item" data-page="consent" id="nav-consent" onclick="navigate('consent')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Hekim Rıza İzinleri</span>
-                <span class="nav-desc">Hekimlerinize kayıt erişim izni tanımlayın veya Acil Durum modunu açın.</span>
+                <span class="nav-item-title">Consent Settings</span>
+                <span class="nav-desc">Manage temporary doctor permissions and emergency breakout access.</span>
               </div>
             </a>
             <a class="nav-item" data-page="security" onclick="navigate('security')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Güvenlik Ayarları &amp; 2FA</span>
-                <span class="nav-desc">Google Authenticator ile iki aşamalı (2FA) doğrulama ayarlarını yönetin.</span>
+                <span class="nav-item-title">Security &amp; 2FA</span>
+                <span class="nav-desc">Manage Multi-Factor Authentication (MFA) parameters.</span>
               </div>
             </a>
           </div>
 
-          <!-- AKILLI ENTEGRASYONLAR -->
+          <!-- SMART INTEGRATIONS -->
           <div class="nav-category" id="cat-integrations">
-            <span class="nav-category-title">Akıllı Entegrasyonlar</span>
+            <span class="nav-category-title">Smart Integrations</span>
             <a class="nav-item" data-page="wearables" onclick="navigate('wearables')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Giyilebilir Akıllı Saat</span>
-                <span class="nav-desc">Fitbit, Google Fit veya Apple Health telemetry verilerini otomatik eşleyin.</span>
+                <span class="nav-item-title">Wearables Integration</span>
+                <span class="nav-desc">Sync smart device telemetry streams directly to the blockchain.</span>
               </div>
             </a>
             <a class="nav-item" data-page="appointments" onclick="navigate('appointments')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Randevu Takip Sistemi</span>
-                <span class="nav-desc">Klinik hekimleri ile oluşturulan aktif randevular ve saatleri.</span>
+                <span class="nav-item-title">Clinic Appointments</span>
+                <span class="nav-desc">Schedule and manage consultations with clinical specialists.</span>
               </div>
             </a>
             <a class="nav-item" data-page="triage" onclick="navigate('triage')">
               <div class="nav-item-content">
-                <span class="nav-item-title">Yapay Zeka Triage Asistanı</span>
-                <span class="nav-desc">Semptomlarınızı yapay zeka ile analiz ederek klinik öncelik seviyesi belirleyin.</span>
+                <span class="nav-item-title">AI Symptom Triage</span>
+                <span class="nav-desc">Interactive clinical symptom analysis and priority assessment.</span>
               </div>
             </a>
           </div>
@@ -728,16 +728,15 @@
         <!-- CONSENT MANAGEMENT VIEW -->
         <section id="view-consent" class="view">
           <div class="view-header">
-            <h2>Consent Management (Hekim Rıza Yetkileri)</h2>
-            <p class="view-sub">Hekimlerin tıbbi kayıtlarınıza erişim izinlerini düzenleyin veya acil durum erişimi
-              (Break Glass) sağlayın.</p>
+            <h2>Consent Management</h2>
+            <p class="view-sub">Manage clinical access permissions for healthcare practitioners, or initiate emergency override access (Break Glass).</p>
           </div>
 
           <div class="stats-grid"
             style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
             <!-- Left: Active Consents Table -->
             <div class="glass" style="padding: 24px; border-radius: var(--radius);">
-              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Aktif Erişim İzinleri</h3>
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Active Access Permissions</h3>
               <div id="consent-table-container">
                 <!-- Rendered dynamically -->
               </div>
@@ -747,39 +746,39 @@
             <div style="display:flex; flex-direction:column; gap:20px;">
               <!-- Grant Consent Form -->
               <div class="glass" style="padding: 20px; border-radius: var(--radius);">
-                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Erişim Yetkisi Tanımla</h3>
+                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Doctor Access</h3>
                 <div id="consent-grant-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
 
                 <form id="consent-grant-form" onsubmit="window.submitGrantConsent(event)">
                   <div class="field-group" style="margin-bottom:12px;">
-                    <label>Hekim Kullanıcı Adı (Username)</label>
+                    <label>Doctor Username</label>
                     <input type="text" id="consent-doctor-username" placeholder="e.g. dr.smith" required />
                   </div>
                   <div class="field-group" style="margin-bottom:12px;">
-                    <label>Kayıt Türü</label>
+                    <label>Record Type</label>
                     <select id="consent-record-type" required>
-                      <option value="all">Tüm Kayıtlar (All Records)</option>
-                      <option value="diagnosis">Tanılar (Diagnosis)</option>
-                      <option value="lab_result">Laboratuvar (Lab Result)</option>
-                      <option value="prescription">Reçeteler (Prescription)</option>
-                      <option value="surgery">Ameliyat (Surgery)</option>
-                      <option value="vaccination">Aşı Pasaportu (Vaccination)</option>
-                      <option value="imaging">Görüntüleme (Imaging)</option>
-                      <option value="vital_signs">Yaşamsal Bulgular (Vital Signs)</option>
-                      <option value="allergy">Alerjiler (Allergy)</option>
-                      <option value="psychology">Psikoloji (Psychology)</option>
-                      <option value="genetic">Genetik (Genetics)</option>
-                      <option value="emergency">Acil Durum (Emergency)</option>
-                      <option value="other">Diğer (Other)</option>
+                      <option value="all">All Records</option>
+                      <option value="diagnosis">Diagnosis</option>
+                      <option value="lab_result">Lab Results</option>
+                      <option value="prescription">Prescriptions</option>
+                      <option value="surgery">Surgeries</option>
+                      <option value="vaccination">Vaccinations</option>
+                      <option value="imaging">Imaging Studies</option>
+                      <option value="vital_signs">Vital Signs</option>
+                      <option value="allergy">Allergies</option>
+                      <option value="psychology">Psychology Logs</option>
+                      <option value="genetic">Genetics Profiles</option>
+                      <option value="emergency">Emergency Data</option>
+                      <option value="other">Other Records</option>
                     </select>
                   </div>
                   <div class="field-group" style="margin-bottom:16px;">
-                    <label>Süre (Gün)</label>
+                    <label>Duration (Days)</label>
                     <input type="number" id="consent-duration" min="1" max="365" value="30" required />
                   </div>
-                  <button type="submit" class="btn btn-gold btn-full">Yetkiyi Kaydet</button>
+                  <button type="submit" class="btn btn-gold btn-full">Save Permission</button>
                 </form>
               </div>
 
@@ -791,20 +790,19 @@
                   <span>🚨 Emergency Override (Break Glass)</span>
                 </h3>
                 <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height:1.4;">
-                  Acil tıbbi durumlarda, rıza kuralı olmaksızın hastanın tüm verilerine 15 dakika boyunca erişim yetkisi
-                  almak için bu butonu kullanın. Tüm işlemler denetim zincirine kalıcı olarak kaydedilir.
+                  In severe medical emergencies, use this button to temporarily access all patient data for 15 minutes without pre-existing consent. All overrides are permanently recorded in the audit logs.
                 </p>
                 <div id="break-glass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="break-glass-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
                 <form id="break-glass-form" onsubmit="window.submitBreakGlass(event)">
                   <div class="field-group" style="margin-bottom:14px;">
-                    <label>Override Gerekçesi (Notes)</label>
+                    <label>Override Justification (Notes)</label>
                     <textarea id="break-glass-reason"
-                      placeholder="Lütfen acil durum gerekçesini yazınız (örneğin: Akut bilinç kaybı, acil cerrahi müdahale)..."
+                      placeholder="Please specify the medical emergency reasoning (e.g. Acute loss of consciousness, urgent surgery required)..."
                       rows="3" required></textarea>
                   </div>
-                  <button type="submit" class="btn btn-error btn-full">Break Glass (Erişimi Aç)</button>
+                  <button type="submit" class="btn btn-error btn-full">Trigger Break Glass (Grant Access)</button>
                 </form>
               </div>
             </div>
