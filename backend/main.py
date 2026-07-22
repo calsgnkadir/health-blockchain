@@ -39,6 +39,7 @@ import database.storage as storage
 # Middlewares
 from backend.middleware.csrf import CSRFMiddleware
 from backend.middleware.rate_limiter import RateLimiterMiddleware
+from backend.middleware.xss_protection import XSSProtectionMiddleware
 
 # Routers
 from backend.routers.auth import router as auth_router
@@ -75,6 +76,7 @@ app.add_middleware(
 # Custom Middlewares
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimiterMiddleware)
+app.add_middleware(XSSProtectionMiddleware)
 
 # Register routers
 app.include_router(auth_router)
