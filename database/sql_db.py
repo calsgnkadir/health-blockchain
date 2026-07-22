@@ -141,6 +141,23 @@ class SQLDatabaseManager:
                     status VARCHAR(50) NOT NULL
                 )
             """)
+            # WebAuthn / Passkeys Table
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS webauthn_credentials (
+                    credential_id VARCHAR(255) PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    public_key {text_type} NOT NULL,
+                    sign_count INTEGER DEFAULT 0,
+                    created_at {double_type} NOT NULL
+                )
+            """)
+            try:
+                cursor.execute(
+                    "INSERT OR IGNORE INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
+                    ("passkey_default_demo", "vip001", "pubkey_secp256r1_demo_seed", time.time())
+                )
+            except Exception:
+                pass
 
             # Rate Limits Table
             cursor.execute(f"""

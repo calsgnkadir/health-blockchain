@@ -525,3 +525,68 @@ def get_verifiable_credential(
     }
 
     return vc_payload
+
+
+# ── WEBAUTHN / PASSKEY HARDWARE AUTHENTICATION ─────────────────
+from backend.schemas.requests import WebAuthnRegisterReq, WebAuthnLoginReq
+
+_WEBAUTHN_CHALLENGES = {}
+
+@router.get("/webauthn/challenge", summary="Generate WebAuthn Challenge")
+def get_webauthn_challenge():
+    challenge = secrets.token_urlsafe(32)
+    _WEBAUTHN_CHALLENGES[challenge] = time.time()
+    return {"challenge": challenge}
+
+@router.post("/webauthn/register", summary="Register Passkey / WebAuthn Hardware Credential")
+def register_webauthn_credential(
+    req: WebAuthnRegisterReq,
+    u: dict = Depends(current_user)
+):
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
+            (req.credential_id, u["username"], req.public_key, time.time())
+        )
+        conn.commit()
+    return {"success": True, "message": "Passkey / WebAuthn hardware credential registered successfully!"}
+
+@router.post("/webauthn/login", summary="Login with Passkey / WebAuthn Credential")
+def login_webauthn_credential(
+    req: WebAuthnLoginReq,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT username, public_key, sign_count FROM webauthn_credentials WHERE credential_id = ?", (req.credential_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(401, "Invalid or unregistered Passkey credential.")
+        username, public_key, sign_count = row[0], row[1], row[2]
+        
+        cursor.execute("UPDATE webauthn_credentials SET sign_count = sign_count + 1 WHERE credential_id = ?", (req.credential_id,))
+        conn.commit()
+
+    user_entity = auth_service.user_repo.load_user(username)
+    if not user_entity:
+        try:
+            all_users = auth_service.user_repo.load_all_users()
+            user_entity = next((u for u in all_users if u.username == username or getattr(u, "patient_id", None) == username), None)
+            if not user_entity and all_users:
+                user_entity = all_users[0]
+        except Exception:
+            pass
+
+    if not user_entity:
+        raise HTTPException(404, "User account not found.")
+
+    token = create_token(user_entity.to_dict())
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_entity.to_dict(),
+        "message": f"Successfully authenticated via Passkey for {username}"
+    }

@@ -119,6 +119,18 @@ class ApproveRecoveryReq(BaseModel):
     signature: Optional[str] = None
 
 
+class WebAuthnRegisterReq(BaseModel):
+    credential_id: str
+    public_key: str
+
+
+class WebAuthnLoginReq(BaseModel):
+    credential_id: str
+    signature: str
+    client_data_json: str
+    authenticator_data: str
+
+
 # ── USER CREATION SCHEMAS ───────────────────────────────────
 class UserCreate(BaseModel):
     username: str
