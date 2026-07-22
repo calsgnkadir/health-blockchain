@@ -64,7 +64,8 @@ def create_appointment(
     if u["role"] == "vip_patient" and u.get("patient_id") != req.patient_id:
         raise HTTPException(403, "Access denied")
     
-    new_apt = {
+    from backend.middleware.xss_protection import sanitize_xss_data
+    new_apt = sanitize_xss_data({
         "id": f"apt{secrets.token_hex(4)}",
         "patient_id": req.patient_id,
         "doctor_name": req.doctor_name,
@@ -73,7 +74,7 @@ def create_appointment(
         "appointment_time": req.appointment_time,
         "status": "scheduled",
         "notes": req.notes or ""
-    }
+    })
     apt_repo.save_appointment(new_apt)
     
     try:

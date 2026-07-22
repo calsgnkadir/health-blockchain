@@ -130,7 +130,8 @@ def add_record(
         err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
         raise HTTPException(status_code=422, detail=f"FHIR Validation failed: {', '.join(err_msgs)}")
 
-    block_data = {
+    from backend.middleware.xss_protection import sanitize_xss_data
+    block_data = sanitize_xss_data({
         "record_type":       rec.record_type,
         "record_type_label": RECORD_TYPES[rec.record_type],
         "title":             rec.title,
@@ -147,7 +148,7 @@ def add_record(
         "file_name":         rec.file_name,
         "file_type":         rec.file_type,
         "file_data":         None,
-    }
+    })
 
     file_hash = None
     if rec.file_data:
