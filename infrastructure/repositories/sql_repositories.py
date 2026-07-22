@@ -34,7 +34,7 @@ class SQLUserRepository(IUserRepository):
                 sql_update = _to_placeholder("""
                     UPDATE users 
                     SET password_hash = ?, role = ?, full_name = ?, specialty = ?, 
-                        institution = ?, patient_id = ?, clearance = ?, totp_secret = ?, totp_enabled = ?
+                        institution = ?, patient_id = ?, clearance = ?, totp_secret = ?, totp_enabled = ?, wallet_address = ?
                     WHERE username = ?
                 """)
                 cursor.execute(sql_update, (
@@ -47,13 +47,14 @@ class SQLUserRepository(IUserRepository):
                     user.clearance,
                     user.totp_secret,
                     user.totp_enabled,
+                    user.wallet_address,
                     user.username
                 ))
             else:
                 # Insert
                 sql_insert = _to_placeholder("""
-                    INSERT INTO users (id, username, password_hash, role, full_name, specialty, institution, patient_id, clearance, totp_secret, totp_enabled)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (id, username, password_hash, role, full_name, specialty, institution, patient_id, clearance, totp_secret, totp_enabled, wallet_address)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)
                 cursor.execute(sql_insert, (
                     user.id,
@@ -66,7 +67,8 @@ class SQLUserRepository(IUserRepository):
                     user.patient_id,
                     user.clearance,
                     user.totp_secret,
-                    user.totp_enabled
+                    user.totp_enabled,
+                    user.wallet_address
                 ))
             conn.commit()
         except Exception as e:
@@ -100,7 +102,8 @@ class SQLUserRepository(IUserRepository):
                     patient_id=d.get("patient_id"),
                     clearance=d.get("clearance"),
                     totp_secret=d.get("totp_secret"),
-                    totp_enabled=totp_enabled
+                    totp_enabled=totp_enabled,
+                    wallet_address=d.get("wallet_address")
                 )
             return None
         finally:
@@ -128,7 +131,8 @@ class SQLUserRepository(IUserRepository):
                     patient_id=d.get("patient_id"),
                     clearance=d.get("clearance"),
                     totp_secret=d.get("totp_secret"),
-                    totp_enabled=totp_enabled
+                    totp_enabled=totp_enabled,
+                    wallet_address=d.get("wallet_address")
                 ))
             return users
         finally:

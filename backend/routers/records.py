@@ -370,11 +370,54 @@ def download_offchain_file(
         return Response(
             content=file_bytes,
             media_type=file_type,
-            headers={
-                "Content-Disposition": f"attachment; filename={file_name}"
-            }
+            headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
         )
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Failed to download off-chain file: {str(e)}")
+        raise HTTPException(500, f"Off-chain download error: {str(e)}")
+
+
+@router.get("/proof/{patient_id}/{block_index}", summary="Generate Merkle Inclusion Proof for Block")
+def get_merkle_proof_endpoint(
+    patient_id: str = Path(...),
+    block_index: int = Path(...),
+    u: dict = Depends(current_user),
+    record_service: RecordService = Depends(get_record_service)
+):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied: You can only view proofs for your own records")
+
+    project_name = record_service._get_project_name(patient_id)
+    chain = record_service.block_repo.load_all_blocks(project_name)
+    if not chain:
+        raise HTTPException(404, f"No blockchain record chain found for patient {patient_id}")
+
+    target_block = None
+    target_idx_in_hashes = -1
+    hashes = []
+    for idx, b in enumerate(chain):
+        if b.hash:
+            hashes.append(b.hash)
+            if b.index == block_index:
+                target_block = b
+                target_idx_in_hashes = len(hashes) - 1
+
+    if not target_block or target_idx_in_hashes == -1:
+        raise HTTPException(404, f"Block #{block_index} not found in chain for patient {patient_id}")
+
+    from core.utils.crypto_utils import generate_merkle_proof, verify_merkle_proof
+    proof_result = generate_merkle_proof(hashes, target_idx_in_hashes)
+    root = proof_result["root"]
+    proof = proof_result["proof"]
+    is_valid = verify_merkle_proof(target_block.hash, proof, root) if root else False
+
+    return {
+        "patient_id": patient_id,
+        "block_index": block_index,
+        "block_hash": target_block.hash,
+        "merkle_root": f"0x{root}" if root else None,
+        "proof": proof,
+        "is_valid": is_valid
+    }

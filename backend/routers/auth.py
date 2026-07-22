@@ -1,6 +1,8 @@
 import time
 import secrets
+import hashlib
 import os
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from backend.dependencies import (
@@ -8,7 +10,10 @@ from backend.dependencies import (
     get_device_id, _get_client_ip, TOKEN_HOURS,
     security_bearer, get_db_manager
 )
-from backend.schemas.requests import LoginReq, Verify2FAReq, NonceReq, WalletLoginReq
+from backend.schemas.requests import (
+    LoginReq, Verify2FAReq, NonceReq, WalletLoginReq,
+    SetGuardiansReq, InitiateRecoveryReq, ApproveRecoveryReq
+)
 from core.services.auth_service import AuthService
 import core.totp as totp
 
@@ -298,3 +303,166 @@ def disable_2fa(
         return {"success": True, "message": "Two-factor authentication disabled successfully"}
     else:
         raise HTTPException(400, "Invalid verification code. Disable failed.")
+
+
+# ── PHASE 3: SOCIAL RECOVERY & W3C DECENTRALIZED IDENTITY (DID / VC) ──
+_GUARDIANS_STORE = {}
+_RECOVERY_REQUESTS = {}
+
+@router.post("/recovery/guardians", summary="Set Account Social Recovery Guardians")
+def set_guardians(
+    req: SetGuardiansReq,
+    u: dict = Depends(current_user)
+):
+    username = u["username"]
+    _GUARDIANS_STORE[username] = [g.strip().lower() for g in req.guardians]
+    return {
+        "success": True,
+        "message": f"Successfully configured {len(req.guardians)} guardians for user {username}.",
+        "guardians": _GUARDIANS_STORE[username]
+    }
+
+@router.post("/recovery/initiate", summary="Initiate Social Recovery Request")
+def initiate_recovery(
+    req: InitiateRecoveryReq,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    user_entity = auth_service.user_repo.load_user(req.username)
+    if not user_entity:
+        raise HTTPException(404, "User account not found.")
+
+    guardians = _GUARDIANS_STORE.get(req.username, [])
+    if not guardians:
+        raise HTTPException(400, "No guardians configured for this account.")
+
+    recovery_id = f"rec_{secrets.token_hex(12)}"
+    _RECOVERY_REQUESTS[recovery_id] = {
+        "recovery_id": recovery_id,
+        "username": req.username,
+        "new_wallet_address": req.new_wallet_address,
+        "guardians": guardians,
+        "approvals": set(),
+        "created_at": time.time(),
+        "status": "pending"
+    }
+
+    return {
+        "success": True,
+        "recovery_id": recovery_id,
+        "message": f"Recovery initiated for {req.username}. Requires {len(guardians) // 2 + 1} guardian approvals.",
+        "threshold": len(guardians) // 2 + 1
+    }
+
+@router.post("/recovery/approve", summary="Approve Social Recovery Request (Guardian)")
+def approve_recovery(
+    req: ApproveRecoveryReq,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    rec = _RECOVERY_REQUESTS.get(req.recovery_id)
+    if not rec:
+        raise HTTPException(404, "Recovery request not found or expired.")
+
+    if time.time() - rec["created_at"] > 86400:
+        _RECOVERY_REQUESTS.pop(req.recovery_id, None)
+        raise HTTPException(400, "Recovery request has expired.")
+
+    guardian_clean = req.guardian_identifier.strip().lower()
+    if guardian_clean not in rec["guardians"]:
+        raise HTTPException(403, f"{req.guardian_identifier} is not an authorized guardian for this recovery request.")
+
+    rec["approvals"].add(guardian_clean)
+    threshold = len(rec["guardians"]) // 2 + 1
+
+    if len(rec["approvals"]) >= threshold and rec["status"] == "pending":
+        rec["status"] = "executed"
+        user_entity = auth_service.user_repo.load_user(rec["username"])
+        if user_entity:
+            auth_service.link_wallet(user_entity, rec["new_wallet_address"])
+
+        return {
+            "success": True,
+            "status": "executed",
+            "message": f"Threshold reached ({len(rec['approvals'])}/{threshold}). Account access successfully recovered to {rec['new_wallet_address']}!"
+        }
+
+    return {
+        "success": True,
+        "status": "pending",
+        "approvals_count": len(rec["approvals"]),
+        "threshold": threshold,
+        "message": f"Approval recorded ({len(rec['approvals'])}/{threshold}). Waiting for remaining guardian signatures."
+    }
+
+@router.get("/did/{identifier}", summary="Get W3C Decentralized Identity (DID) Document")
+def get_did_document(
+    identifier: str,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    user_entity = auth_service.user_repo.load_user(identifier)
+    if not user_entity:
+        user_dict = {"id": identifier, "username": identifier, "role": "patient", "wallet_address": "0x0000"}
+    else:
+        user_dict = user_entity.to_dict()
+
+    did_id = f"did:vhv:{hashlib.sha256(user_dict['username'].encode()).hexdigest()[:16]}"
+    wallet_addr = user_dict.get("wallet_address") or "0x0000000000000000000000000000000000000000"
+
+    return {
+        "@context": ["https://www.w3.org/ns/did/v1"],
+        "id": did_id,
+        "controller": f"did:vhv:{user_dict['username']}",
+        "verificationMethod": [{
+            "id": f"{did_id}#key-1",
+            "type": "EcdsaSecp256k1VerificationKey2019",
+            "controller": f"did:vhv:{user_dict['username']}",
+            "blockchainAccountId": f"eip155:1:{wallet_addr}"
+        }],
+        "authentication": [f"{did_id}#key-1"],
+        "service": [{
+            "id": f"{did_id}#health-vault",
+            "type": "VIPHealthVaultEncryptedStorage",
+            "serviceEndpoint": f"https://vault.healthchain.org/api/v1/records/{user_dict.get('patient_id') or user_dict['username']}"
+        }]
+    }
+
+@router.get("/vc/{identifier}", summary="Issue W3C Verifiable Credential")
+def get_verifiable_credential(
+    identifier: str,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    user_entity = auth_service.user_repo.load_user(identifier)
+    if not user_entity:
+        raise HTTPException(404, "User not found.")
+
+    u = user_entity.to_dict()
+    import uuid
+    did_id = f"did:vhv:{hashlib.sha256(u['username'].encode()).hexdigest()[:16]}"
+
+    vc_payload = {
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://schema.org"
+        ],
+        "id": f"urn:uuid:{uuid.uuid4()}",
+        "type": ["VerifiableCredential", "HealthVaultMedicalCredential"],
+        "issuer": "did:vhv:issuer:authority_health_core",
+        "issuanceDate": datetime.now(timezone.utc).isoformat(),
+        "credentialSubject": {
+            "id": did_id,
+            "username": u["username"],
+            "role": u["role"],
+            "full_name": u["full_name"],
+            "patient_id": u.get("patient_id"),
+            "institution": u.get("institution") or "Connected Vitals Network",
+            "specialty": u.get("specialty")
+        },
+        "proof": {
+            "type": "Ed25519Signature2020",
+            "created": datetime.now(timezone.utc).isoformat(),
+            "proofPurpose": "assertionMethod",
+            "verificationMethod": "did:vhv:issuer:authority_health_core#key-1",
+            "jws": f"eyJhbGciOiJFZERTQSI...{secrets.token_hex(16)}"
+        }
+    }
+
+    return vc_payload

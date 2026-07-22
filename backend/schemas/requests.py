@@ -90,6 +90,35 @@ class WalletLoginReq(BaseModel):
         return v
 
 
+class SetGuardiansReq(BaseModel):
+    guardians: list[str]
+
+    @field_validator("guardians")
+    @classmethod
+    def validate_guardians(cls, v):
+        if len(v) < 2 or len(v) > 5:
+            raise ValueError("You must specify between 2 and 5 trusted guardians.")
+        return v
+
+
+class InitiateRecoveryReq(BaseModel):
+    username: str
+    new_wallet_address: str
+
+    @field_validator("new_wallet_address")
+    @classmethod
+    def validate_new_address(cls, v):
+        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
+            raise ValueError("Invalid new wallet address format.")
+        return v
+
+
+class ApproveRecoveryReq(BaseModel):
+    recovery_id: str
+    guardian_identifier: str
+    signature: Optional[str] = None
+
+
 # ── USER CREATION SCHEMAS ───────────────────────────────────
 class UserCreate(BaseModel):
     username: str
