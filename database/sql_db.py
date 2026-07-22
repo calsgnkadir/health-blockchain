@@ -120,6 +120,28 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Social Recovery Guardians Table
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS guardians (
+                    username VARCHAR(100) NOT NULL,
+                    guardian_identifier VARCHAR(255) NOT NULL,
+                    PRIMARY KEY (username, guardian_identifier)
+                )
+            """)
+
+            # Social Recovery Requests Table
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS recovery_requests (
+                    recovery_id VARCHAR(100) PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    new_wallet_address VARCHAR(100) NOT NULL,
+                    guardians_json {text_type} NOT NULL,
+                    approvals_json {text_type} NOT NULL,
+                    created_at {double_type} NOT NULL,
+                    status VARCHAR(50) NOT NULL
+                )
+            """)
+
             # Rate Limits Table
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS rate_limits (
@@ -301,3 +323,6 @@ def clean_expired_blacklisted_tokens() -> None:
     finally:
         cursor.close()
         conn.close()
+
+def get_sql_db() -> SQLDatabaseManager:
+    return default_sql_db

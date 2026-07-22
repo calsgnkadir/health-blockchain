@@ -195,3 +195,69 @@ export function initAuthListeners() {
     });
   }
 }
+
+export async function loginWithWeb3Wallet() {
+  const errEl = document.getElementById('login-error');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!window.ethereum) {
+    if (errEl) {
+      errEl.textContent = 'MetaMask or Web3 wallet extension not found. Please install MetaMask to use Web3 login.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!accounts || !accounts[0]) {
+      throw new Error('No Ethereum account selected.');
+    }
+    const address = accounts[0];
+
+    const nonceRes = await apiFetch('/api/v1/auth/nonce', {
+      method: 'POST',
+      body: JSON.stringify({ address })
+    });
+
+    const nonce = nonceRes.nonce;
+    const message = nonceRes.message || `Sign-In With Ethereum (SIWE) to VIP Health Vault.\nAddress: ${address}\nNonce: ${nonce}`;
+
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, address]
+    });
+
+    const mfaCode = document.getElementById('inp-mfa')?.value || null;
+    const loginRes = await apiFetch('/api/v1/auth/wallet-login', {
+      method: 'POST',
+      body: JSON.stringify({
+        address,
+        signature,
+        nonce,
+        code: mfaCode
+      })
+    });
+
+    if (loginRes.mfa_required) {
+      mfaRequired = true;
+      document.getElementById('login-fields-group').style.display = 'none';
+      document.getElementById('login-mfa-group').style.display = 'block';
+      document.getElementById('login-mfa-back').style.display = 'block';
+      addNotification('2FA Verification Required', 'Please enter your 6-digit 2FA code to complete Web3 authentication.', 'warning');
+      return;
+    }
+
+    setToken(loginRes.access_token);
+    setCurrentUser(loginRes.user);
+    addNotification('Web3 Login Success', `Authenticated via Web3 Wallet: ${address.substring(0, 6)}...${address.substring(38)}`, 'success');
+    if (window.enterApp) {
+      window.enterApp();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || 'Web3 authentication failed.';
+      errEl.style.display = 'block';
+    }
+  }
+}

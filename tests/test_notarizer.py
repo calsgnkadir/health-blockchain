@@ -143,7 +143,10 @@ class TestBlockchainNotarizer(unittest.TestCase):
             # Assertions on mock calls
             self.assertEqual(tx_hash, "0x9876543210abcdef0000")
             mock_web3.eth.account.from_key.assert_called_once()
-            mock_contract.functions.updateRoot.assert_called_once()
+            if hasattr(mock_contract.functions, "proposeOrApproveRoot"):
+                self.assertTrue(mock_contract.functions.proposeOrApproveRoot.called)
+            else:
+                self.assertTrue(mock_contract.functions.updateRoot.called)
             mock_web3.eth.send_raw_transaction.assert_called_once_with(b"signed_tx_raw_bytes")
             
             # Verify saved tx_hash

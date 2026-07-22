@@ -66,6 +66,22 @@
               <span id="btn-login-text">ENTER VAULT</span>
               <span id="btn-login-spin" class="spinner" style="display:none"></span>
             </button>
+
+            <div style="margin: 14px 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 11px; font-weight: 600;">
+              <span style="flex:1; height:1px; background:var(--border);"></span>
+              <span>OR CONNECT WITH WEB3</span>
+              <span style="flex:1; height:1px; background:var(--border);"></span>
+            </div>
+
+            <button type="button" class="btn btn-ghost btn-full" id="btn-web3-login" onclick="window.loginWithWeb3Wallet()" style="display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--accent-dash); color: var(--accent-dash); font-size: 12px; font-weight: 600;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+                <path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path>
+              </svg>
+              <span>SIGN-IN WITH ETHEREUM (METAMASK)</span>
+            </button>
+
             <div id="login-mfa-back" style="display:none; text-align:center; margin-top:14px;">
               <a href="#" onclick="resetLoginForm(event)"
                 style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to

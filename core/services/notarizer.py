@@ -121,12 +121,17 @@ class BlockchainNotarizer:
             nonce = self.w3.eth.get_transaction_count(sender_address)
             gas_price = self.w3.eth.gas_price
             
-            # Build transaction
-            txn = self.contract.functions.updateRoot(patient_id, merkle_bytes).build_transaction({
-                'chainId': self.w3.eth.chain_id,
-                'gas': 200000,
-                'gasPrice': gas_price,
+            # Build transaction (Multi-Notary proposeOrApproveRoot or legacy updateRoot)
+            if hasattr(self.contract.functions, "proposeOrApproveRoot"):
+                txn_func = self.contract.functions.proposeOrApproveRoot(patient_id, merkle_bytes)
+            else:
+                txn_func = self.contract.functions.updateRoot(patient_id, merkle_bytes)
+
+            txn = txn_func.build_transaction({
+                'from': sender_address,
                 'nonce': nonce,
+                'gas': 200000,
+                'gasPrice': gas_price
             })
             
             # Sign transaction

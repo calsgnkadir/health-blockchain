@@ -1,6 +1,7 @@
 import time
 import secrets
 import hashlib
+import json
 import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
@@ -306,8 +307,63 @@ def disable_2fa(
 
 
 # ── PHASE 3: SOCIAL RECOVERY & W3C DECENTRALIZED IDENTITY (DID / VC) ──
-_GUARDIANS_STORE = {}
-_RECOVERY_REQUESTS = {}
+from database.sql_db import get_sql_db
+
+def load_db_guardians(username: str) -> list:
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT guardian_identifier FROM guardians WHERE username = ?", (username,))
+        rows = cursor.fetchall()
+        return [r[0] for r in rows]
+
+def save_db_guardians(username: str, guardians: list):
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM guardians WHERE username = ?", (username,))
+        for g in guardians:
+            cursor.execute("INSERT INTO guardians (username, guardian_identifier) VALUES (?, ?)", (username, g))
+        conn.commit()
+
+def load_db_recovery(recovery_id: str) -> dict:
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT recovery_id, username, new_wallet_address, guardians_json, approvals_json, created_at, status FROM recovery_requests WHERE recovery_id = ?", (recovery_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "recovery_id": row[0],
+            "username": row[1],
+            "new_wallet_address": row[2],
+            "guardians": json.loads(row[3]),
+            "approvals": set(json.loads(row[4])),
+            "created_at": row[5],
+            "status": row[6]
+        }
+
+def save_db_recovery(rec: dict):
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO recovery_requests (recovery_id, username, new_wallet_address, guardians_json, approvals_json, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(recovery_id) DO UPDATE SET
+            approvals_json = excluded.approvals_json,
+            status = excluded.status
+        """, (
+            rec["recovery_id"],
+            rec["username"],
+            rec["new_wallet_address"],
+            json.dumps(rec["guardians"]),
+            json.dumps(list(rec["approvals"])),
+            rec["created_at"],
+            rec["status"]
+        ))
+        conn.commit()
 
 @router.post("/recovery/guardians", summary="Set Account Social Recovery Guardians")
 def set_guardians(
@@ -315,11 +371,12 @@ def set_guardians(
     u: dict = Depends(current_user)
 ):
     username = u["username"]
-    _GUARDIANS_STORE[username] = [g.strip().lower() for g in req.guardians]
+    guardians = [g.strip().lower() for g in req.guardians]
+    save_db_guardians(username, guardians)
     return {
         "success": True,
-        "message": f"Successfully configured {len(req.guardians)} guardians for user {username}.",
-        "guardians": _GUARDIANS_STORE[username]
+        "message": f"Successfully configured {len(guardians)} guardians for user {username}.",
+        "guardians": guardians
     }
 
 @router.post("/recovery/initiate", summary="Initiate Social Recovery Request")
@@ -331,12 +388,12 @@ def initiate_recovery(
     if not user_entity:
         raise HTTPException(404, "User account not found.")
 
-    guardians = _GUARDIANS_STORE.get(req.username, [])
+    guardians = load_db_guardians(req.username)
     if not guardians:
         raise HTTPException(400, "No guardians configured for this account.")
 
     recovery_id = f"rec_{secrets.token_hex(12)}"
-    _RECOVERY_REQUESTS[recovery_id] = {
+    rec = {
         "recovery_id": recovery_id,
         "username": req.username,
         "new_wallet_address": req.new_wallet_address,
@@ -345,6 +402,7 @@ def initiate_recovery(
         "created_at": time.time(),
         "status": "pending"
     }
+    save_db_recovery(rec)
 
     return {
         "success": True,
@@ -358,12 +416,11 @@ def approve_recovery(
     req: ApproveRecoveryReq,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    rec = _RECOVERY_REQUESTS.get(req.recovery_id)
+    rec = load_db_recovery(req.recovery_id)
     if not rec:
         raise HTTPException(404, "Recovery request not found or expired.")
 
     if time.time() - rec["created_at"] > 86400:
-        _RECOVERY_REQUESTS.pop(req.recovery_id, None)
         raise HTTPException(400, "Recovery request has expired.")
 
     guardian_clean = req.guardian_identifier.strip().lower()
@@ -375,6 +432,7 @@ def approve_recovery(
 
     if len(rec["approvals"]) >= threshold and rec["status"] == "pending":
         rec["status"] = "executed"
+        save_db_recovery(rec)
         user_entity = auth_service.user_repo.load_user(rec["username"])
         if user_entity:
             auth_service.link_wallet(user_entity, rec["new_wallet_address"])
@@ -385,6 +443,7 @@ def approve_recovery(
             "message": f"Threshold reached ({len(rec['approvals'])}/{threshold}). Account access successfully recovered to {rec['new_wallet_address']}!"
         }
 
+    save_db_recovery(rec)
     return {
         "success": True,
         "status": "pending",
