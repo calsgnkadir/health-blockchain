@@ -1,0 +1,45 @@
+# ─── Security — NEVER commit these files ───────────────────────
+.private_key
+.device_fingerprint
+.device_id
+.jwt_secret
+vault.key
+*.key
+*.pem
+
+# ─── LMDB / Database ─────────────────────────────────────────
+backend/projects/
+projects/
+*.lmdb/
+*.mdb
+*.lock
+
+# ─── Python ──────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ─── IDE / OS ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Config / Temp ────────────────────────────────────────────
+project_config.json
+*.log
+.env
+.env.*
+!.env.example
+
+# ─── Database
+database/vault.db
+database/*.db

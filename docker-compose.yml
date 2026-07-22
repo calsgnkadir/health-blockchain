@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: vip-health-vault
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/projects:/app/backend/projects
+    environment:
+      - ENVIRONMENT=development
+      - VHV_DEMO_MODE=true
+    restart: unless-stopped
