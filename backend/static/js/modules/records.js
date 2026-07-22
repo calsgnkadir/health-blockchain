@@ -1,5 +1,5 @@
 /* records.js — VIP Health Vault UI Records Module */
-import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL } from './utils.js';
+import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml } from './utils.js';
 import { addNotification } from './notifications.js';
 
 export let allRecords = [];
@@ -102,22 +102,22 @@ export function renderRecordCard(r) {
   const date = d.record_date ? new Date(d.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
   const encBadge = r.is_protected ? '<span class="badge badge-encrypted">ENCRYPTED</span>' : '';
   const corrBadge = r.is_correction ? '<span class="badge badge-private">CORRECTION</span>' : '';
-  const typLabel = recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type;
-  const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${ACCESS_LABELS[al]||al}</span>`;
+  const typLabel = escapeHtml(recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type);
+  const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>`;
   return `
   <div class="record-card ${r.is_protected?'is-encrypted':''} ${r.is_correction?'is-correction':''}"
        onclick="window.openRecord(${r.block_index})">
-    <div class="record-type-icon record-type-text">${typeAbbr}</div>
+    <div class="record-type-icon record-type-text">${escapeHtml(typeAbbr)}</div>
     <div class="record-main">
-      <div class="record-title">${r.title}</div>
-      <div class="record-meta">${d.doctor_name||'—'} · ${d.institution||'—'}</div>
+      <div class="record-title">${escapeHtml(r.title)}</div>
+      <div class="record-meta">${escapeHtml(d.doctor_name||'—')} · ${escapeHtml(d.institution||'—')}</div>
       <div class="record-badges">${alBadge}${encBadge}${corrBadge}
         <span class="badge badge-private" style="background:rgba(255,255,255,0.05);color:var(--muted)">${typLabel}</span>
       </div>
     </div>
     <div class="record-right">
-      <div class="record-date">${date}</div>
-      <div class="record-hash">#${r.block_index} · ${r.hash_preview}</div>
+      <div class="record-date">${escapeHtml(date)}</div>
+      <div class="record-hash">#${r.block_index} · ${escapeHtml(r.hash_preview)}</div>
     </div>
   </div>`;
 }
@@ -275,7 +275,7 @@ export function parseFhirData(data) {
 
   // Fallback to flat/non-FHIR layout
   return Object.entries(data).map(([k,v]) =>
-    `<div class="modal-field"><div class="modal-field-label">${k}</div><div class="modal-field-value">${v}</div></div>`
+    `<div class="modal-field"><div class="modal-field-label">${escapeHtml(k)}</div><div class="modal-field-value">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div></div>`
   ).join('');
 }
 
@@ -297,7 +297,7 @@ export async function openRecord(idx) {
       <button class="btn btn-gold btn-full" onclick="window.decryptRecord(${idx})">Decrypt &amp; View</button>
       <hr style="border-color:var(--border);margin:16px 0">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r.hash_preview}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
     `;
     document.getElementById('modal-overlay').classList.add('open');
     return;
@@ -313,21 +313,21 @@ export async function openRecord(idx) {
   const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
   document.getElementById('modal-content').innerHTML = `
-    <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${r.title}</h2>
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${escapeHtml(r.title)}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${typLabel}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${d.doctor_name||'—'}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${d.institution||'—'}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${d.record_date||'—'}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${ACCESS_LABELS[d.access_level]||d.access_level||'—'}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(d.institution||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(d.record_date||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[d.access_level]||d.access_level||'—')}</div></div>
     </div>
     ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
-    ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+    ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(d.notes)}</div></div>` : ''}
     ${dicomViewerHtml}
     ${attachmentHtml}
     <hr style="border-color:var(--border);margin:16px 0">
-    <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r.hash_preview}</div></div>
+    <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
   `;
   document.getElementById('modal-overlay').classList.add('open');

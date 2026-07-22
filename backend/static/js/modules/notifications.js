@@ -1,4 +1,4 @@
-import { apiFetch, patientId, getCurrentUser, appState } from './utils.js';
+import { apiFetch, patientId, getCurrentUser, appState, escapeHtml } from './utils.js';
 
 let localNotificationsCache = [];
 
@@ -109,12 +109,12 @@ export async function updateNotificationsUI() {
             <div class="noti-title-row">
               <span class="noti-title">
                 <span class="noti-icon-dot ${typeDotClass}"></span>
-                ${n.title}
+                ${escapeHtml(n.title)}
               </span>
-              <span class="noti-time">${n.time}</span>
+              <span class="noti-time">${escapeHtml(n.time)}</span>
             </div>
-            <div class="noti-text" style="${n.read ? 'color: var(--muted);' : 'font-weight: 500;'}">${n.text}</div>
-            <div style="font-size: 9px; color: var(--muted); text-align: right; margin-top: 4px;">${n.date}</div>
+            <div class="noti-text" style="${n.read ? 'color: var(--muted);' : 'font-weight: 500;'}">${escapeHtml(n.text)}</div>
+            <div style="font-size: 9px; color: var(--muted); text-align: right; margin-top: 4px;">${escapeHtml(n.date)}</div>
           </div>
         `;
       }).join('');
