@@ -167,7 +167,27 @@ def test_e2e_flow():
     assert r.status_code == 200
     res_data = r.json()
     assert len(res_data.get("records", [])) == 0
-    print("Consent revocation and records filtering verification: SUCCESS")
+    # 11. Test Phase 1 SIWE Nonce Endpoint
+    print("\n11. Testing Phase 1 SIWE Nonce generation...")
+    r = session.get(f"{BASE_URL}/api/v1/auth/nonce")
+    assert r.status_code == 200
+    nonce_data = r.json()
+    assert "nonce" in nonce_data
+    print(f"SIWE Nonce generated: {nonce_data['nonce']}")
+
+    # 12. Test Phase 3 W3C DID & VC Endpoints
+    print("\n12. Testing Phase 3 W3C DID & VC Document generation...")
+    r_did = session.get(f"{BASE_URL}/api/v1/auth/did/{vip_cred['username']}")
+    assert r_did.status_code == 200
+    did_doc = r_did.json()
+    assert did_doc["id"].startswith("did:vhv:")
+    print("DID Document verification: SUCCESS ->", did_doc["id"])
+
+    r_vc = session.get(f"{BASE_URL}/api/v1/auth/vc/{vip_cred['username']}")
+    assert r_vc.status_code == 200
+    vc_doc = r_vc.json()
+    assert "VerifiableCredential" in vc_doc["type"]
+    print("Verifiable Credential verification: SUCCESS")
 
     print("\n=== ALL END-TO-END FLOW TESTS COMPLETED SUCCESSFULLY ===")
 
