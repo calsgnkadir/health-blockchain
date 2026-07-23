@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: vip-health-vault
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python backend/main.py"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: VHV_DEMO_MODE
+        value: "true"
+      - key: PORT
+        value: "8000"
+      - key: JWT_PRIVATE_KEY
+        generateValue: true
+      - key: JWT_PUBLIC_KEY
+        generateValue: true
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    plan: free
+    healthCheckPath: /api/v1/health

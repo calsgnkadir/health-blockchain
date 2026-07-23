@@ -10,9 +10,23 @@
 
 **VIP Health Vault**, yüksek öncelikli ve kritik öneme sahip kişilerin (VIP hastalar) tıbbi verilerini, değiştirilemez ve kriptografik olarak denetlenebilir bir blokzinciri altyapısında saklayan, **Temiz Mimari (Clean Architecture)** ve **CQRS** prensiplerine göre tasarlanmış, üst düzey güvenlik odaklı, yeni nesil bir e-sağlık ve rıza yönetim platformudur.
 
-Sistem; sıfır güven (Zero-Trust) güvenliği, donanım parmak izine bağlı RSA JWT yetkilendirme, çift katmanlı şifreleme (AES-GCM-256 + İstemci Tarafı Uçtan Uca Şifreleme), akıllı FHIR/Giyilebilir cihaz entegrasyonları, yapay zeka semptom analiz asistanı ve son derece premium bir **Glassmorphic Cyberpunk** arayüz tasarımı sunmaktadır.
+> **Temel Fark:** Ham tıbbi veri asla zincirde saklanmaz. Veriler AES-256-GCM ile şifrelenip off-chain tutulur; blok zincirine yalnızca kriptografik **Merkle Root Hash**'i yazılır. Veri bütünlüğü kanıtlanabilir, gizlilik korunur, GDPR "unutulma hakkı" tam uyumludur.
 
 ---
+
+## 🖥️ Ekran Görüntüleri
+
+| 🔐 Giriş Ekranı | 📊 Ana Panel |
+|---|---|
+| ![Login Screen](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
+
+| ⛓️ Blockchain Bütünlük Kanıtı | 🚨 Acil Erişim (Break-Glass) |
+|---|---|
+| ![Blockchain Proof](docs/screenshots/03_blockchain_proof.png) | ![Emergency Access](docs/screenshots/04_emergency_access.png) |
+
+---
+
+
 
 ## 🏗️ Mimari Tasarım (Clean Architecture & CQRS)
 
@@ -277,6 +291,21 @@ Key design decisions are documented under [`docs/adr/`](docs/adr/) so you can un
 > **Why is raw PHI never stored on the blockchain?** See [ADR 0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) for the full rationale covering GDPR compliance, gas cost, and long-term cryptographic decay risks.
 
 ---
+
+## 🚀 Canlı Deploy (One-Click)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/calsgnkadir/health-blockchain)
+
+> **Demo Kimlik Bilgileri:**
+> | Rol | Kullanıcı Adı | Şifre |
+> |-----|---------------|-------|
+> | 🏥 Admin | `admin` | `AdminSecure@2026!` |
+> | 👨‍⚕️ Doktor | `dr.smith` | `Doctor@2026Secure!` |
+> | 🩺 VIP Hasta | `vip001` | `VIPPatient@2026!` |
+
+---
+
+
 
 ## 📋 Changelog
 
