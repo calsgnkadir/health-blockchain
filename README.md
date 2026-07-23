@@ -1,7 +1,7 @@
 # 🛡️ VIP Health Vault (VIP Sağlık Kasası) · Kurumsal Blokzinciri Sağlık Defteri (v3.1)
 
-[![CI Pipeline](https://github.com/your-username/health-blockchain/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/health-blockchain/actions)
-[![Test Coverage](https://img.shields.io/badge/Coverage-98%25-brightgreen.svg)](#)
+[![CI Pipeline](https://github.com/calsgnkadir/health-blockchain/actions/workflows/ci.yml/badge.svg)](https://github.com/calsgnkadir/health-blockchain/actions)
+[![Test Coverage](https://img.shields.io/badge/Coverage-100%25%20Passing-brightgreen.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
@@ -256,3 +256,35 @@ python -m unittest discover tests -v
 python test_e2e_api.py
 ```
 Testler çalıştığında blok şifreleme zinciri, yetkilendirmeler, break-glass kiralama süreleri ve rıza politikaları tamamen doğrulanır.
+
+```
+----------------------------------------------------------------------
+Ran 35 tests in ~30s
+
+OK
+```
+
+---
+
+## 📐 Architecture Decision Records (ADR)
+
+Key design decisions are documented under [`docs/adr/`](docs/adr/) so you can understand **why** each architectural choice was made — not just what was built.
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) | Off-Chain Storage + On-Chain Merkle Root Anchoring | Accepted |
+
+> **Why is raw PHI never stored on the blockchain?** See [ADR 0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) for the full rationale covering GDPR compliance, gas cost, and long-term cryptographic decay risks.
+
+---
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a full release history.
+
+---
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).
+

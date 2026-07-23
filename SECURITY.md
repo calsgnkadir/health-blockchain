@@ -1,87 +1,39 @@
-# 🔐 Security Features
+# 🔐 Enterprise Security & Cryptographic Architecture
 
-This blockchain system now includes advanced security features.
+**VIP Health Vault** employs a zero-trust, defense-in-depth security model engineered specifically for high-confidentiality healthcare datasets (PHI / EHR) and high-profile patient records.
 
-## 🛡️ Security Layers
+---
 
-### 1. **Device-Based Authentication**
-- A unique Device ID is created for each device
-- Blockchains provide full access only on the device where they were created
-- Access attempts from other devices trigger warnings
+## 🛡️ Core Security Architecture & Layers
 
-### 2. **AES-256 Encryption**
-- Blockchain data can be optionally encrypted
-- Uses Fernet (AES-128-CBC) encryption
-- Encrypted blockchains can only be opened with the correct password
+### 1. Dual-Layer Cryptographic Data Encryption (AES-GCM-256)
+- **Off-Chain Encrypted Storage:** Sensitive patient data (FHIR records, clinical attachments, DICOM medical images) is stored off-chain using Galois/Counter Mode (**AES-256-GCM**) with random 96-bit IVs and 128-bit authentication tags.
+- **Envelope Encryption:** Key derivation uses **PBKDF2** with 600,000 iterations and 128-bit cryptographic salts.
+- **Client-Side E2EE Option:** Patient records can optionally be sealed with AES-256 client-side passwords before being sent to the server.
 
-### 3. **Secure Private Key Management**
-- Private key is no longer hardcoded in the code
-- Managed via environment variable (`HEALTH_BLOCKCHAIN_KEY`)
-- Automatically generated on first use and notified to the user
+### 2. Multi-Factor Authentication & Multi-Scheme Identity
+- **Sign-In with Ethereum (SIWE - EIP-4361):** Cryptographic Web3 wallet login via EIP-191 ECDSA `personal_sign` message verification.
+- **Passkey / WebAuthn Hardware Auth:** Hardware-backed biometric authentication (FIDO2 / TouchID / FaceID / YubiKey) using `navigator.credentials` and secp256r1 signature verification.
+- **TOTP (RFC 6238 2FA):** Time-based One-Time Password support with QR code initialization and 6-digit verification.
+- **Password Hashing:** **Argon2id** password hashing with high memory-cost parameters.
 
-### 4. **HMAC-SHA256 Signing (Enhanced)**
-- Each block is signed with device ID
-- Other devices cannot create the same signature
-- Integrity verification is performed
+### 3. JWT Session & Hardware Device Binding
+- **RS256 Signature Scheme:** Asymmetric RSA-256 JWT tokens signed with private keys tied to hardware device signatures (`WMI` hardware UUID / Linux system UUID).
+- **Token Revocation & Blacklisting:** Token IDs (`jti`) are checked against an active DB blacklist on every request and automatically purged upon expiration.
 
-## 📋 Usage
+### 4. Blockchain Integrity & Consensus (Merkle Root Anchoring)
+- **Zero Raw PHI On-Chain:** Raw medical data is **NEVER** stored directly on the public Ethereum blockchain to comply with GDPR "Right to be Forgotten" and HIPAA privacy guidelines.
+- **Merkle Tree Proofs:** Each patient record block is hashed into a SHA-256 Merkle tree. Only the resulting **Merkle Root** is anchored to the smart contract (`AnchorStore.sol`).
+- **Multi-Notary Consensus:** Smart contract notarization requires a 2-of-N multi-sig consensus threshold across authorized notary nodes.
 
-### Setting Environment Variable
+### 5. Application & Web Security Headers
+- **XSS Protection Middleware:** Enforces strict `Content-Security-Policy (CSP)`, `X-XSS-Protection`, `X-Content-Type-Options: nosniff`, and `X-Frame-Options: SAMEORIGIN`.
+- **Input Sanitization:** Recursive HTML entity escaping and tag stripping against Reflected, Stored, and Header Injection XSS.
+- **CSRF Token Verification:** Double-Submit Cookie pattern for state-changing endpoints with path exemptions for OAuth/SIWE nonces.
+- **Rate Limiting:** Sliding-window IP rate limiting middleware to prevent brute-force attacks.
 
-**Windows PowerShell:**
-```powershell
-$env:HEALTH_BLOCKCHAIN_KEY="your-secret-key-here"
-```
+---
 
-**Windows CMD:**
-```cmd
-set HEALTH_BLOCKCHAIN_KEY=your-secret-key-here
-```
+## 📋 Security Policy & Vulnerability Reporting
 
-**Linux/Mac:**
-```bash
-export HEALTH_BLOCKCHAIN_KEY="your-secret-key-here"
-```
-
-### Creating Encrypted Blockchain
-
-When starting the program, when creating a new blockchain, encryption option is offered:
-- Use `y` option to create encrypted blockchain
-- Set password and blockchain is saved encrypted
-
-### Loading Encrypted Blockchain
-
-When loading an encrypted blockchain, password is requested. Loading cannot be done with wrong password.
-
-## ⚠️ Security Warnings
-
-1. **Keep Private Key Secure**: Store the environment variable in a secure location
-2. **Don't Forget Password**: If you lose the password of an encrypted blockchain, you cannot access the data
-3. **Device ID**: Each device has its own unique ID. If you delete the `.device_id` file, a new ID will be created
-4. **Backup**: Take backups of important blockchains
-
-## 🔒 Security Levels
-
-### Level 1: Basic (No Encryption)
-- Device ID check
-- HMAC signing
-- Hash chaining
-
-### Level 2: Advanced (With Encryption)
-- All Level 1 features
-- AES-256 encryption
-- Password-protected access
-
-## 🚫 Access Control
-
-- **Same Device**: Full access (read, write, verify)
-- **Different Device**: 
-  - Read: Possible with warning
-  - Write: Signature verification fails
-  - Verify: Device ID mismatch detected
-
-## 📝 Notes
-
-- Old format blockchains (unencrypted) can still be loaded (backward compatibility)
-- New blockchains automatically include device ID
-- Encryption is optional, not mandatory
+If you discover a potential security vulnerability within VIP Health Vault, please do NOT open a public issue. Report findings directly to security@healthchain.org or file a private security report on GitHub.
