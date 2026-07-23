@@ -89,6 +89,10 @@ app.include_router(misc_router)
 from backend.routers.emergency import router as emergency_router
 app.include_router(emergency_router)
 
+# Seviye 3 — Dead-Man's Switch (Miras Kilidi) Router
+from backend.routers.deadman import router as deadman_router
+app.include_router(deadman_router)
+
 import logging
 
 logging.basicConfig(

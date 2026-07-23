@@ -17,6 +17,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             or path.endswith("/activate")       # Emergency QR activation (no-auth endpoint)
             or "/webauthn/" in path             # WebAuthn flows
             or "/emergency/revoke/" in path     # Revoke is authenticated via JWT bearer
+            or "/deadman/" in path              # Dead-Man's switch endpoints use JWT bearer
             or is_testing
         ):
             response = await call_next(request)

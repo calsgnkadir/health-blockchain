@@ -188,7 +188,32 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Dead-Man's Switch Configs Table (Miras Kilidi Yapılandırması)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS deadman_configs (
+                    patient_id        VARCHAR(100) PRIMARY KEY,
+                    inactivity_days   INTEGER DEFAULT 90,
+                    last_heartbeat    {double_type} NOT NULL,
+                    status            VARCHAR(20) DEFAULT 'active',
+                    beneficiaries_json {text_type},
+                    created_at        {double_type} NOT NULL,
+                    updated_at        {double_type} NOT NULL
+                )
+            """)
+
+            # Dead-Man's Switch Audit Logs Table
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS deadman_logs (
+                    log_id       VARCHAR(100) PRIMARY KEY,
+                    patient_id   VARCHAR(100) NOT NULL,
+                    event_type   VARCHAR(50) NOT NULL,
+                    timestamp    {double_type} NOT NULL,
+                    details_json {text_type}
+                )
+            """)
+
             # Rate Limits Table
+
 
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS rate_limits (
@@ -213,10 +238,10 @@ class SQLDatabaseManager:
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT COUNT(*) FROM users")
-            count = cursor.fetchone()[0]
-            if count > 0:
-                return  # Already seeded
+            cursor.execute("SELECT COUNT(*) FROM users WHERE username = 'vip001'")
+            row = cursor.fetchone()
+            if row and row[0] > 0:
+                return  # Default users already seeded
                 
             from core.security import hash_password
             defaults = [

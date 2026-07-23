@@ -190,9 +190,7 @@ def current_user(
     creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
     user_repo: LMDBUserRepository = Depends(get_user_repository)
 ) -> dict:
-    token = access_token
-    if not token and creds:
-        token = creds.credentials
+    token = creds.credentials if creds else access_token
 
     if not token:
         raise HTTPException(401, "Not authenticated — access token is missing")

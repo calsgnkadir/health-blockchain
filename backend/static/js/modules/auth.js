@@ -416,3 +416,121 @@ export function closeEmergencyQR() {
   _currentQRSessionId = null;
 }
 
+// ─── DEAD-MAN'S SWITCH (MİRAS KİLİDİ) FRONTEND MODULE ────────────────────────
+
+export async function showDeadManModal() {
+  const user = getCurrentUser();
+  if (!user) return;
+  const patientId = user.patient_id || user.username;
+
+  const modal = document.getElementById('deadman-modal');
+  if (modal) modal.style.display = 'flex';
+
+  try {
+    const data = await apiFetch(`/api/v1/deadman/config/${patientId}`);
+    
+    // Status Badge
+    const badge = document.getElementById('dm-status-badge');
+    if (badge) {
+      if (data.status === 'active') {
+        badge.textContent = '🟢 AKTİF';
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      } else if (data.status === 'triggered') {
+        badge.textContent = '🚨 TETİKLENDİ';
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#ef4444';
+        badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      } else {
+        badge.textContent = '⏸️ DONDURULDU / YAPILANDIRILMADI';
+        badge.style.background = 'rgba(156, 163, 175, 0.2)';
+        badge.style.color = '#9ca3af';
+        badge.style.borderColor = 'rgba(156, 163, 175, 0.4)';
+      }
+    }
+
+    // Last Heartbeat
+    const lastPingEl = document.getElementById('dm-last-ping');
+    if (lastPingEl) {
+      if (data.last_heartbeat) {
+        lastPingEl.textContent = new Date(data.last_heartbeat * 1000).toLocaleString('tr-TR');
+      } else {
+        lastPingEl.textContent = 'Henüz Sinyal Yok';
+      }
+    }
+
+    // Remaining Days
+    const remDaysEl = document.getElementById('dm-remaining-days');
+    if (remDaysEl) {
+      remDaysEl.textContent = data.remaining_days !== undefined ? `${data.remaining_days} Gün` : '-- gün';
+    }
+
+    // Inactivity select
+    const selectEl = document.getElementById('dm-inactivity-days');
+    if (selectEl && data.inactivity_days) {
+      selectEl.value = String(data.inactivity_days);
+    }
+
+    // Beneficiaries
+    if (data.beneficiaries && data.beneficiaries.length > 0) {
+      const b = data.beneficiaries[0];
+      const uInput = document.getElementById('dm-beneficiary-user');
+      const rInput = document.getElementById('dm-beneficiary-relation');
+      if (uInput) uInput.value = b.username || '';
+      if (rInput) rInput.value = b.relation || '';
+    }
+  } catch (err) {
+    addNotification('Miras Kilidi', err.message || 'Yapılandırma yüklenemedi.', 'warning');
+  }
+}
+
+export async function sendDeadManPing() {
+  try {
+    const res = await apiFetch('/api/v1/deadman/ping', { method: 'POST' });
+    addNotification('💓 Heartbeat Alındı', res.message, 'success');
+    showDeadManModal();
+  } catch (err) {
+    addNotification('Ping Hatası', err.message, 'error');
+  }
+}
+
+export async function saveDeadManConfig() {
+  const daysEl = document.getElementById('dm-inactivity-days');
+  const uInput = document.getElementById('dm-beneficiary-user');
+  const rInput = document.getElementById('dm-beneficiary-relation');
+
+  const inactivityDays = parseInt(daysEl ? daysEl.value : '90', 10);
+  const benUser = uInput ? uInput.value.trim() : '';
+  const benRel  = rInput ? rInput.value.trim() : 'Varis';
+
+  const beneficiaries = [];
+  if (benUser) {
+    beneficiaries.push({
+      username: benUser,
+      relation: benRel || 'Varis',
+      access_scope: 'all_records'
+    });
+  }
+
+  try {
+    const res = await apiFetch('/api/v1/deadman/config', {
+      method: 'POST',
+      body: JSON.stringify({
+        inactivity_days: inactivityDays,
+        beneficiaries: beneficiaries
+      })
+    });
+    addNotification('Miras Kilidi Güncellendi', res.message, 'success');
+    showDeadManModal();
+  } catch (err) {
+    addNotification('Güncelleme Hatası', err.message, 'error');
+  }
+}
+
+export function closeDeadManModal() {
+  const modal = document.getElementById('deadman-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+

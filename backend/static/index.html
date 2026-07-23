@@ -950,8 +950,7 @@
         <div style="color:#aaa">Oturum ID: <span id="qr-session-id" style="color:#fff;font-family:monospace"></span></div>
         <div style="color:#aaa;margin-top:4px">Kapsam: <span style="color:#00d4ff">Kritik alanlar, alerji, kan grubu, acil iletişim</span></div>
         <div style="color:#aaa;margin-top:4px">Geçerlilik: <span style="color:#22c55e">72 saat</span></div>
-      </div>
-      <div style="display:flex;gap:10px">
+                  <div style="display:flex;gap:10px">
         <button id="qr-revoke-btn" onclick="window.revokeEmergencyQR()" style="display:none;flex:1;padding:10px;background:rgba(255,68,68,0.15);border:1px solid #ff4444;color:#ff4444;border-radius:8px;cursor:pointer;font-size:0.85rem">
           🚫 QR'ı İptal Et
         </button>
@@ -961,6 +960,73 @@
       </div>
     </div>
   </div>
+
+  <!-- DEAD-MAN'S SWITCH MODAL -->
+  <div id="deadman-modal" class="modal-overlay" onclick="if(event.target===this)window.closeDeadManModal()" style="display:none">
+    <div class="modal-box" style="max-width:540px;text-align:left" onclick="event.stopPropagation()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.4rem">☠️</span>
+          <div>
+            <h2 style="margin:0;color:#f59e0b;font-size:1.15rem">Miras Kilidi (Dead-Man's Switch)</h2>
+            <div style="color:#aaa;font-size:0.78rem">Otomatik Varis / Koruyucu Tıbbi Veri Aktarımı</div>
+          </div>
+        </div>
+        <span id="dm-status-badge" style="padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:bold;background:rgba(245,158,11,0.2);color:#f59e0b;border:1px solid rgba(245,158,11,0.4)">
+          YÜKLENİYOR
+        </span>
+      </div>
+
+      <!-- Live Heartbeat Status Box -->
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px;margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="color:#aaa;font-size:0.85rem">Son Heartbeat Sinyali:</span>
+          <span id="dm-last-ping" style="color:#fff;font-size:0.85rem;font-weight:600">Henüz Sinyal Yok</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="color:#aaa;font-size:0.85rem">Kalan İnaktivite Süresi:</span>
+          <span id="dm-remaining-days" style="color:#00d4ff;font-size:0.95rem;font-weight:bold">-- gün</span>
+        </div>
+        <button id="btn-dm-ping" onclick="window.sendDeadManPing()" style="width:100%;padding:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          <span>💓</span> Ben Hayattayım (Heartbeat Sinyali Gönder)
+        </button>
+      </div>
+
+      <!-- Settings Form -->
+      <div style="margin-bottom:16px">
+        <label style="display:block;color:#ccc;font-size:0.82rem;margin-bottom:6px">İnaktivite Eşiği (Gün):</label>
+        <select id="dm-inactivity-days" style="width:100%;padding:9px;background:#181824;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;font-size:0.85rem">
+          <option value="30">30 Gün (Hızlı Test / Yüksek Hassasiyet)</option>
+          <option value="60">60 Gün (Standard Koruma)</option>
+          <option value="90" selected>90 Gün (Önerilen)</option>
+          <option value="180">180 Gün (Uzun Süreli)</option>
+          <option value="365">365 Gün (1 Yıl)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <label style="display:block;color:#ccc;font-size:0.82rem;margin-bottom:6px">Yetkili Varis / Koruyucu (Username):</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="dm-beneficiary-user" placeholder="Örn: dr.smith veya guardian01" style="flex:1;padding:9px;background:#181824;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;font-size:0.85rem"/>
+          <input type="text" id="dm-beneficiary-relation" placeholder="İlişki (Örn: Varis / Eş)" style="flex:1;padding:9px;background:#181824;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;font-size:0.85rem"/>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button onclick="window.saveDeadManConfig()" style="flex:2;padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:0.85rem">
+          💾 Yapılandırmayı Kaydet
+        </button>
+        <button onclick="window.closeDeadManModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:8px;cursor:pointer;font-size:0.85rem">
+          Kapat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEAD-MAN'S SWITCH FLOATING TRIGGER -->
+  <button id="deadman-trigger" onclick="window.showDeadManModal()" style="display:none;position:fixed;bottom:135px;right:24px;z-index:1000;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:50px;padding:10px 18px;font-size:0.8rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(245,158,11,0.4);letter-spacing:0.5px">
+    ☠️ MİRAS KİLİDİ
+  </button>
 
   <!-- EMERGENCY QR FLOATING TRIGGER (hasta panelinde görünür) -->
   <button id="emergency-qr-trigger" onclick="window.showEmergencyQR()" style="display:none;position:fixed;bottom:80px;right:24px;z-index:1000;background:linear-gradient(135deg,#ff4444,#cc0000);color:#fff;border:none;border-radius:50px;padding:10px 18px;font-size:0.8rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(255,68,68,0.4);letter-spacing:0.5px">

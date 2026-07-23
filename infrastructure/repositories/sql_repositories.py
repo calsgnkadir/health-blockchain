@@ -9,15 +9,20 @@ def _to_placeholder(sql: str) -> str:
         return sql.replace("?", "%s")
     return sql
 
+_USER_COLS = ["id", "username", "password_hash", "role", "full_name", "specialty", "institution", "patient_id", "clearance", "totp_secret", "totp_enabled", "wallet_address"]
+
 def _row_to_dict(row) -> dict:
     if row is None:
         return {}
+    if isinstance(row, (tuple, list)):
+        return {col: row[i] for i, col in enumerate(_USER_COLS) if i < len(row)}
     try:
-        # For sqlite Row
-        return dict(row)
+        d = dict(row)
+        if d and not any(isinstance(k, str) for k in d.keys()):
+            return {col: row[i] for i, col in enumerate(_USER_COLS) if i < len(row)}
+        return d
     except (TypeError, ValueError):
-        # For postgres/dict row or cursor return
-        return dict(row)
+        return {}
 
 class SQLUserRepository(IUserRepository):
     def save_user(self, user: User) -> None:
