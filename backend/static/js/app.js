@@ -1,5 +1,5 @@
 import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, appState } from './modules/utils.js';
-import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey } from './modules/auth.js';
+import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey, showEmergencyQR, revokeEmergencyQR, closeEmergencyQR } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
@@ -979,8 +979,18 @@ initAuthListeners();
 initRecordsListeners();
 initCommandPaletteListeners();
 
+// Bind QR Emergency Access to window
+window.showEmergencyQR   = showEmergencyQR;
+window.revokeEmergencyQR = revokeEmergencyQR;
+window.closeEmergencyQR  = closeEmergencyQR;
+
 if (token && currentUser) {
   window.enterApp();
+  // Show emergency QR trigger button for VIP patients
+  if (currentUser.role === 'vip_patient') {
+    const qrTrigger = document.getElementById('emergency-qr-trigger');
+    if (qrTrigger) qrTrigger.style.display = 'block';
+  }
 } else {
   resetLoginFormState();
 }

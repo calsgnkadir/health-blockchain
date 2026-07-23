@@ -339,3 +339,80 @@ export async function loginWithPasskey() {
     }
   }
 }
+
+// ─── QR / NFC BREAK-GLASS EMERGENCY ACCESS ───────────────────────────────────
+
+let _currentQRSessionId = null;
+
+export async function showEmergencyQR() {
+  const user = getCurrentUser();
+  if (!user) return;
+  const patientId = user.patient_id || user.username;
+
+  const modal    = document.getElementById('emergency-qr-modal');
+  const loading  = document.getElementById('qr-loading');
+  const img      = document.getElementById('qr-image');
+  const info     = document.getElementById('qr-session-info');
+  const revokeBtn = document.getElementById('qr-revoke-btn');
+
+  // Reset
+  if (loading)   { loading.style.display = 'block'; }
+  if (img)       { img.style.display = 'none'; img.src = ''; }
+  if (info)      { info.style.display = 'none'; }
+  if (revokeBtn) { revokeBtn.style.display = 'none'; }
+  if (modal)     { modal.style.display = 'flex'; }
+
+  try {
+    // 1) Token al
+    const tokenData = await apiFetch(`/api/v1/emergency/qr/token/${patientId}`);
+    _currentQRSessionId = tokenData.session_id;
+
+    // 2) QR PNG resmi çek (token header'da)
+    const token = localStorage.getItem('vhv_token') || '';
+    const qrResp = await fetch(`/api/v1/emergency/qr/${patientId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!qrResp.ok) throw new Error('QR görüntüsü alınamadı.');
+
+    const blob = await qrResp.blob();
+    const url  = URL.createObjectURL(blob);
+
+    if (loading)  { loading.style.display = 'none'; }
+    if (img)      { img.src = url; img.style.display = 'block'; }
+
+    if (info) {
+      info.style.display = 'block';
+      const sidEl = document.getElementById('qr-session-id');
+      if (sidEl) sidEl.textContent = tokenData.session_id;
+    }
+    if (revokeBtn) { revokeBtn.style.display = 'block'; }
+
+  } catch (err) {
+    if (loading) {
+      loading.textContent = `Hata: ${err.message}`;
+      loading.style.color = '#ff4444';
+    }
+  }
+}
+
+export async function revokeEmergencyQR() {
+  if (!_currentQRSessionId) return;
+  try {
+    await apiFetch(`/api/v1/emergency/revoke/${_currentQRSessionId}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: 'Hasta tarafından manuel iptal' })
+    });
+    addNotification('QR İptal Edildi', 'Acil erişim QR oturumu iptal edildi.', 'warning');
+    closeEmergencyQR();
+  } catch (err) {
+    addNotification('İptal Hatası', err.message, 'error');
+  }
+}
+
+export function closeEmergencyQR() {
+  const modal = document.getElementById('emergency-qr-modal');
+  if (modal) modal.style.display = 'none';
+  _currentQRSessionId = null;
+}
+

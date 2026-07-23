@@ -85,6 +85,10 @@ app.include_router(consent_router)
 app.include_router(records_router)
 app.include_router(misc_router)
 
+# Seviye 3 — QR/NFC Emergency Access Router
+from backend.routers.emergency import router as emergency_router
+app.include_router(emergency_router)
+
 import logging
 
 logging.basicConfig(

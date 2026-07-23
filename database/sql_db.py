@@ -159,7 +159,37 @@ class SQLDatabaseManager:
             except Exception:
                 pass
 
+            # Emergency QR Sessions Table (hastanın ürettiği QR tokenlar)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS emergency_qr_sessions (
+                    session_id   VARCHAR(100) PRIMARY KEY,
+                    patient_id   VARCHAR(100) NOT NULL,
+                    token_hash   VARCHAR(64)  NOT NULL,
+                    issued_by    VARCHAR(100) NOT NULL,
+                    issued_at    {double_type} NOT NULL,
+                    expires_at   {double_type} NOT NULL,
+                    status       VARCHAR(20) DEFAULT 'active'
+                )
+            """)
+
+            # Emergency Activations Table (ambulans/acil servis aktivasyonları)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS emergency_activations (
+                    activation_id VARCHAR(100) PRIMARY KEY,
+                    session_id    VARCHAR(100) NOT NULL,
+                    patient_id    VARCHAR(100) NOT NULL,
+                    responder_id  VARCHAR(200),
+                    location      VARCHAR(500),
+                    reason        VARCHAR(500),
+                    activated_at  {double_type} NOT NULL,
+                    expires_at    {double_type} NOT NULL,
+                    status        VARCHAR(20) DEFAULT 'active',
+                    audit_json    {text_type}
+                )
+            """)
+
             # Rate Limits Table
+
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS rate_limits (
                     ip VARCHAR(100) NOT NULL,
