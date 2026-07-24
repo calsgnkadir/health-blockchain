@@ -327,6 +327,7 @@ VIP Health Vault, Türkiye'nin **6698 sayılı KVKK** ve AB'nin **GDPR (2016/679
 | 📄 [GDPR_KVKK_COMPLIANCE.md](docs/GDPR_KVKK_COMPLIANCE.md) | Veri işleme envanteri (RoPA), veri sahibi hakları, saklama politikası |
 | 🔍 [DPIA.md](docs/DPIA.md) | Veri Koruma Etki Değerlendirmesi — 7 risk senaryosu analizi |
 | 🔄 [CONSENT_FLOW.md](docs/CONSENT_FLOW.md) | Tüm rıza/erişim akışlarının ASCII diyagramları |
+| 🚀 [SEPOLIA_DEPLOYMENT.md](docs/SEPOLIA_DEPLOYMENT.md) | Ethereum Sepolia Testnet akıllı sözleşme canlıya alma rehberi |
 | 🏗️ [ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) | Blockchain + off-chain mimari kararı |
 
 ---
