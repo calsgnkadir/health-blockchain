@@ -212,6 +212,19 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # ZKP Commitments Table (Sıfır Bilgi Kanıtı — Pedersen Commitment Kayıtları)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS zkp_commitments (
+                    id                   VARCHAR(100) PRIMARY KEY,
+                    patient_id           VARCHAR(100) NOT NULL,
+                    claim_type           VARCHAR(100) NOT NULL,
+                    claim_label          VARCHAR(200) NOT NULL,
+                    commitment_hex       {text_type} NOT NULL,
+                    proof_metadata_json  {text_type},
+                    created_at           {double_type} NOT NULL
+                )
+            """)
+
             # Rate Limits Table
 
 

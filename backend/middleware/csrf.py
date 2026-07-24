@@ -18,6 +18,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             or "/webauthn/" in path             # WebAuthn flows
             or "/emergency/revoke/" in path     # Revoke is authenticated via JWT bearer
             or "/deadman/" in path              # Dead-Man's switch endpoints use JWT bearer
+            or "/zkp/" in path                  # ZKP endpoints use JWT bearer; /verify is public
             or is_testing
         ):
             response = await call_next(request)

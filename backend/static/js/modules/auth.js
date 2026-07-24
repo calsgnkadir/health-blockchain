@@ -534,3 +534,169 @@ export function closeDeadManModal() {
 }
 
 
+// ============================================================
+// ZKP Selective Disclosure (Sıfır Bilgi Kanıtı) Module
+// ============================================================
+
+export function showZkpModal() {
+  const modal = document.getElementById('zkp-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  loadZkpCommitments();
+}
+
+export function closeZkpModal() {
+  const modal = document.getElementById('zkp-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _zkpStatus(msg, color = '#a78bfa') {
+  const box = document.getElementById('zkp-status-box');
+  const txt = document.getElementById('zkp-status-text');
+  if (!box || !txt) return;
+  txt.textContent = msg;
+  txt.style.color = color;
+  box.style.display = 'block';
+}
+
+export async function loadZkpCommitments() {
+  const listEl = document.getElementById('zkp-commitments-list');
+  if (!listEl) return;
+
+  const patientId = window.__currentUser?.patient_id;
+  if (!patientId) {
+    listEl.innerHTML = '<p style="color:#888;font-size:0.78rem;text-align:center;margin:8px 0">Hasta ID bulunamadı.</p>';
+    return;
+  }
+
+  listEl.innerHTML = '<p style="color:#888;font-size:0.78rem;text-align:center;margin:8px 0">⌛ Yükleniyor...</p>';
+  try {
+    const data = await apiFetch(`/api/v1/zkp/commitments/${patientId}`);
+    if (!data.commitments || data.commitments.length === 0) {
+      listEl.innerHTML = '<p style="color:#666;font-size:0.78rem;text-align:center;margin:8px 0">Henüz commitment yok. Aşağıdan yeni bir tane oluşturun.</p>';
+      return;
+    }
+
+    const ICONS = {
+      has_allergy: '🧪', has_blood_type: '🩸', has_vaccination: '💉',
+      has_condition: '🏥', had_surgery: '🔪', age_over: '📅'
+    };
+
+    listEl.innerHTML = data.commitments.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:4px;background:rgba(139,92,246,0.1);border-radius:6px;border:1px solid rgba(139,92,246,0.2)">
+        <span style="font-size:1rem">${ICONS[c.claim_type] || '🔐'}</span>
+        <div style="flex:1;min-width:0">
+          <p style="margin:0;color:#c4b5fd;font-size:0.78rem;font-weight:600">${c.claim_label}</p>
+          <p style="margin:0;color:#666;font-size:0.7rem">${c.claim_type} · ${new Date(c.created_at * 1000).toLocaleDateString('tr-TR')}</p>
+        </div>
+        <span style="color:#6d28d9;font-size:0.65rem;font-family:monospace;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.commitment_hex}">${c.commitment_hex.slice(0, 12)}…</span>
+      </div>
+    `).join('');
+  } catch (err) {
+    listEl.innerHTML = `<p style="color:#f87171;font-size:0.78rem;text-align:center;margin:8px 0">Hata: ${err.message}</p>`;
+  }
+}
+
+export async function generateZkpCommitment() {
+  const claimType = document.getElementById('zkp-claim-type')?.value;
+  const claimLabel = document.getElementById('zkp-claim-label')?.value?.trim();
+
+  if (!claimLabel) {
+    _zkpStatus('⚠️ Lütfen bir claim değeri girin (ör: Penisilin, A+, Covid-19)', '#fbbf24');
+    return;
+  }
+
+  const patientId = window.__currentUser?.patient_id;
+  if (!patientId) {
+    _zkpStatus('❌ Hasta ID bulunamadı. Lütfen yeniden giriş yapın.', '#f87171');
+    return;
+  }
+
+  _zkpStatus('⌛ Pedersen Commitment oluşturuluyor ve ZKP kanıtı üretiliyor…', '#a78bfa');
+
+  try {
+    const data = await apiFetch(`/api/v1/zkp/commitment/${patientId}`, {
+      method: 'POST',
+      body: JSON.stringify({ claim_type: claimType, claim_label: claimLabel })
+    });
+
+    _zkpStatus(`✅ Commitment oluşturuldu! Kanıt ID: ${data.proof?.proof_id?.slice(0, 12)}…`, '#34d399');
+
+    // Show proof JSON for sharing
+    const proofJson = JSON.stringify({
+      commitment_hex: data.commitment?.commitment_hex,
+      R_hex: data.proof?.R_hex,
+      s_int: data.proof?.s_int,
+      challenge_hex: data.proof?.challenge_hex,
+      claim_type: data.commitment?.claim_type,
+      claim_label: data.commitment?.claim_label,
+      patient_id: patientId,
+      proof_id: data.proof?.proof_id,
+    }, null, 2);
+
+    // Paste into verify textarea for immediate demo
+    const verifyInput = document.getElementById('zkp-verify-input');
+    if (verifyInput) verifyInput.value = proofJson;
+
+    // Store secret in sessionStorage for patient reference
+    if (data.secret?.randomness_hex) {
+      sessionStorage.setItem(`zkp_secret_${data.proof?.proof_id}`, data.secret.randomness_hex);
+    }
+
+    addNotification('ZKP Kanıtı Oluşturuldu', `${claimLabel} için sıfır-bilgi kanıtı blockchain'e kaydedildi.`, 'success');
+    await loadZkpCommitments();
+  } catch (err) {
+    _zkpStatus(`❌ Hata: ${err.message}`, '#f87171');
+    addNotification('ZKP Hatası', err.message, 'error');
+  }
+}
+
+export async function verifyZkpProof() {
+  const inputEl = document.getElementById('zkp-verify-input');
+  const resultEl = document.getElementById('zkp-verify-result');
+  if (!inputEl || !resultEl) return;
+
+  let proofData;
+  try {
+    proofData = JSON.parse(inputEl.value);
+  } catch {
+    resultEl.style.display = 'block';
+    resultEl.style.background = 'rgba(239,68,68,0.15)';
+    resultEl.style.border = '1px solid rgba(239,68,68,0.4)';
+    resultEl.style.color = '#f87171';
+    resultEl.textContent = '❌ Geçersiz JSON formatı. Lütfen kanıt paketini doğru yapıştırın.';
+    return;
+  }
+
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'rgba(139,92,246,0.1)';
+  resultEl.style.border = '1px solid rgba(139,92,246,0.3)';
+  resultEl.style.color = '#a78bfa';
+  resultEl.textContent = '⌛ Doğrulama hesaplanıyor…';
+
+  try {
+    const data = await fetch('/api/v1/zkp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(proofData)
+    });
+    const res = await data.json();
+
+    if (res.verified) {
+      resultEl.style.background = 'rgba(16,185,129,0.12)';
+      resultEl.style.border = '1px solid rgba(16,185,129,0.4)';
+      resultEl.style.color = '#34d399';
+      resultEl.innerHTML = `<strong>✅ DOĞRULANDI</strong><br>${res.message}<br><small style="color:#6ee7b7;opacity:0.8">🔐 ${res.cryptographic_guarantee}</small><br><small style="color:#6ee7b7;opacity:0.7">Ham veri ifşa edildi: ${res.raw_data_exposed ? 'Evet' : 'Hayır'}</small>`;
+    } else {
+      resultEl.style.background = 'rgba(239,68,68,0.12)';
+      resultEl.style.border = '1px solid rgba(239,68,68,0.4)';
+      resultEl.style.color = '#f87171';
+      resultEl.innerHTML = `<strong>❌ DOGRULANAMADI</strong><br>${res.message}`;
+    }
+  } catch (err) {
+    resultEl.style.background = 'rgba(239,68,68,0.12)';
+    resultEl.style.border = '1px solid rgba(239,68,68,0.4)';
+    resultEl.style.color = '#f87171';
+    resultEl.textContent = `❌ API Hatası: ${err.message}`;
+  }
+}

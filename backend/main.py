@@ -93,6 +93,10 @@ app.include_router(emergency_router)
 from backend.routers.deadman import router as deadman_router
 app.include_router(deadman_router)
 
+# Seviye 3 — ZKP Selective Disclosure (Sıfır Bilgi Kanıtı) Router
+from backend.routers.zkp import router as zkp_router
+app.include_router(zkp_router)
+
 import logging
 
 logging.basicConfig(

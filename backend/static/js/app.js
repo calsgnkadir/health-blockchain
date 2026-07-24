@@ -1,5 +1,5 @@
 import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, appState } from './modules/utils.js';
-import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey, showEmergencyQR, revokeEmergencyQR, closeEmergencyQR, showDeadManModal, sendDeadManPing, saveDeadManConfig, closeDeadManModal } from './modules/auth.js';
+import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey, showEmergencyQR, revokeEmergencyQR, closeEmergencyQR, showDeadManModal, sendDeadManPing, saveDeadManConfig, closeDeadManModal, showZkpModal, closeZkpModal, loadZkpCommitments, generateZkpCommitment, verifyZkpProof } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
@@ -990,15 +990,25 @@ window.sendDeadManPing   = sendDeadManPing;
 window.saveDeadManConfig = saveDeadManConfig;
 window.closeDeadManModal = closeDeadManModal;
 
+// Bind ZKP Selective Disclosure to window
+window.showZkpModal           = showZkpModal;
+window.closeZkpModal          = closeZkpModal;
+window.loadZkpCommitments     = loadZkpCommitments;
+window.generateZkpCommitment  = generateZkpCommitment;
+window.verifyZkpProof         = verifyZkpProof;
+
 if (token && currentUser) {
   window.enterApp();
-  // Show emergency QR & Dead-Man trigger buttons for VIP patients
+  // Show emergency QR, Dead-Man & ZKP trigger buttons for VIP patients
   if (currentUser.role === 'vip_patient') {
     const qrTrigger = document.getElementById('emergency-qr-trigger');
     if (qrTrigger) qrTrigger.style.display = 'block';
 
     const dmTrigger = document.getElementById('deadman-trigger');
     if (dmTrigger) dmTrigger.style.display = 'block';
+
+    const zkpTrigger = document.getElementById('zkp-trigger');
+    if (zkpTrigger) zkpTrigger.style.display = 'block';
   }
 } else {
   resetLoginFormState();
