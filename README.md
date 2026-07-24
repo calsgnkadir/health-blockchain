@@ -303,9 +303,33 @@ Key design decisions are documented under [`docs/adr/`](docs/adr/) so you can un
 > | 👨‍⚕️ Doktor | `dr.smith` | `Doctor@2026Secure!` |
 > | 🩺 VIP Hasta | `vip001` | `VIPPatient@2026!` |
 
+## 🛡️ KVKK & GDPR Uyumluluk
+
+VIP Health Vault, Türkiye'nin **6698 sayılı KVKK** ve AB'nin **GDPR (2016/679)** düzenlemeleriyle uyumlu olacak şekilde tasarlanmıştır.
+
+### Temel Uyumluluk Özellikleri
+
+| Gereksinim | Uygulama |
+|------------|----------|
+| **Veri Minimizasyonu** | ZKP Seçici İfşa — ham veri paylaşılmadan kanıt sunulur |
+| **Blockchain + GDPR Uyumu** | Ham PHI **asla** blockchain'e yazılmaz; yalnızca Merkle hash ([ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md)) |
+| **Açık Rıza** | Consent yönetim sistemi — doktor bazında, kayıt türü bazında, süreli |
+| **Geri Alma Hakkı** | Anlık consent iptali `DELETE /api/v1/consent/{id}` |
+| **Erişim Hakkı** | `GET /api/v1/records/{patient_id}` + FHIR R4 export |
+| **Güvenlik** | AES-256-GCM + Argon2id + RS256 JWT + WebAuthn FIDO2 + TOTP |
+| **Denetim İzi** | Blockchain'e yazılan değiştirilemez audit log |
+| **Acil Erişim** | Break-glass (GDPR 9(2)(c)) + QR/NFC + Dead-Man's Switch |
+
+### Uyumluluk Dokümantasyonu
+
+| Belge | Açıklama |
+|-------|----------|
+| 📄 [GDPR_KVKK_COMPLIANCE.md](docs/GDPR_KVKK_COMPLIANCE.md) | Veri işleme envanteri (RoPA), veri sahibi hakları, saklama politikası |
+| 🔍 [DPIA.md](docs/DPIA.md) | Veri Koruma Etki Değerlendirmesi — 7 risk senaryosu analizi |
+| 🔄 [CONSENT_FLOW.md](docs/CONSENT_FLOW.md) | Tüm rıza/erişim akışlarının ASCII diyagramları |
+| 🏗️ [ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) | Blockchain + off-chain mimari kararı |
+
 ---
-
-
 
 ## 📋 Changelog
 
@@ -314,6 +338,7 @@ See [CHANGELOG.md](CHANGELOG.md) for a full release history.
 ---
 
 ## 📜 License
+
 
 This project is licensed under the [MIT License](LICENSE).
 
