@@ -235,6 +235,18 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Patient Pseudonyms Table (Identity Decoupling)
+            # Maps real patient IDs to cryptographic anonymous identifiers.
+            # If the clinical data store is breached, records cannot be
+            # linked back to real identities without this mapping table.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS patient_pseudonyms (
+                    patient_id   VARCHAR(100) PRIMARY KEY,
+                    anon_id      VARCHAR(100) UNIQUE NOT NULL,
+                    created_at   {double_type} NOT NULL
+                )
+            """)
+
             conn.commit()
             print("[SQL DB] Tables initialized successfully.")
         except Exception as e:

@@ -97,6 +97,10 @@ app.include_router(deadman_router)
 from backend.routers.zkp import router as zkp_router
 app.include_router(zkp_router)
 
+# Phase 2 — Pseudonymization (Identity Decoupling) Router
+from backend.routers.pseudonymization import router as pseudonym_router
+app.include_router(pseudonym_router)
+
 import logging
 
 logging.basicConfig(
