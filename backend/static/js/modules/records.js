@@ -511,6 +511,7 @@ export function renderDynamicFields() {
         fileInput.removeEventListener('change', fileInput._prevHandler);
         fileInput.addEventListener('change', fileChangeHandler);
         fileInput._prevHandler = fileChangeHandler;
+      }
       const mod = modalityInput ? modalityInput.value : 'CT';
       const body = bodyPartInput ? bodyPartInput.value : 'CHEST';
       initDicomViewer({ modality: mod, body_part: body });

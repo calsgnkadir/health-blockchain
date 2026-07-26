@@ -1,5 +1,5 @@
 import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, appState } from './modules/utils.js';
-import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey, showEmergencyQR, revokeEmergencyQR, closeEmergencyQR, showDeadManModal, sendDeadManPing, saveDeadManConfig, closeDeadManModal, showZkpModal, closeZkpModal, loadZkpCommitments, generateZkpCommitment, verifyZkpProof } from './modules/auth.js';
+import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithWeb3Wallet, loginWithPasskey, registerPasskey, showEmergencyQR, revokeEmergencyQR, closeEmergencyQR, showDeadManModal, sendDeadManPing, saveDeadManConfig, closeDeadManModal, showZkpModal, closeZkpModal, loadZkpCommitments, generateZkpCommitment, verifyZkpProof } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
@@ -45,7 +45,10 @@ window.enterApp = function() {
     pageLogin.style.display = 'none';
   }
   const pageApp = document.getElementById('page-app');
-  if (pageApp) pageApp.style.display = 'flex';
+  if (pageApp) {
+    pageApp.style.display = 'flex';
+    pageApp.classList.add('active');
+  }
 
   // Use centralized state manager
   appState.updateUser(currentUser);
@@ -578,6 +581,7 @@ window.navigate = navigate;
 window.logout = logout;
 window.resetLoginForm = resetLoginForm;
 window.fillCreds = fillCreds;
+window.handleLoginSubmit = handleLoginSubmit;
 window.loginWithWeb3Wallet = loginWithWeb3Wallet;
 window.loginWithPasskey = loginWithPasskey;
 window.registerPasskey = registerPasskey;

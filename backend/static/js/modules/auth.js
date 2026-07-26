@@ -27,10 +27,73 @@ export function resetLoginForm(e) {
   resetLoginFormState();
 }
 
+export async function handleLoginSubmit(e) {
+  if (e) e.preventDefault();
+  const btn  = document.getElementById('btn-login');
+  const btxt = document.getElementById('btn-login-text');
+  const bspin= document.getElementById('btn-login-spin');
+  const err  = document.getElementById('login-error');
+  if (err) err.style.display = 'none';
+  if (btxt) btxt.style.display = 'none';
+  if (bspin) bspin.style.display = 'inline-block';
+  if (btn) btn.disabled = true;
+  try {
+    const payload = {
+      username: document.getElementById('inp-username').value,
+      password: document.getElementById('inp-password').value,
+    };
+    if (mfaRequired) {
+      payload.code = document.getElementById('inp-mfa').value;
+    }
+    
+    const data = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    
+    if (data.mfa_required) {
+      mfaRequired = true;
+      document.getElementById('login-fields-group').style.display = 'none';
+      document.getElementById('inp-username').required = false;
+      document.getElementById('inp-password').required = false;
+      
+      const mfaGroup = document.getElementById('login-mfa-group');
+      mfaGroup.style.display = 'block';
+      const inpMfa = document.getElementById('inp-mfa');
+      inpMfa.required = true;
+      inpMfa.value = '';
+      inpMfa.focus();
+      
+      if (btxt) btxt.textContent = 'VERIFY MFA CODE';
+      document.getElementById('login-mfa-back').style.display = 'block';
+    } else {
+      setToken(data.access_token);
+      setCurrentUser(data.user);
+      resetLoginFormState();
+      if (window.enterApp) {
+        window.enterApp();
+      }
+    }
+  } catch(ex) {
+    if (err) {
+      err.textContent = ex.message;
+      err.style.display = 'block';
+    }
+  } finally {
+    if (btxt) btxt.style.display = 'inline';
+    if (bspin) bspin.style.display = 'none';
+    if (btn) btn.disabled = false;
+  }
+  return false;
+}
+
 export function fillCreds(u, p) {
   resetLoginFormState();
-  document.getElementById('inp-username').value = u;
-  document.getElementById('inp-password').value = p;
+  const inpU = document.getElementById('inp-username');
+  const inpP = document.getElementById('inp-password');
+  if (inpU) inpU.value = u;
+  if (inpP) inpP.value = p;
+  handleLoginSubmit();
 }
 
 export function logout() {
@@ -139,60 +202,7 @@ export async function disable2FA() {
 export function initAuthListeners() {
   const loginForm = document.getElementById('login-form');
   if (loginForm) {
-    loginForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const btn  = document.getElementById('btn-login');
-      const btxt = document.getElementById('btn-login-text');
-      const bspin= document.getElementById('btn-login-spin');
-      const err  = document.getElementById('login-error');
-      err.style.display = 'none';
-      btxt.style.display = 'none'; bspin.style.display = 'inline-block';
-      btn.disabled = true;
-      try {
-        const payload = {
-          username: document.getElementById('inp-username').value,
-          password: document.getElementById('inp-password').value,
-        };
-        if (mfaRequired) {
-          payload.code = document.getElementById('inp-mfa').value;
-        }
-        
-        const data = await apiFetch('/api/auth/login', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        
-        if (data.mfa_required) {
-          mfaRequired = true;
-          document.getElementById('login-fields-group').style.display = 'none';
-          document.getElementById('inp-username').required = false;
-          document.getElementById('inp-password').required = false;
-          
-          const mfaGroup = document.getElementById('login-mfa-group');
-          mfaGroup.style.display = 'block';
-          const inpMfa = document.getElementById('inp-mfa');
-          inpMfa.required = true;
-          inpMfa.value = '';
-          inpMfa.focus();
-          
-          btxt.textContent = 'VERIFY MFA CODE';
-          document.getElementById('login-mfa-back').style.display = 'block';
-        } else {
-          setToken(data.access_token);
-          setCurrentUser(data.user);
-          resetLoginFormState();
-          if (window.enterApp) {
-            window.enterApp();
-          }
-        }
-      } catch(ex) {
-        err.textContent = ex.message;
-        err.style.display = 'block';
-      } finally {
-        btxt.style.display = 'inline'; bspin.style.display = 'none';
-        btn.disabled = false;
-      }
-    });
+    loginForm.addEventListener('submit', handleLoginSubmit);
   }
 }
 
