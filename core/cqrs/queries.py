@@ -70,6 +70,12 @@ class QueryHandler:
             if data is None:
                 continue
 
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except Exception:
+                    pass
+
             if isinstance(data, dict) and data.get("type") == "audit":
                 continue
 

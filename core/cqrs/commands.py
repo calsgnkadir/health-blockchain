@@ -64,14 +64,16 @@ class GrantConsentCommand:
         patient_id: str,
         doctor_username: str,
         record_type: str,
-        duration_days: int,
-        username: str,
+        duration_days: float = 1.0,
+        username: str = "system",
+        duration_hours: Optional[float] = None,
     ):
         self.patient_id = patient_id
         self.doctor_username = doctor_username
         self.record_type = record_type
         self.duration_days = duration_days
         self.username = username
+        self.duration_hours = duration_hours
 
 class RevokeConsentCommand:
     def __init__(
@@ -136,12 +138,21 @@ class CommandHandler:
     def handle_grant_consent(self, cmd: GrantConsentCommand) -> None:
         import time
         project_name = self.record_service._get_project_name(cmd.patient_id)
-        expiry_ts = time.time() + (cmd.duration_days * 86400)
+        if cmd.duration_hours is not None:
+            expiry_ts = time.time() + (cmd.duration_hours * 3600)
+            duration_desc = f"{cmd.duration_hours} hours"
+        else:
+            expiry_ts = time.time() + (cmd.duration_days * 86400)
+            duration_desc = f"{cmd.duration_days} days"
+
         consent_data = {
             "doctor_username": cmd.doctor_username,
             "record_type": cmd.record_type,
             "expiry_timestamp": expiry_ts,
             "granted_at": time.time(),
+            "granted_by": cmd.username,
+            "duration_hours": cmd.duration_hours,
+            "duration_days": cmd.duration_days,
         }
         key = f"consent_{cmd.doctor_username}_{cmd.record_type}".encode("utf-8")
         
@@ -154,7 +165,22 @@ class CommandHandler:
                 project_name=project_name,
                 username=cmd.username,
                 action="CONSENT_GRANTED",
-                extra={"doctor": cmd.doctor_username, "record_type": cmd.record_type, "days": cmd.duration_days}
+                extra={
+                    "doctor": cmd.doctor_username,
+                    "record_type": cmd.record_type,
+                    "duration": duration_desc,
+                    "expiry_timestamp": expiry_ts
+                }
+            )
+            storage.append_audit_log(
+                project_name=project_name,
+                action="CONSENT_GRANTED",
+                username=cmd.username,
+                extra={
+                    "doctor": cmd.doctor_username,
+                    "record_type": cmd.record_type,
+                    "expiry_timestamp": expiry_ts
+                }
             )
 
     def handle_revoke_consent(self, cmd: RevokeConsentCommand) -> None:

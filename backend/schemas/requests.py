@@ -189,7 +189,8 @@ class ConsentReq(BaseModel):
     patient_id: str
     doctor_username: str
     record_type: str
-    duration_days: int
+    duration_days: Optional[float] = 1.0
+    duration_hours: Optional[float] = None
 
     @field_validator("patient_id")
     @classmethod
@@ -207,9 +208,16 @@ class ConsentReq(BaseModel):
 
     @field_validator("duration_days")
     @classmethod
-    def validate_duration(cls, v):
-        if v <= 0:
+    def validate_duration_days(cls, v):
+        if v is not None and v <= 0:
             raise ValueError("duration_days must be positive")
+        return v
+
+    @field_validator("duration_hours")
+    @classmethod
+    def validate_duration_hours(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("duration_hours must be positive")
         return v
 
 

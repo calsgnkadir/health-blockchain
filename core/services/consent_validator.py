@@ -25,6 +25,7 @@ class ConsentValidator:
         if not storage.project_exists(project_name):
             return False
 
+        expired_detected = False
         env = storage.open_db(project_name)
         with env.begin(write=False) as txn:
             # Check specific record type consent
@@ -33,8 +34,11 @@ class ConsentValidator:
             if val_spec:
                 try:
                     data = json.loads(val_spec.decode("utf-8"))
-                    if time.time() < data.get("expiry_timestamp", 0):
+                    expiry = data.get("expiry_timestamp", 0)
+                    if time.time() < expiry:
                         return True
+                    else:
+                        expired_detected = True
                 except Exception:
                     pass
 
@@ -44,10 +48,24 @@ class ConsentValidator:
             if val_all:
                 try:
                     data = json.loads(val_all.decode("utf-8"))
-                    if time.time() < data.get("expiry_timestamp", 0):
+                    expiry = data.get("expiry_timestamp", 0)
+                    if time.time() < expiry:
                         return True
+                    else:
+                        expired_detected = True
                 except Exception:
                     pass
+
+        if expired_detected:
+            try:
+                storage.append_access_log(
+                    project_name=project_name,
+                    username=doctor_username,
+                    action="CONSENT_EXPIRED",
+                    extra={"doctor": doctor_username, "record_type": record_type}
+                )
+            except Exception:
+                pass
 
         return False
 

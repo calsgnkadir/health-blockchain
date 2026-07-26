@@ -65,7 +65,8 @@ def grant_consent(
         patient_id=data.patient_id,
         doctor_username=data.doctor_username,
         record_type=data.record_type,
-        duration_days=data.duration_days,
+        duration_days=data.duration_days or 1.0,
+        duration_hours=data.duration_hours,
         username=u["username"]
     )
     command_handler.handle_grant_consent(cmd)
