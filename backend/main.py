@@ -40,6 +40,7 @@ import database.storage as storage
 from backend.middleware.csrf import CSRFMiddleware
 from backend.middleware.rate_limiter import RateLimiterMiddleware
 from backend.middleware.xss_protection import XSSProtectionMiddleware
+from backend.middleware.ip_allowlist import IPAllowlistMiddleware
 
 # Routers
 from backend.routers.auth import router as auth_router
@@ -47,6 +48,7 @@ from backend.routers.admin import router as admin_router
 from backend.routers.consent import router as consent_router
 from backend.routers.records import router as records_router
 from backend.routers.misc import router as misc_router
+from backend.routers.alerts import router as alerts_router
 
 app = FastAPI(
     title="VIP Health Vault API",
@@ -74,6 +76,7 @@ app.add_middleware(
 )
 
 # Custom Middlewares
+app.add_middleware(IPAllowlistMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(RateLimiterMiddleware)
 app.add_middleware(XSSProtectionMiddleware)
@@ -84,18 +87,7 @@ app.include_router(admin_router)
 app.include_router(consent_router)
 app.include_router(records_router)
 app.include_router(misc_router)
-
-# Seviye 3 — QR/NFC Emergency Access Router
-from backend.routers.emergency import router as emergency_router
-app.include_router(emergency_router)
-
-# Seviye 3 — Dead-Man's Switch (Miras Kilidi) Router
-from backend.routers.deadman import router as deadman_router
-app.include_router(deadman_router)
-
-# Seviye 3 — ZKP Selective Disclosure (Sıfır Bilgi Kanıtı) Router
-from backend.routers.zkp import router as zkp_router
-app.include_router(zkp_router)
+app.include_router(alerts_router)
 
 # Phase 2 — Pseudonymization (Identity Decoupling) Router
 from backend.routers.pseudonymization import router as pseudonym_router
