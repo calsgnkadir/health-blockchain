@@ -50,10 +50,7 @@ class AlertService:
         client_ip: Optional[str] = None,
         extra: Optional[dict] = None
     ) -> str:
-        """
-        Records a critical security alert.
-        Severity levels: CRITICAL, HIGH, MEDIUM, LOW
-        """
+        self._ensure_table()
         alert_id = f"alt_{secrets.token_hex(10)}"
         now = time.time()
         meta_json = json.dumps(extra or {})

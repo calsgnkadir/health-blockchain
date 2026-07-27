@@ -48,9 +48,7 @@ class DualControlEngine:
         reason: str,
         validity_minutes: int = 30
     ) -> Dict:
-        """
-        Initiates a Dual-Control access request awaiting Security Officer co-signature.
-        """
+        self._ensure_table()
         token_id = f"dc_{secrets.token_hex(12)}"
         now = time.time()
         expires_at = now + (validity_minutes * 60)
