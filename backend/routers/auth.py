@@ -32,6 +32,18 @@ def login(
     if not user_entity:
         raise HTTPException(401, "Incorrect username or password")
 
+    # Mandatory FIDO2 / Hardware Key check if configured
+    mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
+    if mandatory_fido2 and user_entity.role in ("admin", "vip_patient"):
+        # Verify user has a registered WebAuthn / Passkey credential
+        db = get_sql_db()
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM webauthn_credentials WHERE username = ?", (user_entity.username,))
+            count = cursor.fetchone()[0]
+            if count == 0:
+                raise HTTPException(403, f"Mandatory Security Policy: User {user_entity.username} must register a FIDO2 hardware security key before logging in.")
+
     if user_entity.totp_enabled:
         if not req.code:
             return JSONResponse(
