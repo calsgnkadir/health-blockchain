@@ -1,8 +1,8 @@
 # VIP Onboarding & Out-of-Band Identity Verification Protocol (v5.0.0)
 
-> [!NOTE]
-> **Specification Status**: Active Architecture & Implementation Spec  
-> **Account State Machine**: `STAGING_PENDING` $\rightarrow$ `ACTIVE_ENROLLED`
+> [!IMPORTANT]
+> **Specification Status**: Planned / Not Yet Implemented (Specification Draft)  
+> **Planned State Machine**: `STAGING_PENDING` $\rightarrow$ `ACTIVE_ENROLLED` (Target Release: v5.1.0)
 
 ---
 
@@ -12,7 +12,7 @@ Passkeys bind a physical device (FIDO2 chip), but **not** a real-world identity.
 
 ---
 
-## Onboarding Procedure & Account State Machine
+## Onboarding Procedure & Planned State Machine
 
 ### 1. In-Person / Secure Channel Verification (Out-of-Band)
 - The VIP patient or authorized medical protocol officer undergoes in-person verification with the Security Officer (`security_officer` role).
