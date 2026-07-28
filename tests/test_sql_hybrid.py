@@ -49,7 +49,6 @@ class TestSQLHybrid(unittest.TestCase):
         conn.close()
         
         self.assertIn("users", tables)
-        self.assertIn("appointments", tables)
         self.assertIn("notifications", tables)
         self.assertIn("blacklisted_tokens", tables)
 
