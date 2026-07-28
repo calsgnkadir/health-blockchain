@@ -3,11 +3,12 @@ backend/middleware/ip_allowlist.py — Network Level Isolation Middleware
 ========================================================================
 Restricts incoming API access strictly to authorized internal CIDR subnets,
 private VPNs, and loopback addresses. Blocks public internet IP ranges.
+Hardened against X-Forwarded-For header spoofing attacks.
 """
 
 import os
 import ipaddress
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -21,9 +22,47 @@ DEFAULT_ALLOWED_SUBNETS = [
 ]
 
 
+def resolve_secure_client_ip(request: Request) -> str:
+    """
+    Extracts and validates client IP securely.
+    X-Forwarded-For / X-Real-IP headers are ONLY trusted if:
+    1. TRUST_PROXIES=true environment variable is explicitly enabled, AND
+    2. The direct socket peer host is loopback, testclient, or a trusted proxy.
+    Otherwise, returns direct request.client.host to prevent header spoofing bypasses.
+    """
+    peer_ip = request.client.host if request.client else "127.0.0.1"
+
+    trust_proxies = os.getenv("TRUST_PROXIES", "false").lower() in ("true", "1", "yes")
+    trusted_proxy_hosts = {"127.0.0.1", "::1", "testclient", "localhost"}
+
+    extra_trusted = os.getenv("TRUSTED_PROXIES", "").strip()
+    if extra_trusted:
+        trusted_proxy_hosts.update([p.strip() for p in extra_trusted.split(",") if p.strip()])
+
+    if trust_proxies and peer_ip in trusted_proxy_hosts:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            candidate = forwarded.split(",")[0].strip()
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            candidate = real_ip.strip()
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+
+    return peer_ip
+
+
 class IPAllowlistMiddleware(BaseHTTPMiddleware):
     """
-    Middleware that enforces IP allowlisting for network-level isolation.
+    Middleware enforcing IP allowlisting for network-level isolation.
     """
 
     def __init__(self, app):
@@ -41,15 +80,7 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
                 print(f"[IPAllowlist Warning] Invalid CIDR subnet format ignored: {s}")
 
     def _get_client_ip(self, request: Request) -> str:
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
-        if request.client and request.client.host:
-            return request.client.host
-        return "127.0.0.1"
+        return resolve_secure_client_ip(request)
 
     def is_ip_allowed(self, ip_str: str) -> bool:
         if not self.enabled:
@@ -65,20 +96,29 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
             return False
 
     async def dispatch(self, request: Request, call_next):
-        # Exclude static assets or documentation from IP block if needed
-        if request.url.path.startswith("/static") or request.url.path == "/favicon.ico":
+        if not self.enabled:
+            return await call_next(request)
+
+        # Allow health checks and OpenAPI docs without network restriction
+        if request.url.path in ("/api/v1/health", "/docs", "/openapi.json", "/redoc"):
             return await call_next(request)
 
         client_ip = self._get_client_ip(request)
 
         if not self.is_ip_allowed(client_ip):
-            print(f"[SECURITY ALERT] Blocked connection attempt from unauthorized IP: {client_ip} on {request.url.path}")
+            from core.services.alert_service import alert_service
+            alert_service.raise_alert(
+                alert_type="UNAUTHORIZED_IP_ACCESS",
+                severity="HIGH",
+                title="Blocked Unauthorized IP Connection",
+                description=f"Connection attempt from non-allowlisted IP: {client_ip} to {request.url.path}",
+                client_ip=client_ip
+            )
             return JSONResponse(
                 status_code=403,
                 content={
-                    "detail": f"Access Denied: IP address {client_ip} is not in the authorized internal network / VPN allowlist.",
-                    "ip": client_ip,
-                    "error": "NETWORK_LEVEL_ISOLATION_ENFORCED"
+                    "detail": "Network Security Violation: IP address not authorized for VIP Vault access.",
+                    "client_ip": client_ip
                 }
             )
 

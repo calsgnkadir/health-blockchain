@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from backend.dependencies import (
-    get_auth_service, create_token, current_user,
+    get_auth_service, create_token, current_user, require_role,
     get_device_id, _get_client_ip, TOKEN_HOURS,
     security_bearer, get_db_manager
 )
 from backend.schemas.requests import (
-    LoginReq, Verify2FAReq, WebAuthnRegisterReq, WebAuthnLoginReq
+    LoginReq, Verify2FAReq, WebAuthnRegisterReq, WebAuthnLoginReq, RevokePasskeyReq
 )
 from core.services.auth_service import AuthService
 import core.totp as totp
@@ -239,3 +239,37 @@ def login_webauthn_credential(
         "user": user_entity.to_dict(),
         "message": f"Successfully authenticated via Passkey for {username}"
     }
+
+@router.post("/webauthn/revoke", summary="Revoke Stolen / Lost Passkey Hardware Credential")
+def revoke_webauthn_credential(
+    req: RevokePasskeyReq,
+    request: Request,
+    u: dict = Depends(require_role("admin", "security_officer"))
+):
+    from core.services.dual_control import dual_control_engine
+    if u.get("role") == "admin":
+        dc_token = request.headers.get("X-Dual-Control-Token") or request.query_params.get("dual_control_token")
+        if not dc_token or not dual_control_engine.is_dual_control_approved(dc_token, req.username):
+            raise HTTPException(403, "Dual-Control Co-Signature Required to Revoke Passkey Credential.")
+
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM webauthn_credentials WHERE credential_id = ? AND username = ?", (req.credential_id, req.username))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+
+    if not deleted:
+        raise HTTPException(404, f"Passkey credential {req.credential_id} for user {req.username} not found.")
+
+    from core.services.alert_service import alert_service
+    alert_service.raise_alert(
+        alert_type="PASSKEY_REVOKED",
+        severity="HIGH",
+        title="Hardware Passkey Revoked",
+        description=f"Passkey credential {req.credential_id} for user {req.username} was revoked by {u.get('username')}.",
+        username=u.get("username"),
+        client_ip=_get_client_ip(request)
+    )
+
+    return {"success": True, "message": f"Passkey credential {req.credential_id} revoked successfully for user {req.username}."}

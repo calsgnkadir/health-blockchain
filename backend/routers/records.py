@@ -331,6 +331,30 @@ def decrypt_record(
     if isinstance(data, str) and ("INCORRECT" in data or "SECURE" in data or "ERROR" in data):
         raise HTTPException(403, "Incorrect password — decryption failed")
 
+    # Record immutable audit access log
+    proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    storage.append_access_log(
+        project_name=proj_name,
+        username=u["username"],
+        action="RECORD_DECRYPTED",
+        device_id=get_device_id(),
+        extra={
+            "block_index": block_index,
+            "role": u["role"],
+            "client_ip": _get_client_ip(request)
+        },
+        db_manager=db_manager
+    )
+
+    from core.events.event_bus import SystemAuditEvent, event_bus
+    event_bus.publish(SystemAuditEvent(
+        project_name=proj_name,
+        action="RECORD_DECRYPTED",
+        username=u["username"],
+        device_id=get_device_id(),
+        extra={"block_index": block_index, "role": u["role"]}
+    ))
+
     return {"block_index": block_index, "data": data}
 
 @router.get("/offchain/download/{patient_id}/{block_index}", summary="Download Off-chain File")

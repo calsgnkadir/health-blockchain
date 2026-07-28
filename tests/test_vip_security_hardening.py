@@ -104,6 +104,52 @@ class TestVIPSecurityHardening(unittest.TestCase):
 
         app.dependency_overrides.clear()
 
+    def test_ip_spoofing_header_blocked_if_untrusted_peer(self):
+        from backend.middleware.ip_allowlist import resolve_secure_client_ip
+        from unittest.mock import MagicMock
+        import os
+
+        mock_req = MagicMock()
+        mock_req.client.host = "203.0.113.195"  # Public attacker IP
+        mock_req.headers = {"X-Forwarded-For": "127.0.0.1"}
+
+        # Without TRUST_PROXIES enabled, X-Forwarded-For is ignored
+        resolved_ip = resolve_secure_client_ip(mock_req)
+        self.assertEqual(resolved_ip, "203.0.113.195")
+
+    def test_webauthn_revoke_endpoint(self):
+        from backend.dependencies import current_user
+        from core.domain.entities import User
+        from database.sql_db import get_sql_db
+        import time
+
+        db = get_sql_db()
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
+                ("cred_to_revoke_123", "vip_revoke_user", "pubkey_test", time.time())
+            )
+            conn.commit()
+
+        sec_user = User(
+            id="SEC-001",
+            username="sec_officer_test",
+            password_hash="hash",
+            role="security_officer",
+            full_name="Security Officer"
+        )
+        app.dependency_overrides[current_user] = lambda: sec_user.to_dict()
+
+        res = self.client.post("/api/v1/auth/webauthn/revoke", json={
+            "username": "vip_revoke_user",
+            "credential_id": "cred_to_revoke_123"
+        })
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("revoked successfully", res.json()["message"])
+
+        app.dependency_overrides.clear()
+
 
 if __name__ == "__main__":
     unittest.main()

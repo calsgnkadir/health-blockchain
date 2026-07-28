@@ -220,10 +220,6 @@ def require_role(*roles: str):
     return dependency
 
 def _get_client_ip(request: Request) -> str:
-    """Extracts client IP, respecting X-Forwarded-For ONLY if TRUST_PROXIES is enabled."""
-    trust_proxies = os.getenv("TRUST_PROXIES", "false").lower() == "true"
-    if trust_proxies:
-        xff = request.headers.get("X-Forwarded-For")
-        if xff:
-            return xff.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Extracts client IP securely using resolve_secure_client_ip."""
+    from backend.middleware.ip_allowlist import resolve_secure_client_ip
+    return resolve_secure_client_ip(request)

@@ -84,6 +84,10 @@ class WebAuthnLoginReq(BaseModel):
     credential_id: str
     signature: str
     client_data_json: str
+
+class RevokePasskeyReq(BaseModel):
+    username: str
+    credential_id: str
     authenticator_data: str
 
 
