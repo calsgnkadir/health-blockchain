@@ -163,26 +163,7 @@ class IAuditRepository(ABC):
         pass
 
 
-class IAppointmentRepository(ABC):
-    @abstractmethod
-    def save_appointment(self, appointment: dict) -> None:
-        """Saves or updates an appointment."""
-        pass
 
-    @abstractmethod
-    def load_appointments_by_patient(self, patient_id: str) -> List[dict]:
-        """Loads all appointments for a patient."""
-        pass
-
-    @abstractmethod
-    def delete_appointment(self, appointment_id: str) -> bool:
-        """Deletes an appointment by its ID."""
-        pass
-
-    @abstractmethod
-    def load_appointment(self, appointment_id: str) -> Optional[dict]:
-        """Loads an appointment by its ID."""
-        pass
 
 
 class INotificationRepository(ABC):

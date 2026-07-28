@@ -18,9 +18,9 @@ import database.storage as storage
 
 # Clean Architecture Dependency Injection
 from database.connection import LMDBConnectionManager
-from core.ports.repositories import IUserRepository, IBlockRepository, IAuditRepository, IAppointmentRepository, INotificationRepository
+from core.ports.repositories import IUserRepository, IBlockRepository, IAuditRepository, INotificationRepository
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository, LMDBBlockRepository, LMDBAuditRepository
-from infrastructure.repositories.sql_repositories import SQLUserRepository, SQLAppointmentRepository, SQLNotificationRepository
+from infrastructure.repositories.sql_repositories import SQLUserRepository, SQLNotificationRepository
 from core.services.ipfs import IPFSClient
 from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 from core.services.auth_service import AuthService
@@ -36,8 +36,7 @@ _ipfs_client_instance = IPFSClient()
 def get_ipfs_client() -> IPFSClient:
     return _ipfs_client_instance
 
-def get_appointment_repository() -> IAppointmentRepository:
-    return SQLAppointmentRepository()
+
 
 def get_notification_repository() -> INotificationRepository:
     return SQLNotificationRepository()

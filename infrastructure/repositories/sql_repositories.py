@@ -1,6 +1,6 @@
 from typing import Optional, List
 from core.domain.entities import User
-from core.ports.repositories import IUserRepository, IAppointmentRepository, INotificationRepository
+from core.ports.repositories import IUserRepository, INotificationRepository
 from database.sql_db import default_sql_db
 
 def _to_placeholder(sql: str) -> str:
@@ -175,96 +175,7 @@ class SQLUserRepository(IUserRepository):
             conn.close()
 
 
-class SQLAppointmentRepository(IAppointmentRepository):
-    def save_appointment(self, appointment: dict) -> None:
-        conn = default_sql_db.get_connection()
-        cursor = conn.cursor()
-        try:
-            sql_check = _to_placeholder("SELECT 1 FROM appointments WHERE id = ?")
-            cursor.execute(sql_check, (appointment["id"],))
-            exists = cursor.fetchone()
-            
-            if exists:
-                sql_update = _to_placeholder("""
-                    UPDATE appointments 
-                    SET patient_id = ?, doctor_name = ?, department = ?, appointment_date = ?, 
-                        appointment_time = ?, status = ?, notes = ?
-                    WHERE id = ?
-                """)
-                cursor.execute(sql_update, (
-                    appointment["patient_id"],
-                    appointment["doctor_name"],
-                    appointment["department"],
-                    appointment["appointment_date"],
-                    appointment["appointment_time"],
-                    appointment["status"],
-                    appointment["notes"],
-                    appointment["id"]
-                ))
-            else:
-                sql_insert = _to_placeholder("""
-                    INSERT INTO appointments (id, patient_id, doctor_name, department, appointment_date, appointment_time, status, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """)
-                cursor.execute(sql_insert, (
-                    appointment["id"],
-                    appointment["patient_id"],
-                    appointment["doctor_name"],
-                    appointment["department"],
-                    appointment["appointment_date"],
-                    appointment["appointment_time"],
-                    appointment["status"],
-                    appointment["notes"]
-                ))
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
 
-    def load_appointments_by_patient(self, patient_id: str) -> List[dict]:
-        conn = default_sql_db.get_connection()
-        cursor = conn.cursor()
-        try:
-            sql = _to_placeholder("SELECT * FROM appointments WHERE patient_id = ?")
-            cursor.execute(sql, (patient_id,))
-            rows = cursor.fetchall()
-            return [_row_to_dict(row) for row in rows]
-        finally:
-            cursor.close()
-            conn.close()
-
-    def delete_appointment(self, appointment_id: str) -> bool:
-        conn = default_sql_db.get_connection()
-        cursor = conn.cursor()
-        try:
-            sql = _to_placeholder("DELETE FROM appointments WHERE id = ?")
-            cursor.execute(sql, (appointment_id,))
-            affected = cursor.rowcount > 0
-            conn.commit()
-            return affected
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    def load_appointment(self, appointment_id: str) -> Optional[dict]:
-        conn = default_sql_db.get_connection()
-        cursor = conn.cursor()
-        try:
-            sql = _to_placeholder("SELECT * FROM appointments WHERE id = ?")
-            cursor.execute(sql, (appointment_id,))
-            row = cursor.fetchone()
-            if row:
-                return _row_to_dict(row)
-            return None
-        finally:
-            cursor.close()
-            conn.close()
 
 
 class SQLNotificationRepository(INotificationRepository):

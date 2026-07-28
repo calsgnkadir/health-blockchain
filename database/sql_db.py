@@ -85,19 +85,8 @@ class SQLDatabaseManager:
             except Exception:
                 pass
 
-            # Appointments Table
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS appointments (
-                    id VARCHAR(100) PRIMARY KEY,
-                    patient_id VARCHAR(100) NOT NULL,
-                    doctor_name VARCHAR(100) NOT NULL,
-                    department VARCHAR(100) NOT NULL,
-                    appointment_date VARCHAR(50) NOT NULL,
-                    appointment_time VARCHAR(50) NOT NULL,
-                    status VARCHAR(50) NOT NULL,
-                    notes {text_type}
-                )
-            """)
+            except Exception:
+                pass
 
             # Notifications Table
             cursor.execute(f"""
@@ -322,42 +311,9 @@ class SQLDatabaseManager:
             cursor.executemany(insert_sql, defaults)
             conn.commit()
             print("[SQL DB] Default users seeded successfully.")
-            self.seed_default_appointments()
         except Exception as e:
             conn.rollback()
             print(f"[SQL DB Error] Seeding failed: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-
-    def seed_default_appointments(self):
-        """Seeds default appointments if database is empty."""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT COUNT(*) FROM appointments")
-            count = cursor.fetchone()[0]
-            if count > 0:
-                return
-                
-            defaults = [
-                ("apt001", "VIP-001", "Prof. Dr. Ahmet Yilmaz", "Cardiology", "2026-06-12", "10:30", "scheduled", "Routine cardiology follow-up."),
-                ("apt002", "VIP-001", "Dr. Sarah Smith", "Neurology", "2026-06-15", "14:00", "scheduled", "Migraine progress review.")
-            ]
-            
-            insert_sql = """
-                INSERT INTO appointments (id, patient_id, doctor_name, department, appointment_date, appointment_time, status, notes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """ if self.is_postgres else """
-                INSERT INTO appointments (id, patient_id, doctor_name, department, appointment_date, appointment_time, status, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """
-            cursor.executemany(insert_sql, defaults)
-            conn.commit()
-            print("[SQL DB] Default appointments seeded successfully.")
-        except Exception as e:
-            conn.rollback()
-            print(f"[SQL DB Error] Appointments seeding failed: {e}")
         finally:
             cursor.close()
             conn.close()
