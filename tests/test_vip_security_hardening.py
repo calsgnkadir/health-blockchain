@@ -72,6 +72,38 @@ class TestVIPSecurityHardening(unittest.TestCase):
         is_valid = dual_control_engine.is_dual_control_approved(token_id, patient_id)
         self.assertTrue(is_valid)
 
+    def test_admin_record_access_requires_dual_control(self):
+        from backend.dependencies import current_user
+        from core.domain.entities import User
+
+        admin_user = User(
+            id="ADM-001",
+            username="admin_test",
+            password_hash="hash",
+            role="admin",
+            full_name="Admin Security Officer"
+        )
+        app.dependency_overrides[current_user] = lambda: admin_user.to_dict()
+
+        patient_id = "VIP-ENFORCE-100"
+
+        # 1. Admin attempts to fetch records without Dual-Control token -> Blocked with 403 Forbidden
+        res_blocked = self.client.get(f"/api/v1/records/{patient_id}")
+        self.assertEqual(res_blocked.status_code, 403)
+        self.assertIn("Dual-Control Policy Violation", res_blocked.json()["detail"])
+
+        # 2. Request and co-sign a Dual-Control access token
+        token_data = dual_control_engine.request_dual_control_access("VIEW_RECORDS", patient_id, "admin_test", "Investigation")
+        token_id = token_data["token_id"]
+        dual_control_engine.co_sign_request(token_id, "sec_officer_2", "security_officer")
+
+        # 3. Admin presents approved Dual-Control token -> Access granted
+        headers = {"X-Dual-Control-Token": token_id}
+        res_granted = self.client.get(f"/api/v1/records/{patient_id}", headers=headers)
+        self.assertEqual(res_granted.status_code, 200)
+
+        app.dependency_overrides.clear()
+
 
 if __name__ == "__main__":
     unittest.main()

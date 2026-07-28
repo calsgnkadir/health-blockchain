@@ -36,9 +36,32 @@ router = APIRouter(prefix="/api/v1/records", tags=["records"])
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.services.dual_control import dual_control_engine
+from core.services.alert_service import alert_service
+from backend.dependencies import _get_client_ip
+
 def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
+
+def _enforce_admin_dual_control(request: Request, u: dict, patient_id: str):
+    if u.get("role") == "admin":
+        dc_token = request.headers.get("X-Dual-Control-Token") or request.query_params.get("dual_control_token")
+        if not dc_token or not dual_control_engine.is_dual_control_approved(dc_token, patient_id):
+            client_ip = _get_client_ip(request)
+            alert_service.raise_alert(
+                alert_type="DUAL_CONTROL_VIOLATION_BLOCKED",
+                severity="CRITICAL",
+                title=f"Admin Dual-Control Access Blocked for {patient_id}",
+                description=f"Admin {u.get('username')} attempted unauthorized raw record access to patient {patient_id} without an active Security Officer co-signed token.",
+                username=u.get("username"),
+                client_ip=client_ip,
+                extra={"patient_id": patient_id, "token_provided": dc_token}
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Dual-Control Policy Violation: System Administrators cannot view or decrypt VIP patient records without an active Security Officer co-signed token for patient {patient_id}."
+            )
 
 def create_notification(
     patient_id: str, 
@@ -191,12 +214,14 @@ def add_record(
 @router.get("/{patient_id}", summary="Get Patient Records")
 def get_records(
     patient_id: str, 
+    request: Request,
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service),
     query_handler: QueryHandler = Depends(get_query_handler),
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
+    _enforce_admin_dual_control(request, u, patient_id)
     role = u["role"]
     if role == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -240,11 +265,13 @@ def get_records(
 @router.get("/{patient_id}/{block_index}", summary="Get Single Record")
 def get_single_record(
     patient_id: str, 
+    request: Request,
     block_index: int = Path(..., ge=0), 
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service)
 ):
     check_patient_id(patient_id)
+    _enforce_admin_dual_control(request, u, patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
@@ -266,6 +293,7 @@ def get_single_record(
 @router.post("/{patient_id}/{block_index}/decrypt", summary="Decrypt Encrypted Record")
 def decrypt_record(
     patient_id: str, 
+    request: Request,
     block_index: int = Path(..., ge=0), 
     req: DecryptRequest = None, 
     u: dict = Depends(current_user),
@@ -273,6 +301,7 @@ def decrypt_record(
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
+    _enforce_admin_dual_control(request, u, patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
@@ -308,6 +337,7 @@ def decrypt_record(
 def download_offchain_file(
     patient_id: str, 
     block_index: int, 
+    request: Request,
     password: Optional[str] = None, 
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service),
@@ -316,6 +346,7 @@ def download_offchain_file(
     ipfs_client: IPFSClient = Depends(get_ipfs_client)
 ):
     check_patient_id(patient_id)
+    _enforce_admin_dual_control(request, u, patient_id)
     role = u["role"]
     ignore_consent = False
     
