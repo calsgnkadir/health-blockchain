@@ -4,8 +4,6 @@ import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashb
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
 import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
-import { loadAppointments, showBookAppointmentModal, bookAppointment, cancelAppointment } from './modules/appointments.js';
-import { loadTriage, sendTriageSymptom } from './modules/triage.js';
 import { loadChainStatus } from './modules/blockchain.js';
 
 /* -- Particle Background Canvas ---------------------------------------- */

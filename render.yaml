@@ -8,6 +8,8 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: VHV_DEMO_MODE
+        value: "false"
+      - key: VIP_IP_ALLOWLIST_ENABLED
         value: "true"
       - key: PORT
         value: "8000"
