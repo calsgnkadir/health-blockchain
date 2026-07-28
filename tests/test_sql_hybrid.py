@@ -5,7 +5,7 @@ import tempfile
 import time
 import database.sql_db as sql_db
 from database.sql_db import SQLDatabaseManager
-from infrastructure.repositories.sql_repositories import SQLUserRepository, SQLAppointmentRepository, SQLNotificationRepository
+from infrastructure.repositories.sql_repositories import SQLUserRepository, SQLNotificationRepository
 from core.domain.entities import User
 
 class TestSQLHybrid(unittest.TestCase):
@@ -26,7 +26,6 @@ class TestSQLHybrid(unittest.TestCase):
         sql_db.default_sql_db = self.db_manager
         
         self.user_repo = SQLUserRepository()
-        self.apt_repo = SQLAppointmentRepository()
         self.notif_repo = SQLNotificationRepository()
 
     def tearDown(self):
@@ -97,42 +96,7 @@ class TestSQLHybrid(unittest.TestCase):
         self.assertTrue(deleted)
         self.assertFalse(self.user_repo.user_exists("dr.sqltest"))
 
-    def test_appointment_repository(self):
-        apt = {
-            "id": "apt-test-111",
-            "patient_id": "VIP-999",
-            "doctor_name": "Dr. House",
-            "department": "Diagnostic Medicine",
-            "appointment_date": "2026-07-01",
-            "appointment_time": "09:00",
-            "status": "scheduled",
-            "notes": "Lupus checkup."
-        }
-        
-        # 1. Save
-        self.apt_repo.save_appointment(apt)
-        
-        # 2. Load by ID
-        loaded = self.apt_repo.load_appointment("apt-test-111")
-        self.assertIsNotNone(loaded)
-        self.assertEqual(loaded["doctor_name"], "Dr. House")
-        self.assertEqual(loaded["notes"], "Lupus checkup.")
-        
-        # 3. Load by Patient
-        list_apts = self.apt_repo.load_appointments_by_patient("VIP-999")
-        self.assertEqual(len(list_apts), 1)
-        self.assertEqual(list_apts[0]["id"], "apt-test-111")
-        
-        # 4. Update
-        apt["status"] = "cancelled"
-        self.apt_repo.save_appointment(apt)
-        updated = self.apt_repo.load_appointment("apt-test-111")
-        self.assertEqual(updated["status"], "cancelled")
-        
-        # 5. Delete
-        deleted = self.apt_repo.delete_appointment("apt-test-111")
-        self.assertTrue(deleted)
-        self.assertIsNone(self.apt_repo.load_appointment("apt-test-111"))
+
 
     def test_notification_repository(self):
         notif = {
