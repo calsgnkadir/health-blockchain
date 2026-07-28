@@ -17,6 +17,7 @@ class User:
     specialty: Optional[str] = None
     institution: Optional[str] = None
     clearance: Optional[str] = None
+    wallet_address: Optional[str] = None
     account_status: str = "ACTIVE_ENROLLED"
 
     def to_dict(self) -> dict:
