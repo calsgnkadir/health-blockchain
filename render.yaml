@@ -1,3 +1,7 @@
+# render.yaml — Demo / Staging Render Platform Configuration
+# NOTE: For Production Institutional VIP Deployment (VPC/VPN & KVKK Art. 9),
+# refer to docs/PRIVATE_VPC_DEPLOYMENT.md and docker-compose.yml.
+
 services:
   - type: web
     name: vip-health-vault

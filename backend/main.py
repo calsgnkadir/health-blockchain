@@ -1,5 +1,5 @@
 """
-backend/main.py — VIP Health Vault · Backend API v3.0
+backend/main.py — VIP Health Vault · Backend API v5.0.0
 ======================================================
 """
 
@@ -52,8 +52,8 @@ from backend.routers.alerts import router as alerts_router
 
 app = FastAPI(
     title="VIP Health Vault API",
-    version="3.1.0",
-    description="Blockchain-based VIP health record system",
+    version="5.0.0",
+    description="Isolated Hardware-Secured VIP Health Vault API with Cryptographic Merkle Root Anchoring",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
 )

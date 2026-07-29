@@ -1,54 +1,54 @@
-# ADR 0001: Off-Chain Storage with On-Chain Merkle Root Anchoring
+# ADR 0001: Off-Chain Storage with Cryptographic Merkle Root Hash-Chain Notarization
 
-**Status:** Accepted
-**Date:** 2026-06-20
-**Deciders:** Core Engineering Team
+**Status:** Accepted (Updated for v5.0.0 Architecture)  
+**Date:** 2026-06-20 (Revised: 2026-07-29)  
+**Deciders:** Security Engineering & Protocol Architecture Team  
 
 ---
 
 ## Context and Problem Statement
 
-The platform is designed to manage high-confidentiality Protected Health Information (PHI) and Electronic Health Records (EHR) for VIP patients.
-We needed a technical design that guarantees **data immutability, auditability, and tamper-proofing** while strictly respecting **GDPR/HIPAA privacy regulations** (specifically the "Right to be Forgotten" and strict access controls).
+The platform manages high-confidentiality Protected Health Information (PHI) and Electronic Health Records (EHR) for VIP patients (cabinet ministers, defense personnel, high-net-worth individuals).
+We required an architecture guaranteeing **data immutability, tamper-evidence, and auditability** while strictly obeying **GDPR / KVKK privacy laws** (specifically Article 17 "Right to be Forgotten" and KVKK M.7 pseudonymization rules).
 
-Storing raw PHI or raw encrypted blobs directly on a public blockchain (like Ethereum or Polygon) presents critical trade-offs:
-1. **Public Immutability Conflict:** Data on a public blockchain cannot be deleted. If encrypted PHI is posted on-chain, future cryptographic breakthroughs (e.g. quantum computing) could compromise privacy indefinitely.
-2. **GDPR Compliance Violation:** GDPR Article 17 grants patients the right to request erasure of personal data. Raw on-chain data makes compliance legally impossible.
-3. **Transaction Cost & Bandwidth Constraints:** Storing high-resolution DICOM medical images or PDF health reports on-chain incurs prohibitively high Gas fees.
+Publishing raw PHI or encrypted payloads to a public blockchain (like Ethereum or Polygon) creates severe security and regulatory risks:
+1. **Public Metadata & Cryptographic Decay:** Data on a public ledger cannot be deleted. Encrypted payloads posted publicly risk future decryption via quantum computing or key compromise.
+2. **GDPR / KVKK Non-Compliance:** GDPR Art. 17 and KVKK M.7 grant data subjects erasure rights. Public immutability makes legal compliance impossible.
+3. **Public Network Footprint:** Interacting with public RPC nodes creates network metadata trails connecting VIP identities to public ledger addresses (`0x...`).
 
 ---
 
 ## Decision Drivers
 
-* Strict compliance with GDPR & HIPAA regulations.
-* Absolute protection against unauthorized disclosure or future cryptographic decay.
-* Immutable auditability so no party can secretly tamper with medical histories.
-* Low latency and high throughput for clinical workflows.
+* **Zero Public RPC / Web3 Dependencies:** Eliminate external metadata trails and public ledger privacy leaks.
+* **Strict GDPR / KVKK Compliance:** Enable full cryptographic right-to-erasure via key destruction.
+* **Immutable Tamper-Evidence:** Ensure no single rogue administrator or compromised component can silently mutate historical clinical records.
+* **Air-Gapped Private Network Compatibility:** Operate within isolated institutional VPC / VPN subnets.
 
 ---
 
 ## Considered Options
 
-1. **On-Chain Encrypted Storage:** Encrypt raw health data and publish directly to smart contract storage.
-2. **Pure Off-Chain Database:** Store health data in traditional relational or document databases without blockchain.
-3. **Hybrid Architecture (Off-Chain Storage + On-Chain Merkle Root Anchoring):** Store encrypted health records off-chain (LMDB / IPFS) and anchor only the cryptographic Merkle Root hashes to an Ethereum smart contract.
+1. **Public Blockchain Encrypted Storage:** Encrypt PHI and publish directly to public smart contract storage.
+2. **Traditional Relational Database Only:** Store health data in a standard SQL database without cryptographic anchoring.
+3. **Isolated Hybrid Architecture (Off-Chain Encrypted Storage + Local Signed Merkle Root Hash-Chain Notarization):** Store AES-256-GCM encrypted health records off-chain (LMDB) and anchor cryptographic Merkle Root hashes to an isolated local signed hash-chain (`notarizer.py`).
 
 ---
 
 ## Decision Outcome
 
-**Chosen Option:** **Option 3 — Hybrid Architecture (Off-Chain Encrypted Storage + On-Chain Merkle Root Anchoring)**.
+**Chosen Option:** **Option 3 — Isolated Hybrid Architecture (Off-Chain Storage + Local Signed Merkle Hash-Chain Notarization)**.
 
-### How It Works:
-1. **Off-Chain Storage:** Patient record payloads are encrypted using **AES-256-GCM** with unique salts/IVs and stored in high-performance LMDB or decentralized IPFS nodes.
-2. **Merkle Tree Computation:** Patient block headers are grouped into a cryptographic Merkle tree, yielding a single 32-byte **Merkle Root**.
-3. **Smart Contract Notarization:** Only the 32-byte Merkle Root is notarized to the `AnchorStore.sol` smart contract via a 2-of-N Multi-Notary consensus mechanism.
+### Architectural Mechanics:
+1. **Off-Chain Encrypted Storage:** Patient record payloads are encrypted using **AES-256-GCM** with per-record salt/IV vectors and stored in high-performance LMDB.
+2. **Merkle Tree Computation:** Patient block headers are aggregated into a cryptographic Merkle tree, generating a single 32-byte **Merkle Root**.
+3. **Signed Hash-Chain Notarization:** Merkle roots are signed with HMAC-SHA256 and appended to an isolated sequential hash-chain (`notarizer.py`). No public Web3 or Ethereum RPC calls are performed.
 4. **Tamper Verification:** Any modification to off-chain data invalidates the Merkle Root proof (`GET /api/v1/records/proof/{patient_id}/{block_index}`).
-5. **GDPR Erasure:** Deleting the off-chain encryption key or LMDB entry permanently destroys the readable data while leaving the immutable Merkle Root as an un-linkable mathematical proof.
+5. **GDPR / KVKK Erasure:** Destroying the off-chain encryption key or LMDB entry permanently renders the PHI unreadable, leaving only an un-linkable mathematical hash behind.
 
 ---
 
 ## Consequences
 
-* **Positive:** 100% GDPR/HIPAA compliant, zero raw PHI on public ledgers, negligible Ethereum gas costs, instant query speeds.
-* **Negative:** Requires managing off-chain storage key lifecycles and IPFS pinning services.
+* **Positive:** 100% GDPR/KVKK compliant, zero public Web3 privacy leaks, zero gas fees, instant local query speeds, air-gapped VPC deployment compatible.
+* **Negative:** Hash-chain immutability guarantees operate within the institutional trust boundary against external breaches and post-hoc log tampering.

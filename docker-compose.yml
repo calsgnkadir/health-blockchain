@@ -1,14 +1,33 @@
 version: '3.8'
 
 services:
-  web:
-    build: .
-    container_name: vip-health-vault
+  vip-health-vault:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vip_health_vault_app
+    restart: always
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/projects:/app/backend/projects
     environment:
-      - ENVIRONMENT=development
-      - VHV_DEMO_MODE=true
-    restart: unless-stopped
+      - ENVIRONMENT=production
+      - VHV_DEMO_MODE=false
+      - VIP_IP_ALLOWLIST_ENABLED=true
+      - TRUST_PROXIES=true
+      - TRUSTED_PROXIES=127.0.0.1,10.0.0.1
+      - PORT=8000
+    volumes:
+      - vhv_db_data:/app/database
+      - vhv_lmdb_data:/app/lmdb_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  vhv_db_data:
+    driver: local
+  vhv_lmdb_data:
+    driver: local
