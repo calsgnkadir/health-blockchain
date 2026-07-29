@@ -24,7 +24,7 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 
 | Security Component | Implementation Status | Enforcing Class / File | Technical Guarantee |
 | :--- | :---: | :--- | :--- |
-| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.Notarizer` | Local Merkle root signed hash-chain (`ADR-0001`). Zero Web3/RPC dependencies. |
+| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.BlockchainNotarizer` | Local Merkle root signed hash-chain (`ADR-0001`). Zero Web3/RPC dependencies. |
 | **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `backend.routers.auth.login_webauthn_credential` | Native browser WebAuthn API + `secp256r1` signature verification in Python. |
 | **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw admin access (`403 Forbidden`) without Security Officer co-signature. |
 | **Network IP Allowlist** | **LIVE / WORKING** | `backend.middleware.ip_allowlist.resolve_secure_client_ip` | Direct socket peer host verification. Prevents `X-Forwarded-For` header spoofing. |

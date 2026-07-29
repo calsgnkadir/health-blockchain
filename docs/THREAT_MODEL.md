@@ -28,7 +28,7 @@
 - **Vector:** An administrator with DB access attempts to query raw PHI or bypass patient consent controls without authorization.
 - **Countermeasures:**
   - **Dual-Control Engine (`core.services.dual_control.DualControlEngine`):** Raw record access by administrators is blocked (`403 Forbidden`) unless co-signed by an independent Security Officer (`security_officer` role).
-  - **Pseudonymization Engine (`core.pseudonymization.engine.PseudonymEngine`):** Real identity remains masked behind dynamic HMAC-SHA256 pseudonyms.
+  - **Pseudonymization Engine (`core.pseudonymization.engine.PseudonymizationEngine`):** Real identity remains masked behind dynamic HMAC-SHA256 pseudonyms.
   - **Immutable Decryption Audit Logging (`storage.append_access_log`):** Every record decryption generates a permanent `RECORD_DECRYPTED` log entry.
 
 ### Threat Actor 3: Stolen / Lost Hardware Credential
