@@ -4,29 +4,31 @@
 
 ---
 
-## 🛡️ Core Security Architecture
+## 📸 Interface & System Showcase
 
-The **VIP Health Vault** is engineered strictly for isolated, high-security single-tenant deployments. Unlike generic commercial SaaS health applications, this vault prioritizes **attack surface reduction, metadata privacy, and insider-threat mitigation**.
+| Stealth Login & Passkey Authentication | VIP Executive Clinical Dashboard |
+| :---: | :---: |
+| ![Login Interface](docs/screenshots/01_login.png) | ![Executive Dashboard](docs/screenshots/02_dashboard.png) |
 
-1. **Local Cryptographic Hash-Chain (ADR-0001)**:
-   - Eliminates public blockchain transaction timing leaks (Etherscan/Sepolia).
-   - Anchors patient block trees into an isolated, locally-signed Merkle Hash-Chain.
-2. **KMS-Driven AES-256-GCM Double-Layer Encryption**:
-   - Off-chain LMDB storage with AES-256-GCM payload encryption.
-   - Abstracted KMS envelope encryption support (Software, AWS KMS, HashiCorp Vault).
-3. **Pseudonymization Engine (PII Decoupling)**:
-   - Complete cryptographic isolation between real patient identities (`full_name`, `TCKN/SSN`) and medical record blocks (`anon_id`).
-4. **Time-Bound Granular RBAC & Consent Engine**:
-   - Doctors receive strictly time-bound hours/days consent windows.
-   - Instant auto-expiration with immutable `CONSENT_EXPIRED` audit logging.
-5. **Network-Level Isolation (`IPAllowlistMiddleware`)**:
-   - Blocks public internet access attempts. Accepts connections exclusively from authorized CIDR subnets, private VPNs, and internal networks.
-6. **Dual-Control M-of-N Approval Engine (`dual_control.py`)**:
-   - Prevents insider-threat abuses. System Administrators **cannot** view or decrypt raw VIP medical records without an active Security Officer co-signed token.
-7. **Hardware Passkey / WebAuthn First**:
-   - Donanım tabanlı FIDO2 / YubiKey authentication for primary and multi-factor authentication.
-8. **Real-Time Security Alert & Anomaly Engine (`alert_service.py`)**:
-   - Real-time detection and alert logging for Break-Glass events, rapid failed login spikes, or unauthorized IP access attempts.
+| Merkle Root Cryptographic Proof | Emergency Access Audit Controls |
+| :---: | :---: |
+| ![Merkle Proof](docs/screenshots/03_blockchain_proof.png) | ![Emergency Access](docs/screenshots/04_emergency_access.png) |
+
+---
+
+## 🛡️ Feature Implementation & Security Defense Matrix
+
+To maintain 100% technical honesty during code reviews and security audits, the system explicitly distinguishes between **natively working code implementations** and **pluggable enterprise abstractions**:
+
+| Security Component | Implementation Status | Enforcing Class / File | Technical Guarantee |
+| :--- | :---: | :--- | :--- |
+| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.Notarizer` | Local Merkle root signed hash-chain (`ADR-0001`). Zero Web3/RPC dependencies. |
+| **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `backend.routers.auth.login_webauthn_credential` | Native browser WebAuthn API + `secp256r1` signature verification in Python. |
+| **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw admin access (`403 Forbidden`) without Security Officer co-signature. |
+| **Network IP Allowlist** | **LIVE / WORKING** | `backend.middleware.ip_allowlist.resolve_secure_client_ip` | Direct socket peer host verification. Prevents `X-Forwarded-For` header spoofing. |
+| **Immutable Decrypt Access Log** | **LIVE / WORKING** | `backend.routers.records.decrypt_record` | Writes immutable `RECORD_DECRYPTED` log entry to LMDB and SQLite access logs. |
+| **Hardware Passkey Revocation** | **LIVE / WORKING** | `POST /api/v1/auth/webauthn/revoke` | Revokes stolen hardware credentials with Dual-Control authorization. |
+| **KMS Envelope Encryption** | **PLUGGABLE ABSTRACTION** | `core.services.kms.KMSService` | Software PBKDF2 provider natively working; AWS KMS / HashiCorp Vault drivers scaffolded. |
 
 ---
 
@@ -43,7 +45,7 @@ The **VIP Health Vault** is engineered strictly for isolated, high-security sing
 git clone https://github.com/calsgnkadir/health-blockchain.git
 cd health-blockchain
 
-# 2. Install lightweight dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
 # 3. Launch application server
@@ -64,5 +66,6 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ## ⚖️ Compliance & Governance
 
-- **GDPR / KVKK**: Complete compliance via identity pseudonymization and strict time-bound consent.
+- **GDPR / KVKK**: Complete compliance via identity pseudonymization, local data sovereignty, and key destruction erasure.
 - **ISO 27001 / INFOSEC**: Full cryptographic access audit logs and Dual-Control co-signatures for privileged operations.
+- **Institutional Gate**: Satisfies Private VPC isolation and out-of-band identity onboarding requirements ([PRIVATE_VPC_DEPLOYMENT.md](docs/PRIVATE_VPC_DEPLOYMENT.md)).
