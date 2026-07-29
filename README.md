@@ -6,6 +6,8 @@
 
 ## 📸 Interface & System Showcase
 
+> 💡 **Public Ingress Architecture Note**: By security design, **VIP Health Vault** enforces strict private subnet CIDR isolation (`IPAllowlistMiddleware`) and air-gapped hardware passkeys. As a consequence, the application cannot and should not be hosted on public SaaS URLs (`0.0.0.0/0`). Below is the complete interface walkthrough and system showcase for local demonstration.
+
 | Stealth Login & Passkey Authentication | VIP Executive Clinical Dashboard |
 | :---: | :---: |
 | ![Login Interface](docs/screenshots/01_login.png) | ![Executive Dashboard](docs/screenshots/02_dashboard.png) |
