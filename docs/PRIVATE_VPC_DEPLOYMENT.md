@@ -55,3 +55,13 @@ JWT_PUBLIC_KEY_PATH=/etc/vhv/keys/jwt_public.pem
 ## 4. KVKK Article 9 & Cross-Border Compliance
 
 Under **KVKK Article 9 (Transfer of Personal Data Abroad)**, special category health data of Turkish citizens/officials cannot be transferred to foreign cloud jurisdictions without explicit consent or statutory authorization. Operating the vault inside a sovereign local VPC guarantees **100% compliance** with Turkish data sovereignty laws.
+
+---
+
+## 5. Institutional Deployment Gate & Legal Scope
+
+State officials' health data touches national security classifications outside generic KVKK/GDPR self-certification. Before enrolling active state officials or cabinet ministers, the following **Institutional Deployment Gate Requirements** must be satisfied:
+
+1. **Institutional Backing & Sign-Off:** Written authorization from the Presidential Protocol Office, Defense Health Directorate, or Hospital IT Security Department.
+2. **KMS Enterprise Integration:** Transitioning from local PBKDF2 key envelopes to an institutional Hardware Security Module (HSM) or HashiCorp Vault instance.
+3. **Designated Security Officers:** Formal appointment of dual-control co-signers (`security_officer` role) by institutional security authorities.
