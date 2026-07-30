@@ -1,5 +1,28 @@
 # Changelog — VIP Health Vault
 
+## [5.0.1] - 2026-07-30
+
+### 🛡️ Security Audit Remediation & Architecture Alignment
+
+#### Fixed & Security Hardened
+- **Secured OpenAPI Schema & Docs**: Restricted `/api/v1/openapi.json` and OpenAPI docs endpoints behind `IPAllowlistMiddleware` to eliminate public API schema leakage.
+- **X-Forwarded-For IP Spoofing Protection**: Hardened `resolve_secure_client_ip` in `backend/middleware/ip_allowlist.py` to only trust proxy headers if `TRUST_PROXIES=true` AND direct socket peer host is loopback or a trusted proxy.
+- **Security Officer Role Authorization**: Fixed `Role` validation in `backend/schemas/requests.py` and `backend/routers/alerts.py` to include `security_officer`.
+- **Immutable Record Decryption Audit Logging**: Added `RECORD_DECRYPTED` access log emission in `backend/routers/records.py` (`storage.append_access_log`).
+- **Passkey Hardware Revocation API**: Implemented `POST /api/v1/auth/webauthn/revoke` endpoint backed by Dual-Control authorization for revoking lost/stolen hardware credentials.
+- **Purged Dead Frontend Surface**: Completely purged dead FHIR export buttons, SIWE Web3 wallet login functions, Dead-Man's Switch, and ZKP modals from `index.html`, `app.js`, `auth.js`, and `records.js`.
+
+#### Added
+- **`THREAT_MODEL.md`**: Created formal threat model document mapping adversary vectors (external breach, rogue admin, passkey theft, coerced insider) to specific enforcing code.
+- **`PRIVATE_VPC_DEPLOYMENT.md`**: Created institutional private VPC/VPN deployment specification documenting air-gapped network topology, persistent storage mounts (`/var/lib/vhv/data`), KVKK Art. 9 compliance, and the Institutional Deployment Gate.
+- **`docker-compose.yml`**: Added containerized private VPC deployment configuration with persistent volume mounts (`vhv_db_data`, `vhv_lmdb_data`).
+
+#### Documentation Alignment
+- **ADR-0001 Alignment**: Updated `docs/adr/0001-offchain-storage-onchain-anchoring.md` replacing Ethereum `AnchorStore.sol` references with the actual local signed Merkle hash-chain notarization engine (`notarizer.py`).
+- **Exact Python Symbol Paths**: Verified 100% exact module and class references (`core.services.notarizer.BlockchainNotarizer`, `core.pseudonymization.engine.PseudonymizationEngine`, `core.kms.provider.KMSProvider`).
+
+---
+
 ## [5.0.0] - 2026-07-28
 
 ### 🚀 Major Release: Stealth VIP Health Privacy Vault & Hardened Security Architecture

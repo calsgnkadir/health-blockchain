@@ -56,6 +56,7 @@ app = FastAPI(
     description="Isolated Hardware-Secured VIP Health Vault API with Cryptographic Merkle Root Anchoring",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json",
 )
 
 # CORS Middleware

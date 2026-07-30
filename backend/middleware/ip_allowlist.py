@@ -99,8 +99,8 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
         if not self.enabled:
             return await call_next(request)
 
-        # Allow health checks and OpenAPI docs without network restriction
-        if request.url.path in ("/api/v1/health", "/docs", "/openapi.json", "/redoc"):
+        # Allow container health checks without network restriction
+        if request.url.path == "/api/v1/health":
             return await call_next(request)
 
         client_ip = self._get_client_ip(request)
