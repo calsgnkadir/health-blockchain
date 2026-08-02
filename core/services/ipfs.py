@@ -29,6 +29,17 @@ class IPFSClient:
             
         if self.is_simulation:
             print("[IPFS Client] Daemon offline or unconfigured. Running in IPFS Simulation Mode.")
+            try:
+                from core.services.alert_service import alert_service
+                alert_service.raise_alert(
+                    alert_type="STORAGE_DEGRADED",
+                    severity="CRITICAL",
+                    title="IPFS Storage Degraded to Local Simulation Mode",
+                    description="Connection to IPFS API daemon failed or unconfigured. Running in local simulated storage.",
+                    client_ip="localhost"
+                )
+            except Exception:
+                pass
             os.makedirs(DEFAULT_IPFS_STORAGE, exist_ok=True)
 
     def upload_to_ipfs(self, encrypted_data_b64: str) -> str:
@@ -86,6 +97,17 @@ class IPFSClient:
                 return cid
         except Exception as e:
             print(f"[IPFS Error] Failed to upload to real IPFS: {e}. Falling back to simulation storage.")
+            try:
+                from core.services.alert_service import alert_service
+                alert_service.raise_alert(
+                    alert_type="STORAGE_DEGRADED",
+                    severity="HIGH",
+                    title="IPFS Upload Failed — Fallback to Simulation Storage",
+                    description=f"Failed to upload payload to real IPFS node: {e}. Falling back to local simulation storage.",
+                    client_ip="localhost"
+                )
+            except Exception:
+                pass
             # Fallback to simulation storage on failure with strict owner-only permissions (0o600)
             h = hashlib.sha256(encrypted_data_b64.encode("utf-8")).hexdigest()
             cid = "Qm" + h[:44]

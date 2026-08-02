@@ -420,35 +420,6 @@ class ImagingSchema(BaseModel):
         return sanitize_html(v)
 
 
-# ── APPOINTMENT SCHEMAS ──────────────────────────────────────
-class AppointmentCreate(BaseModel):
-    patient_id: str
-    doctor_name: str
-    department: str
-    appointment_date: str
-    appointment_time: str
-    notes: Optional[str] = ""
-
-    @field_validator("doctor_name", "department", "notes")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-    @field_validator("appointment_date")
-    @classmethod
-    def check_app_date(cls, v):
-        return validate_iso_date(v)
-
-
-class TriageRequest(BaseModel):
-    symptoms: str
-    duration_days: int
-
-    @field_validator("symptoms")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
 
 class LisWebhookPayload(BaseModel):
     patient_id: str

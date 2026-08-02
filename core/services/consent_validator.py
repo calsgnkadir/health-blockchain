@@ -100,6 +100,19 @@ class ConsentValidator:
             extra={"reason": reason, "patient_id": patient_id}
         )
 
+        # Raise Critical Security Alert
+        try:
+            from core.services.alert_service import alert_service
+            alert_service.raise_alert(
+                alert_type="BREAK_GLASS_BYPASS",
+                severity="CRITICAL",
+                title=f"Emergency Break-Glass Access Invoked by {doctor_username}",
+                description=f"Doctor {doctor_username} triggered emergency break-glass override for patient {patient_id}. Reason: {reason}",
+                client_ip="internal"
+            )
+        except Exception:
+            pass
+
         # Create high-priority notification for the patient
         notif_id = f"notif_{time.time_ns()}"
         notif_data = {

@@ -515,39 +515,6 @@ window.commitWearablesToBlockchain = async function() {
   }
 };
 
-window.loadWearables = function() {
-  window.activeWearableData = null;
-  window.activeWearableSource = '';
-  const emptyEl = document.getElementById('wearables-preview-empty');
-  if (emptyEl) emptyEl.style.display = 'block';
-  const dataEl = document.getElementById('wearables-preview-data');
-  if (dataEl) dataEl.style.display = 'none';
-  const syncBtn = document.getElementById('btn-sync-blockchain');
-  if (syncBtn) syncBtn.style.display = 'none';
-};
-
-/* -- FHIR Bundle Exporter -------------------------------------------- */
-window.exportFHIRBundle = async function() {
-  const pid = patientId();
-  try {
-    const res = await apiFetch(`/api/enabiz/fhir/export/${pid}`);
-    const jsonStr = JSON.stringify(res, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fhir_patient_bundle_${pid}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    addNotification('FHIR Bundle Exported', `Official HL7 FHIR Bundle downloaded for patient ${pid}.`, 'success');
-  } catch(ex) {
-    alert("Failed to export FHIR bundle: " + ex.message);
-  }
-};
-
 /* -- Environment check (Demo mode and credentials config) ------------ */
 async function checkEnvironment() {
   try {
@@ -580,7 +547,6 @@ window.logout = logout;
 window.resetLoginForm = resetLoginForm;
 window.fillCreds = fillCreds;
 window.handleLoginSubmit = handleLoginSubmit;
-window.loginWithWeb3Wallet = loginWithWeb3Wallet;
 window.loginWithPasskey = loginWithPasskey;
 window.registerPasskey = registerPasskey;
 window.filterRecords = filterRecords;
@@ -592,10 +558,6 @@ window.loadChainStatus = loadChainStatus;
 window.enable2FA = enable2FA;
 window.disable2FA = disable2FA;
 window.setup2FA = setup2FA;
-window.sendTriageSymptom = sendTriageSymptom;
-window.showBookAppointmentModal = showBookAppointmentModal;
-window.bookAppointment = bookAppointment;
-window.cancelAppointment = cancelAppointment;
 window.toggleNotifications = toggleNotifications;
 window.clearAllNotifications = clearAllNotifications;
 window.markAsRead = markAsRead;
