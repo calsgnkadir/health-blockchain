@@ -375,145 +375,7 @@ window.refreshLogPage = function() {
   else window.loadAccessLogs();
 };
 
-/* -- Wearable Sync Telemetry ----------------------------------------- */
-window.activeWearableData = null;
-window.activeWearableSource = '';
 
-window.connectWearable = function(platform) {
-  const title = 'Connect Wearable Hub';
-  const w = 480, h = 540;
-  const left = (window.screen.width/2)-(w/2);
-  const top = (window.screen.height/2)-(h/2);
-  
-  const mockTelemetry = {
-    fitbit: { hr: '72', temp: '36.8', spo2: '98', bp: '118/79', source: 'Fitbit Sense 2' },
-    google: { hr: '68', temp: '36.5', spo2: '99', bp: '120/80', source: 'Google Pixel Watch' },
-    apple: { hr: '70', temp: '36.6', spo2: '97', bp: '115/75', source: 'Apple Watch Ultra' }
-  };
-  
-  window.onOAuthCallback = function(p) {
-    if (p !== platform) return;
-    window.activeWearableSource = mockTelemetry[platform].source;
-    window.activeWearableData = mockTelemetry[platform];
-    
-    document.getElementById('wearables-preview-empty').style.display = 'none';
-    document.getElementById('wearables-preview-data').style.display = 'block';
-    document.getElementById('btn-sync-blockchain').style.display = 'block';
-    
-    document.getElementById('wearable-hr').textContent = window.activeWearableData.hr + ' bpm';
-    document.getElementById('wearable-temp').textContent = window.activeWearableData.temp + ' °C';
-    document.getElementById('wearable-spo2').textContent = window.activeWearableData.spo2 + ' %';
-    document.getElementById('wearable-bp').textContent = window.activeWearableData.bp + ' mmHg';
-    document.getElementById('wearable-source-name').textContent = window.activeWearableSource;
-    document.getElementById('wearable-timestamp').textContent = new Date().toLocaleTimeString('en-US') + ' ' + new Date().toLocaleDateString('en-GB');
-    
-    addNotification('Sensor Connected', `Successfully connected to ${window.activeWearableSource}. Data preview loaded.`, 'success');
-  };
-  
-  const popup = window.open('', title, `width=${w},height=${h},top=${top},left=${left}`);
-  if (!popup) {
-    window.showOAuthModalFallback(platform, mockTelemetry[platform]);
-    return;
-  }
-  
-  popup.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>OAuth Connection Hub</title>
-      <style>
-        body { background: #07070F; color: #EDE8E0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; }
-        .card { background: #12122A; border: 1px solid rgba(201,168,76,0.25); border-radius: 12px; padding: 30px; text-align: center; max-width: 380px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-        .btn { background: linear-gradient(135deg, #C9A84C, #8B6914); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; transition: opacity 0.2s; }
-        .btn:hover { opacity: 0.9; }
-        .logo { font-size: 48px; margin-bottom: 15px; }
-        h2 { color: #C9A84C; margin-top: 0; }
-        p { color: #6B6882; font-size: 14px; line-height: 1.5; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="logo">⌚</div>
-        <h2>Connect ${platform.toUpperCase()}</h2>
-        <p>VIP Health Vault requests permission to access your medical telemetry stream (Heart Rate, Temperature, SpO2, and Blood Pressure).</p>
-        <button class="btn" onclick="authorize()">AUTHORIZE SYNC</button>
-      </div>
-      <script>
-        function authorize() {
-          if (window.opener && !window.opener.closed) {
-            window.opener.onOAuthCallback('${platform}');
-          }
-          window.close();
-        }
-      <\/script>
-    </body>
-    </html>
-  `);
-  popup.document.close();
-};
-
-window.showOAuthModalFallback = function(platform, telemetry) {
-  document.getElementById('modal-content').innerHTML = `
-    <div style="text-align: center; padding: 20px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">⌚</div>
-      <h2 style="color: var(--gold); font-size: 20px; margin-bottom: 12px;">Connect ${platform.toUpperCase()}</h2>
-      <p style="color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 24px;">
-        VIP Health Vault requests permission to access your medical telemetry stream (Heart Rate, Temperature, SpO2, and Blood Pressure).
-      </p>
-      <button class="btn btn-gold btn-full" onclick="window.authorizeFallback('${platform}')">AUTHORIZE SYNC</button>
-    </div>
-  `;
-  document.getElementById('modal-overlay').classList.add('open');
-  
-  window.authorizeFallback = function(p) {
-    closeModal();
-    window.onOAuthCallback(p);
-  };
-};
-
-window.commitWearablesToBlockchain = async function() {
-  if (!window.activeWearableData) return;
-  const btn = document.getElementById('btn-sync-blockchain');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Syncing...';
-  }
-  
-  const payload = {
-    patient_id: patientId(),
-    record_type: 'vital_signs',
-    title: `Wearables Sensor Telemetry (${window.activeWearableSource})`,
-    doctor_name: 'Device Sensor Auto-Sync',
-    institution: 'Connected Vitals Core',
-    record_date: new Date().toISOString().split('T')[0],
-    access_level: 'private',
-    is_confidential: false,
-    data: {
-      heart_rate: window.activeWearableData.hr,
-      temperature: window.activeWearableData.temp,
-      oxygen_sat: window.activeWearableData.spo2,
-      blood_pressure: window.activeWearableData.bp
-    },
-    notes: `Cryptographically verified vital block synchronization from health wearables via OAuth Gateway.`
-  };
-  
-  try {
-    const res = await apiFetch('/api/records', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    addNotification('Sensor Vitals Synced', `Wearable sensor stream successfully verified and committed to block #${res.block_index}.`, 'success');
-    window.loadWearables();
-    loadDashboard();
-  } catch(ex) {
-    alert("Blockchain sync failed: " + ex.message);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = 'COMMIT TELEMETRY TO BLOCKCHAIN';
-    }
-  }
-};
 
 /* -- Environment check (Demo mode and credentials config) ------------ */
 async function checkEnvironment() {
@@ -628,10 +490,7 @@ function renderCommandPaletteResults(query = '') {
     { type: 'nav', page: 'vaccines', title: 'Vaccine Passport', desc: 'Immutably registry for vaccines', shortcut: 'G V' },
     { type: 'nav', page: 'medications', title: 'Medications & Prescriptions', desc: 'Active prescriptions and dosage instructions', shortcut: 'G M' },
     { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Doctor permissions and Break Glass', shortcut: 'G S' },
-    { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' },
-    { type: 'nav', page: 'wearables', title: 'Wearables Integration Hub', desc: 'Sync telemetry stream directly to blockchain', shortcut: 'G W' },
-    { type: 'nav', page: 'appointments', title: 'Clinic Appointments', desc: 'Schedule consultations with clinical specialists', shortcut: 'G P' },
-    { type: 'nav', page: 'triage', title: 'AI Symptom Triage', desc: 'AI symptom risk scoring and prioritisation', shortcut: 'G T' }
+    { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }
   ];
 
   const currentUser = getCurrentUser();
@@ -644,7 +503,6 @@ function renderCommandPaletteResults(query = '') {
 
   const actions = [
     { type: 'action', action: 'logout', title: 'Sign Out / Logout', desc: 'Terminate session and clear token', shortcut: '⌥ L' },
-    { type: 'action', action: 'export', title: 'Export HL7 FHIR Bundle', desc: 'Download official HL7 FHIR Bundle', shortcut: '⌥ E' },
     { type: 'action', action: 'refresh_chain', title: 'Refresh Chain Status', desc: 'Query and update cryptographic statuses', shortcut: '⌥ R' }
   ];
 
@@ -741,8 +599,6 @@ window.triggerCommandPaletteItem = function(index) {
   } else if (item.type === 'action') {
     if (item.action === 'logout') {
       logout();
-    } else if (item.action === 'export') {
-      exportFHIRBundle();
     } else if (item.action === 'refresh_chain') {
       loadChainStatus();
     } else if (item.action === 'break_glass') {
