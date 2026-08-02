@@ -132,27 +132,6 @@ def add_record(
         err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
         raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
 
-    from backend.schemas.fhir import (
-        convert_vital_signs_to_fhir,
-        convert_lab_result_to_fhir,
-        convert_diagnosis_to_fhir,
-        convert_prescription_to_fhir
-    )
-
-    fhir_data = None
-    try:
-        if rec.record_type == "vital_signs":
-            fhir_data = convert_vital_signs_to_fhir(rec.patient_id, rec.record_date, rec.data)
-        elif rec.record_type == "lab_result":
-            fhir_data = convert_lab_result_to_fhir(rec.patient_id, rec.record_date, rec.data)
-        elif rec.record_type == "diagnosis":
-            fhir_data = convert_diagnosis_to_fhir(rec.patient_id, rec.record_date, rec.data)
-        elif rec.record_type == "prescription":
-            fhir_data = convert_prescription_to_fhir(rec.patient_id, rec.record_date, rec.data)
-    except ValidationError as e:
-        err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
-        raise HTTPException(status_code=422, detail=f"FHIR Validation failed: {', '.join(err_msgs)}")
-
     from backend.middleware.xss_protection import sanitize_xss_data
     block_data = sanitize_xss_data({
         "record_type":       rec.record_type,
@@ -163,7 +142,7 @@ def add_record(
         "record_date":       rec.record_date,
         "access_level":      rec.access_level,
         "is_confidential":   rec.is_confidential,
-        "data":              fhir_data if fhir_data is not None else rec.data,
+        "data":              rec.data,
         "notes":             rec.notes or "",
         "created_by":        u["username"],
         "created_at":        datetime.now(timezone.utc).isoformat(),

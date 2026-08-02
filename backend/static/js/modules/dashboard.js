@@ -406,9 +406,6 @@ export function navigate(page) {
     users:          'User Management',
     audit:          'Access & Audit History',
     security:       'Security & 2FA Settings',
-    wearables:      'Wearables Integration Hub',
-    appointments:   'Clinic Appointments',
-    triage:         'AI Symptom Triage',
     consent:        'Consent Management',
   };
   
@@ -422,8 +419,5 @@ export function navigate(page) {
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');
   if (page === 'security')      if (window.loadSecuritySettings) window.loadSecuritySettings();
-  if (page === 'wearables')     if (window.loadWearables) window.loadWearables();
-  if (page === 'appointments')  if (window.loadAppointments) window.loadAppointments();
-  if (page === 'triage')        if (window.loadTriage) window.loadTriage();
   if (page === 'consent')       if (window.loadConsents) window.loadConsents();
 }

@@ -24,12 +24,6 @@ class DecryptRecordQuery:
         self.requester_role = requester_role
         self.ignore_consent = ignore_consent
 
-class ExportFHIRBundleQuery:
-    def __init__(self, patient_id: str, requester_username: str, requester_role: str):
-        self.patient_id = patient_id
-        self.requester_username = requester_username
-        self.requester_role = requester_role
-
 class GetNotificationsQuery:
     def __init__(self, patient_id: str, username: str):
         self.patient_id = patient_id

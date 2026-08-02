@@ -85,9 +85,6 @@ class SQLDatabaseManager:
             except Exception:
                 pass
 
-            except Exception:
-                pass
-
             # Notifications Table
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS notifications (
