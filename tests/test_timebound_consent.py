@@ -170,6 +170,24 @@ class TestTimeBoundConsent(unittest.TestCase):
         audit_logs = storage.load_audit_logs(proj_name)
         self.assertTrue(any(l.get("action") == "BREAK_GLASS_BYPASS" for l in audit_logs))
 
+    def test_repeated_break_glass_triggers_critical_alert(self):
+        """Repeated break-glass overrides within 15 mins trigger REPEATED_BREAK_GLASS_ABUSE alert."""
+        from core.services.alert_service import alert_service
+        doc_user = "dr.repeated_test"
+        
+        for i in range(3):
+            self.consent_validator.break_glass_override(
+                patient_id=self.patient_id,
+                doctor_username=doc_user,
+                reason=f"Emergency override #{i+1}",
+                device_id="er-terminal-01"
+            )
+
+        alerts = alert_service.get_recent_alerts(limit=10)
+        repeated_alerts = [a for a in alerts if a.get("alert_type") == "REPEATED_BREAK_GLASS_ABUSE"]
+        self.assertTrue(len(repeated_alerts) >= 1)
+        self.assertEqual(repeated_alerts[0]["severity"], "CRITICAL")
+
 
 if __name__ == "__main__":
     unittest.main()

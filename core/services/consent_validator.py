@@ -1,12 +1,14 @@
 import json
 import time
 from typing import Optional
+from collections import defaultdict
 import database.storage as storage
 from core.ports.repositories import IBlockRepository
 
 class ConsentValidator:
     def __init__(self, block_repo: IBlockRepository):
         self.block_repo = block_repo
+        self._break_glass_history = defaultdict(list)
 
     def _get_project_name(self, patient_id: str) -> str:
         return f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
@@ -110,6 +112,22 @@ class ConsentValidator:
                 description=f"Doctor {doctor_username} triggered emergency break-glass override for patient {patient_id}. Reason: {reason}",
                 client_ip="internal"
             )
+            
+            # Check for Repeated Break-Glass Anomaly Pattern (3+ overrides in 15 minutes)
+            now = time.time()
+            window = 900  # 15 minutes
+            recent_invocations = [t for t in self._break_glass_history[doctor_username] if now - t <= window]
+            recent_invocations.append(now)
+            self._break_glass_history[doctor_username] = recent_invocations
+
+            if len(recent_invocations) >= 3:
+                alert_service.raise_alert(
+                    alert_type="REPEATED_BREAK_GLASS_ABUSE",
+                    severity="CRITICAL",
+                    title=f"CRITICAL ANOMALY: Repeated Break-Glass Overrides by Dr. {doctor_username}",
+                    description=f"Doctor {doctor_username} triggered {len(recent_invocations)} emergency break-glass overrides within 15 minutes. Potential insider policy abuse or coercion.",
+                    client_ip="internal"
+                )
         except Exception:
             pass
 
