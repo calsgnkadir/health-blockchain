@@ -60,7 +60,7 @@ app = FastAPI(
 )
 
 # CORS Middleware
-origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
+origins = ["http://localhost:8090", "http://127.0.0.1:8090", "http://localhost:8000", "http://127.0.0.1:8000"]
 vhv_origins = os.environ.get("VHV_ALLOWED_ORIGINS")
 if vhv_origins:
     for item in vhv_origins.split(","):
@@ -161,7 +161,7 @@ if os.path.isdir(STATIC):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8090))
     reload_mode = os.environ.get("ENVIRONMENT", "development") == "development"
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_mode)
 

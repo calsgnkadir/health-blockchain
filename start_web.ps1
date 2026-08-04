@@ -8,8 +8,8 @@ Write-Host "Gereksinimler yukleniyor..." -ForegroundColor Yellow
 pip install fastapi uvicorn[standard] pyjwt cryptography lmdb keyring wmi pyotp qrcode pillow --quiet
 
 Write-Host "Sunucu baslatiliyor..." -ForegroundColor Green
-Write-Host "   URL: http://localhost:8000" -ForegroundColor White
-Write-Host "   API: http://localhost:8000/docs" -ForegroundColor White
+Write-Host "   URL: http://localhost:8090" -ForegroundColor White
+Write-Host "   API: http://localhost:8090/docs" -ForegroundColor White
 Write-Host ""
 Write-Host 'Demo Hesaplar:' -ForegroundColor Yellow
 Write-Host '  Admin  : admin / Admin@2026Secure!'
@@ -20,4 +20,4 @@ Write-Host ""
 $env:ENVIRONMENT="development"
 $env:VHV_DEMO_MODE="true"
 Set-Location $backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8090 --reload
