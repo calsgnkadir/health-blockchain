@@ -26,39 +26,6 @@ class AuthService:
             return None
         return user
 
-    def authenticate_wallet(self, wallet_address: str, client_ip: str) -> Optional[User]:
-        all_users = self.user_repo.load_all_users()
-        clean_addr = wallet_address.lower().strip()
-        matched_user = None
-        for u in all_users:
-            if u.wallet_address and u.wallet_address.lower().strip() == clean_addr:
-                matched_user = u
-                break
-        
-        device_id = get_device_id()
-        if not matched_user:
-            event_bus.publish(SystemAuditEvent(
-                project_name="__system__",
-                action="WALLET_LOGIN_FAILED",
-                username=wallet_address,
-                device_id=device_id,
-                extra={"ip": client_ip, "reason": "No user linked to wallet address"}
-            ))
-            return None
-
-        return matched_user
-
-    def link_wallet(self, user: User, wallet_address: str) -> None:
-        user.wallet_address = wallet_address.strip()
-        self.user_repo.save_user(user)
-        event_bus.publish(SystemAuditEvent(
-            project_name="__system__",
-            action="WALLET_LINKED",
-            username=user.username,
-            device_id=get_device_id(),
-            extra={"wallet_address": wallet_address}
-        ))
-
     def login_success(self, user: User, client_ip: str) -> None:
         event_bus.publish(SystemAuditEvent(
             project_name="__system__",

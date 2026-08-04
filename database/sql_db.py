@@ -106,27 +106,6 @@ class SQLDatabaseManager:
                 )
             """)
 
-            # Social Recovery Guardians Table
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS guardians (
-                    username VARCHAR(100) NOT NULL,
-                    guardian_identifier VARCHAR(255) NOT NULL,
-                    PRIMARY KEY (username, guardian_identifier)
-                )
-            """)
-
-            # Social Recovery Requests Table
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS recovery_requests (
-                    recovery_id VARCHAR(100) PRIMARY KEY,
-                    username VARCHAR(100) NOT NULL,
-                    new_wallet_address VARCHAR(100) NOT NULL,
-                    guardians_json {text_type} NOT NULL,
-                    approvals_json {text_type} NOT NULL,
-                    created_at {double_type} NOT NULL,
-                    status VARCHAR(50) NOT NULL
-                )
-            """)
             # WebAuthn / Passkeys Table
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS webauthn_credentials (
@@ -145,75 +124,7 @@ class SQLDatabaseManager:
             except Exception:
                 pass
 
-            # Emergency QR Sessions Table (hastanın ürettiği QR tokenlar)
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS emergency_qr_sessions (
-                    session_id   VARCHAR(100) PRIMARY KEY,
-                    patient_id   VARCHAR(100) NOT NULL,
-                    token_hash   VARCHAR(64)  NOT NULL,
-                    issued_by    VARCHAR(100) NOT NULL,
-                    issued_at    {double_type} NOT NULL,
-                    expires_at   {double_type} NOT NULL,
-                    status       VARCHAR(20) DEFAULT 'active'
-                )
-            """)
-
-            # Emergency Activations Table (ambulans/acil servis aktivasyonları)
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS emergency_activations (
-                    activation_id VARCHAR(100) PRIMARY KEY,
-                    session_id    VARCHAR(100) NOT NULL,
-                    patient_id    VARCHAR(100) NOT NULL,
-                    responder_id  VARCHAR(200),
-                    location      VARCHAR(500),
-                    reason        VARCHAR(500),
-                    activated_at  {double_type} NOT NULL,
-                    expires_at    {double_type} NOT NULL,
-                    status        VARCHAR(20) DEFAULT 'active',
-                    audit_json    {text_type}
-                )
-            """)
-
-            # Dead-Man's Switch Configs Table (Miras Kilidi Yapılandırması)
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS deadman_configs (
-                    patient_id        VARCHAR(100) PRIMARY KEY,
-                    inactivity_days   INTEGER DEFAULT 90,
-                    last_heartbeat    {double_type} NOT NULL,
-                    status            VARCHAR(20) DEFAULT 'active',
-                    beneficiaries_json {text_type},
-                    created_at        {double_type} NOT NULL,
-                    updated_at        {double_type} NOT NULL
-                )
-            """)
-
-            # Dead-Man's Switch Audit Logs Table
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS deadman_logs (
-                    log_id       VARCHAR(100) PRIMARY KEY,
-                    patient_id   VARCHAR(100) NOT NULL,
-                    event_type   VARCHAR(50) NOT NULL,
-                    timestamp    {double_type} NOT NULL,
-                    details_json {text_type}
-                )
-            """)
-
-            # ZKP Commitments Table (Sıfır Bilgi Kanıtı — Pedersen Commitment Kayıtları)
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS zkp_commitments (
-                    id                   VARCHAR(100) PRIMARY KEY,
-                    patient_id           VARCHAR(100) NOT NULL,
-                    claim_type           VARCHAR(100) NOT NULL,
-                    claim_label          VARCHAR(200) NOT NULL,
-                    commitment_hex       {text_type} NOT NULL,
-                    proof_metadata_json  {text_type},
-                    created_at           {double_type} NOT NULL
-                )
-            """)
-
             # Rate Limits Table
-
-
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS rate_limits (
                     ip VARCHAR(100) NOT NULL,
