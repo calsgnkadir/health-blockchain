@@ -115,7 +115,7 @@ def startup_event():
         logger.info("Seeding default users (Development/Demo Mode)")
     else:
         logger.info("Production Mode — Skipping default user seeding")
-    logger.info(f"VIP Health Vault API v3.1 ready - Device: {get_device_id()[:16]}...")
+    logger.info(f"VIP Health Vault API v5.0.0 ready - Device: {get_device_id()[:16]}...")
 
 @app.get("/api/v1/health", summary="System Health Metrics")
 def health_check():

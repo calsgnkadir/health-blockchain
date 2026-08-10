@@ -250,14 +250,6 @@ class RecordCreate(BaseModel):
 
 class DecryptRequest(BaseModel):
     password: str
-    block_index: int
-
-    @field_validator("block_index")
-    @classmethod
-    def validate_block_index(cls, v):
-        if v < 0:
-            raise ValueError("block_index must be a non-negative integer.")
-        return v
 
 
 # ── DATA SCHEMAS FOR RECORD TYPES ───────────────────────────
@@ -355,7 +347,14 @@ class VaccinationSchema(BaseModel):
     @classmethod
     def check_next_dose(cls, v):
         if v is not None:
-            return validate_iso_date(v)
+            # next_dose is a future date, so we only validate format (not past-only)
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                try:
+                    datetime.fromisoformat(v.replace("Z", "+00:00"))
+                except ValueError:
+                    raise ValueError("next_dose must be in ISO 8601 format (e.g., YYYY-MM-DD)")
         return v
 
     @field_validator("dose_number")

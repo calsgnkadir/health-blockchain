@@ -432,6 +432,56 @@ window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
 window.renderRecordCard = renderRecordCard;
 
+/* -- Security Settings Page Loader -------------------------------- */
+window.loadSecuritySettings = function() {
+  const statusBox = document.getElementById('mfa-status-box');
+  if (!statusBox) return;
+
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const setupSection = document.getElementById('mfa-setup-section');
+  const disableSection = document.getElementById('mfa-disable-section');
+
+  if (currentUser.totp_enabled) {
+    statusBox.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; padding:14px; border-radius:8px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25);">
+        <span style="font-size:20px;">✅</span>
+        <div>
+          <div style="font-weight:700; color:#10b981; font-size:14px;">Two-Factor Authentication is ENABLED</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">Your account is protected with TOTP 2FA.</div>
+        </div>
+      </div>
+    `;
+    if (setupSection) setupSection.style.display = 'none';
+    if (disableSection) disableSection.style.display = 'block';
+  } else {
+    statusBox.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; padding:14px; border-radius:8px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25);">
+        <span style="font-size:20px;">⚠️</span>
+        <div>
+          <div style="font-weight:700; color:#f59e0b; font-size:14px;">Two-Factor Authentication is NOT enabled</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">Enable 2FA to secure your VIP Health Vault account.</div>
+        </div>
+      </div>
+      <button class="btn btn-gold" style="margin-top:16px;" onclick="window.setup2FA()">Setup 2FA Now</button>
+    `;
+    if (setupSection) setupSection.style.display = 'none';
+    if (disableSection) disableSection.style.display = 'none';
+  }
+
+  // Clear any previous error/success messages
+  const errEl = document.getElementById('security-error');
+  const succEl = document.getElementById('security-success');
+  if (errEl) errEl.style.display = 'none';
+  if (succEl) succEl.style.display = 'none';
+
+  // Set saved theme on selector
+  const savedTheme = localStorage.getItem('vhv_theme') || 'default';
+  const sel = document.getElementById('theme-selector');
+  if (sel) sel.value = savedTheme;
+};
+
 // DICOM Viewer Functions
 window.zoomDicom = zoomDicom;
 window.invertDicom = invertDicom;

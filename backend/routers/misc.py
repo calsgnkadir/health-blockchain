@@ -95,16 +95,14 @@ def lis_webhook(
                 patient_id=payload.patient_id,
                 title="KRİTİK LABORATUVAR SONUCU",
                 message=f"Yeni gelen tahlil sonucunuzda ({payload.test_name}) referans dışı değer ({payload.result_value} {payload.unit}, Ref: {payload.reference_range}) saptandı. Lütfen hekiminize danışın.",
-                severity="warning",
-                db_manager=db_manager
+                severity="warning"
             )
         else:
             create_notification(
                 patient_id=payload.patient_id,
                 title="YENİ LABORATUVAR SONUCU",
                 message=f"Tahlil sonucunuz ({payload.test_name}: {payload.result_value} {payload.unit}) sisteme yüklendi ve blockchain'e kaydedildi.",
-                severity="info",
-                db_manager=db_manager
+                severity="info"
             )
             
         return {

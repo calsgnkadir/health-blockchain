@@ -589,7 +589,7 @@
                 <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
 
-                <form id="consent-grant-form" onsubmit="window.submitGrantConsent(event)">
+                <form id="consent-grant-form" onsubmit="window.grantConsent(event)">
                   <div class="field-group" style="margin-bottom:12px;">
                     <label>Doctor Username</label>
                     <input type="text" id="consent-doctor-username" placeholder="e.g. dr.smith" required />
@@ -633,7 +633,7 @@
                 <div id="break-glass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="break-glass-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
-                <form id="break-glass-form" onsubmit="window.submitBreakGlass(event)">
+                <form id="break-glass-form" onsubmit="window.triggerBreakGlass(event)">
                   <div class="field-group" style="margin-bottom:14px;">
                     <label>Override Justification (Notes)</label>
                     <textarea id="break-glass-reason"

@@ -67,12 +67,12 @@ export async function loadConsents() {
 
 export async function grantConsent(event) {
   if (event) event.preventDefault();
-  const errEl = document.getElementById('consent-error');
-  const succEl = document.getElementById('consent-success');
+  const errEl = document.getElementById('consent-grant-error');
+  const succEl = document.getElementById('consent-grant-success');
   if (errEl) errEl.style.display = 'none';
   if (succEl) succEl.style.display = 'none';
 
-  const doctor = document.getElementById('consent-doctor').value.trim();
+  const doctor = document.getElementById('consent-doctor-username').value.trim();
   const recordType = document.getElementById('consent-record-type').value;
   const duration = parseInt(document.getElementById('consent-duration').value || 30);
 
@@ -102,7 +102,7 @@ export async function grantConsent(event) {
     }
 
     addNotification('Consent Granted', `Granted access to Dr. ${doctor} for ${recordType} records.`, 'success');
-    document.getElementById('consent-form').reset();
+    document.getElementById('consent-grant-form').reset();
     document.getElementById('consent-duration').value = 30;
     loadConsents();
   } catch (e) {
@@ -131,12 +131,12 @@ export async function revokeConsent(doctorUsername, recordType) {
 
 export async function triggerBreakGlass(event) {
   if (event) event.preventDefault();
-  const errEl = document.getElementById('breakglass-error');
-  const succEl = document.getElementById('breakglass-success');
+  const errEl = document.getElementById('break-glass-error');
+  const succEl = document.getElementById('break-glass-success');
   if (errEl) errEl.style.display = 'none';
   if (succEl) succEl.style.display = 'none';
 
-  const reason = document.getElementById('breakglass-reason').value.trim();
+  const reason = document.getElementById('break-glass-reason').value.trim();
   if (!reason) {
     if (errEl) {
       errEl.textContent = 'Please provide a justification reason for the break-glass override.';

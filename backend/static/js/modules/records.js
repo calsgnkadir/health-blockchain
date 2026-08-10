@@ -587,7 +587,7 @@ export function initDicomViewer(data) {
   } else {
     dicomAnnotations = [];
   }
-  renderDicomAnnotationsList();
+  updateDicomAnnotationsList();
 
   if (modality.toLowerCase().includes('mri')) {
     dicomWidth = 180;
