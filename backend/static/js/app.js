@@ -81,7 +81,7 @@ window.loadVaccines = async function() {
   try {
     const pid = patientId();
     const d = await apiFetch(`/api/records/${pid}`);
-    const vaccines = d.records.filter(r => r.record_type === 'vaccination' || (r.is_protected && r.title === 'ENCRYPTED VIP RECORD'));
+    const vaccines = d.records.filter(r => r.record_type === 'vaccination');
     if (vaccines.length === 0) {
       container.innerHTML = emptyState('No vaccination records found in the blockchain registry.');
       return;
@@ -140,7 +140,7 @@ window.loadMedications = async function() {
   try {
     const pid = patientId();
     const d = await apiFetch(`/api/records/${pid}`);
-    const prescriptions = d.records.filter(r => r.record_type === 'prescription' || (r.is_protected && r.title === 'ENCRYPTED VIP RECORD'));
+    const prescriptions = d.records.filter(r => r.record_type === 'prescription');
     if (prescriptions.length === 0) {
       container.innerHTML = emptyState('No active medications or prescriptions found.');
       return;

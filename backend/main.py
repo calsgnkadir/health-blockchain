@@ -113,6 +113,14 @@ def startup_event():
         storage.seed_default_users()
         default_sql_db.seed_default_users()
         logger.info("Seeding default users (Development/Demo Mode)")
+
+        # A first run should show the vault working, not eight empty panels.
+        try:
+            from backend.demo_seed import seed_demo_chart_if_enabled
+            if seed_demo_chart_if_enabled():
+                logger.info("Demo patient chart ready (VIP-001)")
+        except Exception as e:
+            logger.warning(f"Demo chart seeding skipped: {e}")
     else:
         logger.info("Production Mode — Skipping default user seeding")
     logger.info(f"VIP Health Vault API v5.0.0 ready - Device: {get_device_id()[:16]}...")
