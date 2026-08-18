@@ -28,6 +28,7 @@ is covered by a regression test.
 - **Device fingerprint** — the unauthenticated liveness probe returned it in full.
 
 #### XSS
+- **Inline event handlers forced a permissive CSP** — 76 `onclick`/`onchange`/`oninput`/`onsubmit` attributes meant `script-src` had to allow `'unsafe-inline'`, which is the directive that would have stopped an injected handler from running. All of them are replaced by `data-action` declarations resolved through a delegated dispatcher, and the policy is now `script-src 'self'`. Attachment bytes and record passwords, previously interpolated into `onclick` attributes, are held in a client-side stash and referenced by key.
 - **Escaping happened in the wrong layer** — input was HTML-escaped on the way in (twice), which corrupted clinical text permanently in an append-only chain ("Dr. Smith & Co" → "Dr. Smith &amp;amp; Co", a dose of "<5 mg" → "&lt;5 mg") while leaving 31 unescaped render sinks exploitable by any write path that skipped the sanitiser. Text is now stored verbatim and escaped where it is rendered; `unsafe-eval` is gone from the CSP.
 
 ### 🩺 Application

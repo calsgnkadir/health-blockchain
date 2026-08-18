@@ -30,9 +30,10 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            # 'unsafe-inline' remains only because the markup still uses inline
-            # event handlers; 'unsafe-eval' is not needed by anything we ship.
-            "script-src 'self' 'unsafe-inline'; "
+            # No inline script anywhere: every handler is declared with a
+            # data-action attribute and dispatched from actions.js, so an injected
+            # string cannot execute even if it reaches the DOM.
+            "script-src 'self'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com data:; "
             "img-src 'self' data: blob:; "
