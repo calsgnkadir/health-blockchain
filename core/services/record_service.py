@@ -28,15 +28,36 @@ class RecordService:
 
         chain = self.block_repo.load_all_blocks(project_name)
         if not chain:
-            # Create genesis block
+            # Seed the genesis block. Do NOT reset the store here: this runs inside
+            # the caller's unit of work, and dropping the environment underneath an
+            # open transaction fails the very first write to a new patient chain.
             genesis = BlockFactory.create_genesis_block()
-            self.block_repo.reset_db(project_name)
             self.block_repo.save_block(project_name, genesis)
             chain = [genesis]
         return chain
 
     def get_chain(self, patient_id: str) -> List[Block]:
         return self._get_or_create_chain(patient_id)
+
+    def _anchor_chain(self, patient_id: str) -> None:
+        """
+        Re-anchors the Merkle root of the patient chain.
+
+        The root must be computed over the chain as it is *committed*: inside an
+        open unit of work a reader still sees the pre-write snapshot, which would
+        anchor a root that is one write behind and leave the chain permanently
+        reporting "Merkle root mismatch".
+        """
+        def anchor():
+            try:
+                from core.services.notarizer import BlockchainNotarizer
+                BlockchainNotarizer(self.block_repo).notarize_patient_chain(patient_id)
+            except Exception as e:
+                print(f"[Notarizer Warning] Notarization trigger failed: {e}")
+
+        import database.storage as storage
+        if not storage.run_after_commit(anchor):
+            anchor()
 
     def add_record(
         self,
@@ -103,12 +124,7 @@ class RecordService:
         )
         self.block_repo.save_block(project_name, audit_block)
 
-        try:
-            from core.services.notarizer import BlockchainNotarizer
-            notarizer = BlockchainNotarizer(self.block_repo)
-            notarizer.notarize_patient_chain(patient_id)
-        except Exception as e:
-            print(f"[Notarizer Warning] Notarization trigger failed: {e}")
+        self._anchor_chain(patient_id)
 
         return block
 
@@ -172,12 +188,7 @@ class RecordService:
         )
         self.block_repo.save_block(project_name, audit_block)
 
-        try:
-            from core.services.notarizer import BlockchainNotarizer
-            notarizer = BlockchainNotarizer(self.block_repo)
-            notarizer.notarize_patient_chain(patient_id)
-        except Exception as e:
-            print(f"[Notarizer Warning] Notarization trigger failed: {e}")
+        self._anchor_chain(patient_id)
 
         return block
 

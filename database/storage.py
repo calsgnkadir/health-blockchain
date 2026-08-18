@@ -12,7 +12,10 @@ import lmdb
 import shutil
 from typing import Optional, List, Dict, Any
 
-from database.connection import LMDBConnectionManager, active_txn, active_project
+from database.connection import (
+    LMDBConnectionManager, active_txn, active_project,
+    after_commit_hooks, run_after_commit,
+)
 
 # ──────────────────────────────────────────────
 # CONSTANTS & SETUP

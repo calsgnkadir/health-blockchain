@@ -6,6 +6,22 @@ from typing import Dict, Any, List
 
 active_txn = contextvars.ContextVar("active_txn", default=None)
 active_project = contextvars.ContextVar("active_project", default=None)
+# Callbacks that must observe durable state; run by the unit of work after commit.
+after_commit_hooks = contextvars.ContextVar("after_commit_hooks", default=None)
+
+
+def run_after_commit(callback) -> bool:
+    """
+    Defers `callback` until the surrounding unit of work commits.
+
+    Returns False when there is no unit of work in scope, in which case the caller
+    should simply run the work itself — the writes are already durable.
+    """
+    hooks = after_commit_hooks.get()
+    if hooks is None:
+        return False
+    hooks.append(callback)
+    return True
 
 
 class LMDBConnectionManager:
