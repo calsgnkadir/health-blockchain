@@ -521,6 +521,60 @@ window.refreshLogPage = function() {
   else window.loadAccessLogs();
 };
 
+/* -- Patient-facing access transparency ("Who Accessed My Records") -- */
+window.loadMyAccessLog = async function() {
+  const banner = document.getElementById('my-access-integrity');
+  const container = document.getElementById('my-access-list');
+  if (!container) return;
+  container.innerHTML = '<div class="loading-spinner">Loading access ledger...</div>';
+  if (banner) banner.innerHTML = '';
+
+  try {
+    const pid = patientId();
+    const d = await apiFetch(`/api/blockchain/${pid}/access-logs?limit=100`);
+
+    // Integrity banner: the whole point of this view is that the trail is provable.
+    const intact = !d.integrity || d.integrity.valid;
+    if (banner) {
+      banner.innerHTML = `
+        <div class="alert ${intact ? 'alert-success' : 'alert-error'}" style="display:flex; align-items:center; gap:10px; line-height:1.5;">
+          <span style="font-size:18px;">${intact ? '🛡️' : '⚠️'}</span>
+          <div>
+            <strong>${intact ? 'Access ledger intact' : 'Access ledger TAMPERED'}</strong>
+            ${d.integrity ? ` — ${d.integrity.count} entr${d.integrity.count === 1 ? 'y' : 'ies'}, hash-linked${intact ? '' : `; broken at #${d.integrity.broken_at}`}` : ''}
+          </div>
+        </div>`;
+    }
+
+    if (!d.logs || d.logs.length === 0) {
+      container.innerHTML = emptyState('No one has accessed your records yet.');
+      return;
+    }
+
+    container.innerHTML = d.logs.map(log => {
+      const action = log.action || '';
+      const isAlert = action.includes('FAILED') || action.includes('BREAK_GLASS') || action.includes('REVOKE');
+      const isRead = action.includes('READ') || action.includes('DECRYPTED') || action.includes('VIEWED');
+      const label = isAlert ? 'ALERT' : (isRead ? 'READ' : 'EVENT');
+      return `
+      <div class="record-card ${isAlert ? 'is-encrypted' : ''}" style="cursor:default">
+        <div class="record-type-icon record-type-text">${escapeHtml(action.substring(0,3))}</div>
+        <div class="record-main">
+          <div class="record-title">${escapeHtml(action.replace(/_/g, ' '))}</div>
+          <div class="record-meta">By <strong>${escapeHtml(log.username || 'unknown')}</strong>${log.block_index !== undefined && log.block_index !== null ? ' · Record #' + escapeHtml(String(log.block_index)) : ''}</div>
+          <div class="record-meta" style="font-family:monospace;font-size:10px;color:var(--muted)">#${escapeHtml(String(log.seq ?? '?'))} · ${escapeHtml((log.hash || '').substring(0,16))}…</div>
+        </div>
+        <div class="record-right">
+          <div class="record-date">${formatTsFull(log.timestamp)}</div>
+          <div class="record-hash" style="color:${isAlert ? 'var(--danger)' : 'var(--success)'}">${label}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+  }
+};
+
 
 
 /* -- Environment check (Demo mode and credentials config) ------------ */

@@ -231,6 +231,12 @@ export const appState = {
         consentGrantCard.style.display = (this.currentUser.role === 'vip_patient') ? 'block' : 'none';
       }
 
+      // The patient can see who read their records; it is their transparency view.
+      const navMyAccess = document.getElementById('nav-my-access');
+      if (navMyAccess) {
+        navMyAccess.style.display = (this.currentUser.role === 'vip_patient') ? 'flex' : 'none';
+      }
+
       // Break-Glass is the practitioner's audited path to records without consent.
       const breakGlassPanel = document.getElementById('break-glass-panel');
       if (breakGlassPanel) {

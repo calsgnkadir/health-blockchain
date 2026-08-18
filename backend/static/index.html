@@ -170,6 +170,11 @@
               <span>Settings</span>
             </a>
 
+            <a class="nav-item" data-page="my-access" id="nav-my-access" data-action="navigate" data-arg="my-access" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>Who Accessed My Records</span>
+            </a>
+
             <a class="nav-item" data-page="dual-control" id="nav-dual-control" data-action="navigate" data-arg="dual-control" style="display:none">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
               <span>Dual-Control Access</span>
@@ -591,6 +596,16 @@
 
 
 
+
+        <!-- WHO ACCESSED MY RECORDS (patient transparency) -->
+        <section id="view-my-access" class="view">
+          <div class="view-header">
+            <h2>Who Accessed My Records</h2>
+            <p class="view-sub">Every read of your records is recorded in a tamper-evident, hash-linked ledger — deleting or altering any entry breaks the chain and is reported below.</p>
+          </div>
+          <div id="my-access-integrity" style="margin-bottom:20px;"></div>
+          <div id="my-access-list" class="records-list"></div>
+        </section>
 
         <!-- DUAL-CONTROL ACCESS VIEW (privileged operators) -->
         <section id="view-dual-control" class="view">

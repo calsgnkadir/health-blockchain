@@ -417,6 +417,7 @@ export function navigate(page) {
     audit:          'Access & Audit History',
     security:       'Security & 2FA Settings',
     'dual-control': 'Dual-Control Access',
+    'my-access':    'Who Accessed My Records',
     consent:        'Consent Management',
   };
   
@@ -431,5 +432,6 @@ export function navigate(page) {
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');
   if (page === 'security')      if (window.loadSecuritySettings) window.loadSecuritySettings();
   if (page === 'dual-control')  if (window.loadDualControl) window.loadDualControl();
+  if (page === 'my-access')     if (window.loadMyAccessLog) window.loadMyAccessLog();
   if (page === 'consent')       if (window.loadConsents) window.loadConsents();
 }
