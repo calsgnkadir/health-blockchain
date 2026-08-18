@@ -66,6 +66,7 @@ class BlockFactory:
         corrected_block_index: int,
         corrected_data: Any,
         username: str,
+        reason: str = "",
         device_id: Optional[str] = None,
     ) -> Block:
         device = device_id or get_device_id()
@@ -75,6 +76,8 @@ class BlockFactory:
             "corrected_data": corrected_data,
             "note": "Correction block — does not overwrite the previous record.",
             "corrected_by": username,
+            "reason": reason,
+            "corrected_at": time.time(),
         }
 
         return BlockFactory.create_data_block(

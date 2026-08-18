@@ -53,6 +53,7 @@ class QueryHandler:
         # Get records chain
         chain = self.record_service.get_chain(patient_id)
         final_data = self.record_service.get_final_data(patient_id)
+        corrections = self.record_service.get_corrections_index(patient_id)
         records = []
 
         for block in chain:
@@ -95,6 +96,8 @@ class QueryHandler:
                 "timestamp_iso":  datetime.fromtimestamp(block.timestamp, tz=timezone.utc).isoformat(),
                 "is_protected":   block.is_protected,
                 "is_correction":  isinstance(data, dict) and data.get("type") == "correction",
+                "is_corrected":   block.index in corrections,
+                "correction":     corrections.get(block.index),
                 "hash_preview":   block.hash[:24] + "...",
                 "prev_hash_preview": block.previous_hash[:24] + "..." if block.previous_hash else "N/A",
                 "merkle_root_preview": block.merkle_root[:24] + "..." if block.merkle_root else "N/A",

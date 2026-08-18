@@ -16,12 +16,12 @@ from backend.dependencies import (
 from core.ports.repositories import INotificationRepository
 from core.services.ipfs import IPFSClient
 from backend.schemas.requests import (
-    RecordCreate, DecryptRequest, RECORD_TYPES,
+    RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES,
     VitalSignsSchema, AllergySchema, PrescriptionSchema, VaccinationSchema,
     LabResultSchema, DiagnosisSchema, SurgerySchema, ImagingSchema
 )
 from core.security import encrypt_data, decrypt_data, get_device_id
-from core.cqrs.commands import AddRecordCommand
+from core.cqrs.commands import AddRecordCommand, AddCorrectionCommand
 from core.cqrs.queries import GetPatientRecordsQuery, DecryptRecordQuery
 import database.storage as storage
 from database.connection import LMDBConnectionManager
@@ -263,6 +263,7 @@ def get_single_record(
     patient_id: str,
     request: Request,
     block_index: int = Path(..., ge=0),
+    version: str = "current",
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service)
 ):
@@ -283,8 +284,13 @@ def get_single_record(
             "data": "ENCRYPTED — use POST /decrypt with the correct password",
         }
 
-    data = record_service.get_final_block_data(patient_id, block_index, password=None, username=u["username"])
-    return {"block_index": block_index, "is_protected": False, "data": data}
+    # version=original returns the pre-correction content; the original block is
+    # never modified, so both versions remain readable.
+    if version == "original":
+        data = record_service.get_original_block_data(patient_id, block_index)
+    else:
+        data = record_service.get_final_block_data(patient_id, block_index, password=None, username=u["username"])
+    return {"block_index": block_index, "is_protected": False, "version": version, "data": data}
 
 @router.post("/{patient_id}/{block_index}/decrypt", summary="Decrypt Encrypted Record")
 def decrypt_record(
@@ -352,6 +358,96 @@ def decrypt_record(
     ))
 
     return {"block_index": block_index, "data": data}
+
+@router.post("/{patient_id}/{block_index}/correct", summary="Correct a Record (append-only)")
+def correct_record(
+    patient_id: str,
+    request: Request,
+    block_index: int = Path(..., ge=1),
+    req: CorrectionCreate = None,
+    u: dict = Depends(current_user),
+    record_service: RecordService = Depends(get_record_service),
+    command_handler: CommandHandler = Depends(get_command_handler),
+    consent_validator: ConsentValidator = Depends(get_consent_validator),
+    db_manager: LMDBConnectionManager = Depends(get_db_manager),
+):
+    """
+    Append a correction. The original block is never modified — a medical record
+    is not overwritten, it is superseded by a correction, and both remain on the
+    chain. The same access gates as reading apply, since correcting requires
+    seeing the record first.
+    """
+    check_patient_id(patient_id)
+    _enforce_privileged_dual_control(request, u, patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        raise HTTPException(403, "Access denied")
+    if u["role"] not in ("doctor", "admin", "vip_patient"):
+        raise HTTPException(403, "You do not have permission to correct records")
+    if not req or not isinstance(req.corrected_data, dict) or not req.corrected_data:
+        raise HTTPException(400, "corrected_data (the superseding record) is required")
+
+    original = record_service.get_block_data(patient_id, block_index, username=u["username"])
+    if original is None:
+        raise HTTPException(404, "Record not found")
+    if isinstance(original, str):
+        # Password-protected records need their password to read and re-seal;
+        # correcting them is out of scope for this flow.
+        raise HTTPException(400, "Password-protected records cannot be corrected here")
+    if not isinstance(original, dict) or original.get("type") in ("audit", "correction"):
+        raise HTTPException(400, "Only clinical records can be corrected")
+
+    rec_type = original.get("record_type", "other")
+
+    # A doctor must hold consent (or an active break-glass) to touch the record.
+    if u["role"] == "doctor":
+        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        ignore_consent = False
+        for log in storage.load_access_logs(proj_name, limit=5, db_manager=db_manager):
+            if (log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]
+                    and time.time() - log.get("timestamp", 0) < 900):
+                ignore_consent = True
+                break
+        if not ignore_consent:
+            has_access = (consent_validator.has_consent(patient_id, u["username"], "all")
+                          or consent_validator.has_consent(patient_id, u["username"], rec_type))
+            if not has_access:
+                raise HTTPException(403, "Patient consent is required to correct this record")
+
+    # Build the superseding record from the submitted content, keeping identity
+    # and provenance fields consistent with the original.
+    corrected = dict(req.corrected_data)
+    corrected["record_type"] = corrected.get("record_type", rec_type)
+    corrected["record_type_label"] = RECORD_TYPES.get(corrected["record_type"], corrected.get("record_type_label", ""))
+    corrected["patient_id"] = patient_id
+    corrected["created_by"] = u["username"]
+    corrected["created_at"] = datetime.now(timezone.utc).isoformat()
+
+    cmd = AddCorrectionCommand(
+        patient_id=patient_id,
+        block_index=block_index,
+        corrected_data=corrected,
+        username=u["username"],
+        reason=req.reason,
+    )
+    correction_block = command_handler.handle_add_correction(cmd)
+
+    storage.append_access_log(
+        project_name=f"patient_{patient_id.replace('-', '_').replace(' ', '_')}",
+        username=u["username"],
+        action="RECORD_CORRECTED",
+        device_id=get_device_id(),
+        extra={"block_index": block_index, "correction_index": correction_block.index,
+               "reason": req.reason, "client_ip": _get_client_ip(request)},
+        db_manager=db_manager,
+    )
+
+    return {
+        "success": True,
+        "corrected_block_index": block_index,
+        "correction_block_index": correction_block.index,
+        "message": "Correction appended. The original record remains on the chain.",
+    }
+
 
 @router.get("/offchain/download/{patient_id}/{block_index}", summary="Download Off-chain File")
 def download_offchain_file(

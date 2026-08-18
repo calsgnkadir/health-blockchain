@@ -30,12 +30,14 @@ class AddCorrectionCommand:
         corrected_data: Any,
         encryption_password: Optional[str] = None,
         username: str = "system",
+        reason: str = "",
     ):
         self.patient_id = patient_id
         self.block_index = block_index
         self.corrected_data = corrected_data
         self.encryption_password = encryption_password
         self.username = username
+        self.reason = reason
 
 class CreateUserCommand:
     def __init__(
@@ -120,6 +122,7 @@ class CommandHandler:
                 corrected_data=cmd.corrected_data,
                 encryption_password=cmd.encryption_password,
                 username=cmd.username,
+                reason=cmd.reason,
             )
 
     def handle_create_user(self, cmd: CreateUserCommand) -> User:

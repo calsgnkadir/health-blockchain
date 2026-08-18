@@ -184,6 +184,7 @@ class RecordService:
         corrected_data: Any,
         encryption_password: Optional[str] = None,
         username: str = "system",
+        reason: str = "",
     ) -> Block:
         project_name = self._get_project_name(patient_id)
         chain = self._get_or_create_chain(patient_id)
@@ -216,6 +217,7 @@ class RecordService:
             corrected_block_index=block_index,
             corrected_data=data_content,
             username=username,
+            reason=reason,
         )
 
         self.block_repo.save_block(project_name, block)
@@ -443,6 +445,38 @@ class RecordService:
                     )
 
         return result
+
+    def get_corrections_index(self, patient_id: str) -> Dict[int, dict]:
+        """
+        Map each corrected record's index to its latest correction's provenance.
+
+        The correction wrapper (type/correction_of/reason/corrected_by) is stored
+        in the clear — only the corrected clinical payload is encrypted — so this
+        needs no decryption. The record itself is never overwritten; this simply
+        tells the read layer that a later block supersedes it and by whom/why.
+        """
+        chain = self._get_or_create_chain(patient_id)
+        corrections: Dict[int, dict] = {}
+        for block in chain:
+            if isinstance(block.data, dict) and block.data.get("type") == "correction":
+                target = block.data.get("correction_of")
+                if target is None:
+                    continue
+                # Keep the most recent correction (highest correction block index).
+                existing = corrections.get(target)
+                if existing and existing["correction_index"] >= block.index:
+                    continue
+                corrections[target] = {
+                    "correction_index": block.index,
+                    "corrected_by": block.data.get("corrected_by", ""),
+                    "corrected_at": block.data.get("corrected_at"),
+                    "reason": block.data.get("reason", ""),
+                }
+        return corrections
+
+    def get_original_block_data(self, patient_id: str, block_index: int) -> Any:
+        """Return a record's pre-correction content — the original never changes."""
+        return self.get_block_data(patient_id, block_index)
 
     def is_chain_valid(self, patient_id: str) -> bool:
         return self.find_broken_link_index(patient_id) == -1

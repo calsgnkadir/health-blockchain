@@ -259,6 +259,20 @@ class DecryptRequest(BaseModel):
     password: str
 
 
+class CorrectionCreate(BaseModel):
+    # Full record-shaped payload (title, record_type, data, notes, …) that
+    # supersedes the original. The original block is never modified.
+    corrected_data: dict
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_required(cls, v):
+        if not v or not v.strip():
+            raise ValueError("A correction reason is required")
+        return v.strip()
+
+
 # ── DATA SCHEMAS FOR RECORD TYPES ───────────────────────────
 class VitalSignsSchema(BaseModel):
     blood_pressure: str
