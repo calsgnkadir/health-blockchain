@@ -330,6 +330,10 @@ export async function openRecord(idx) {
     <hr style="border-color:var(--border);margin:16px 0">
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="window.verifyMerkleProof(${r.block_index})">Verify Merkle Inclusion Proof</button>
+      <div id="merkle-proof-result" style="margin-top:12px"></div>
+    </div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
 
@@ -412,6 +416,28 @@ export async function decryptRecord(idx) {
   } catch (ex) {
     errEl.textContent = ex.message;
     errEl.style.display = 'block';
+  }
+}
+
+export async function verifyMerkleProof(blockIndex) {
+  const box = document.getElementById('merkle-proof-result');
+  if (!box) return;
+  box.innerHTML = '<div class="loading-spinner">Recomputing Merkle path…</div>';
+
+  try {
+    const res = await apiFetch(`/api/records/proof/${patientId()}/${blockIndex}`);
+    const steps = (res.proof || []).length;
+    box.innerHTML = `
+      <div class="alert ${res.is_valid ? 'alert-success' : 'alert-error'}" style="line-height:1.6">
+        <strong>${res.is_valid ? 'Proof valid — this block is part of the anchored chain' : 'Proof INVALID — block does not reconstruct the anchored root'}</strong>
+        <div style="font-size:11px; font-family:var(--font-mono); margin-top:8px; word-break:break-all;">
+          Block hash: ${escapeHtml(res.block_hash || '—')}<br>
+          Merkle root: ${escapeHtml(res.merkle_root || '—')}<br>
+          Path length: ${steps} sibling hash${steps === 1 ? '' : 'es'}
+        </div>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 }
 

@@ -1,7 +1,7 @@
 import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
-import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
+import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
 import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
@@ -559,6 +559,7 @@ window.registerPasskey = registerPasskey;
 window.filterRecords = filterRecords;
 window.openRecord = openRecord;
 window.decryptRecord = decryptRecord;
+window.verifyMerkleProof = verifyMerkleProof;
 window.closeModal = closeModal;
 window.renderDynamicFields = renderDynamicFields;
 window.loadChainStatus = loadChainStatus;

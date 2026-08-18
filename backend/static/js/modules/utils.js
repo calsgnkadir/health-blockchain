@@ -186,6 +186,12 @@ export const appState = {
       if (consentGrantCard) {
         consentGrantCard.style.display = (this.currentUser.role === 'vip_patient') ? 'block' : 'none';
       }
+
+      // Break-Glass is the practitioner's audited path to records without consent.
+      const breakGlassPanel = document.getElementById('break-glass-panel');
+      if (breakGlassPanel) {
+        breakGlassPanel.style.display = (this.currentUser.role === 'doctor') ? 'block' : 'none';
+      }
     }
 
     // 2. Render Chain Pill
