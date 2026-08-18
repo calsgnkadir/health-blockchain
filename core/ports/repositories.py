@@ -162,6 +162,11 @@ class IAuditRepository(ABC):
         """Loads patient-specific access logs."""
         pass
 
+    @abstractmethod
+    def verify_access_log_integrity(self, project_name: str) -> dict:
+        """Verifies the tamper-evident access ledger; returns valid/count/broken_at."""
+        pass
+
 
 
 

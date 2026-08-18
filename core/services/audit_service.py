@@ -38,3 +38,8 @@ class AuditService:
         if not logs:
             return self.get_audit_logs(patient_id, limit, source="blockchain")
         return logs
+
+    def verify_access_integrity(self, patient_id: str) -> dict:
+        """Confirm the patient's access ledger has not been tampered with."""
+        project_name = self.record_service._get_project_name(patient_id)
+        return self.audit_repo.verify_access_log_integrity(project_name)

@@ -218,7 +218,8 @@ from database.audit_storage import (
     append_access_log as _append_access_log,
     load_access_logs as _load_access_logs,
     append_audit_log as _append_audit_log,
-    load_audit_logs as _load_audit_logs
+    load_audit_logs as _load_audit_logs,
+    verify_access_log_integrity as _verify_access_log_integrity,
 )
 
 from database.sql_db import (
@@ -250,6 +251,9 @@ def append_access_log(project_name: str, username: str, action: str, device_id: 
 
 def load_access_logs(project_name: str, limit: int = 100, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
     return _load_access_logs(project_name, limit, db_manager or default_db_manager)
+
+def verify_access_log_integrity(project_name: str, db_manager: Optional[LMDBConnectionManager] = None) -> dict:
+    return _verify_access_log_integrity(project_name, db_manager or default_db_manager)
 
 def append_audit_log(project_name: str, action: str, username: str, block_index: Optional[int] = None, device_id: Optional[str] = None, extra: Optional[dict] = None, db_manager: Optional[LMDBConnectionManager] = None) -> None:
     _append_audit_log(project_name, action, username, block_index, device_id, extra, db_manager or default_db_manager)

@@ -227,13 +227,28 @@ def get_records(
     records.sort(key=lambda x: x["timestamp"], reverse=True)
 
     from core.events.event_bus import SystemAuditEvent, event_bus
+    proj_name = record_service._get_project_name(patient_id)
     event_bus.publish(SystemAuditEvent(
-        project_name=record_service._get_project_name(patient_id),
+        project_name=proj_name,
         action="RECORDS_VIEWED",
         username=u["username"],
         device_id=get_device_id(),
         extra={"record_count": len(records)}
     ))
+
+    # A patient viewing their own chart is not "access" worth surfacing to them;
+    # a clinician or operator reading it is exactly what the transparency ledger
+    # exists to record, so that lands in the tamper-evident access log.
+    if not (u["role"] == "vip_patient" and u.get("patient_id") == patient_id):
+        storage.append_access_log(
+            project_name=proj_name,
+            username=u["username"],
+            action="RECORDS_VIEWED",
+            device_id=get_device_id(),
+            extra={"role": u["role"], "record_count": len(records),
+                   "client_ip": _get_client_ip(request)},
+            db_manager=db_manager,
+        )
 
     chain = record_service.get_chain(patient_id)
     return {

@@ -240,7 +240,8 @@ def get_access_logs(
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
     logs = audit_service.get_access_logs(patient_id, limit, source)
-    return {"patient_id": patient_id, "logs": logs, "source": source}
+    integrity = audit_service.verify_access_integrity(patient_id)
+    return {"patient_id": patient_id, "logs": logs, "source": source, "integrity": integrity}
 
 
 # ── SYSTEM / CONFIG ───────────────────────────────────────────
