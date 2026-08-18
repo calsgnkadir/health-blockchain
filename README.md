@@ -4,6 +4,21 @@
 
 ---
 
+## 📸 Interface
+
+Captured from a running instance seeded by demo mode — the chart, the trends and the
+hashes below are what the application actually produces.
+
+| Stealth login | VIP patient dashboard |
+| :---: | :---: |
+| ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
+
+| Dual-Control access request | Merkle inclusion proof |
+| :---: | :---: |
+| ![Dual-Control](docs/screenshots/03_dual_control.png) | ![Merkle proof](docs/screenshots/04_merkle_proof.png) |
+
+---
+
 > 💡 **Public Ingress Architecture Note**: By security design, **VIP Health Vault** enforces strict private subnet CIDR isolation (`IPAllowlistMiddleware`) and per-device hardware passkeys. As a consequence, the application cannot and should not be hosted on public SaaS URLs (`0.0.0.0/0`) — it is intended to be run locally or inside a private VPC. See [Quick Start](#-quick-start) to bring the vault up on your own machine.
 
 ---
