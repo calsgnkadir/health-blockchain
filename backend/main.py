@@ -134,13 +134,13 @@ def health_check():
     it must not disclose the device fingerprint or anything else identifying.
     """
     from database.sql_db import default_sql_db
-    
+
     health_status = {
         "status": "healthy",
         "database": "unknown",
         "blockchain_simulation": os.getenv("VHV_DEMO_MODE", "false").lower() == "true",
     }
-    
+
     try:
         conn = default_sql_db.get_connection()
         cursor = conn.cursor()
@@ -151,7 +151,7 @@ def health_check():
     except Exception as e:
         health_status["status"] = "unhealthy"
         health_status["database"] = f"error: {str(e)}"
-        
+
     return health_status
 
 # Serve static frontend SPA files
@@ -190,5 +190,9 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8090))
     reload_mode = os.environ.get("ENVIRONMENT", "development") == "development"
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_mode)
+    # Loopback by default. This vault is meant to sit inside a private subnet
+    # (see IPAllowlistMiddleware and PRIVATE_VPC_DEPLOYMENT.md); binding every
+    # interface has to be a deliberate act, not the default it used to be.
+    host = os.environ.get("VHV_BIND_HOST", "127.0.0.1")
+    uvicorn.run("main:app", host=host, port=port, reload=reload_mode)
 

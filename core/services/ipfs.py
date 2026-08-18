@@ -3,30 +3,48 @@ import json
 import hashlib
 import urllib.request
 import urllib.error
+import urllib.parse
 import secrets
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_IPFS_STORAGE = os.path.join(_PROJECT_ROOT, "backend", "ipfs_storage")
 
+def _require_http_url(url: str) -> str:
+    """
+    Confines the IPFS endpoint to HTTP(S).
+
+    The address comes from the environment and is handed to urllib, which also
+    speaks file:// and ftp://. A misconfigured or attacker-supplied value could
+    otherwise turn every "upload" into a local file read.
+    """
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in ("http", "https"):
+        raise ValueError(f"IPFS API URL must be http(s), got {scheme or 'no'} scheme: {url!r}")
+    return url
+
+
 class IPFSClient:
     def __init__(self):
-        self.api_url = os.getenv("VHV_IPFS_API_URL", "http://localhost:5001/api/v0").rstrip("/")
+        self.api_url = _require_http_url(
+            os.getenv("VHV_IPFS_API_URL", "http://localhost:5001/api/v0").rstrip("/")
+        )
         self.is_simulation = True
-        
+
         # Test connection to IPFS API
         try:
             req = urllib.request.Request(
                 f"{self.api_url}/version",
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=1.5) as response:
+            # Scheme restricted to http(s) by _require_http_url in __init__.
+            with urllib.request.urlopen(req, timeout=1.5) as response:  # nosec B310
                 if response.status == 200:
                     self.is_simulation = False
                     print(f"[IPFS Client] Connected successfully to IPFS daemon at: {self.api_url}")
         except Exception:
             # Silent fallback to simulation mode
             pass
-            
+
         if self.is_simulation:
             print("[IPFS Client] Daemon offline or unconfigured. Running in IPFS Simulation Mode.")
             try:
@@ -50,21 +68,21 @@ class IPFSClient:
             # Generate simulated Qm... CID based on sha256 hash of the content
             h = hashlib.sha256(encrypted_data_b64.encode("utf-8")).hexdigest()
             cid = "Qm" + h[:44]
-            
+
             # Save file locally in simulated IPFS store with strict owner-only permissions (0o600)
             file_path = os.path.join(DEFAULT_IPFS_STORAGE, cid)
             fd = os.open(file_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(encrypted_data_b64)
-                
+
             print(f"[IPFS Simulation] File uploaded. CID: {cid}")
             return cid
-            
+
         # Real IPFS upload using multipart form-data over raw urllib
         try:
             boundary = f"----IPFSBoundary{secrets.token_hex(8)}"
             boundary_bytes = boundary.encode("utf-8")
-            
+
             # Construct body bytes
             parts = []
             parts.append(b"--" + boundary_bytes)
@@ -74,9 +92,9 @@ class IPFSClient:
             parts.append(encrypted_data_b64.encode("utf-8"))
             parts.append(b"--" + boundary_bytes + b"--")
             parts.append(b"")
-            
+
             body = b"\r\n".join(parts)
-            
+
             req = urllib.request.Request(
                 f"{self.api_url}/add",
                 data=body,
@@ -86,8 +104,9 @@ class IPFSClient:
                 },
                 method="POST"
             )
-            
-            with urllib.request.urlopen(req, timeout=5.0) as response:
+
+            # Scheme restricted to http(s) by _require_http_url in __init__.
+            with urllib.request.urlopen(req, timeout=5.0) as response:  # nosec B310
                 resp_data = response.read().decode("utf-8")
                 result = json.loads(resp_data)
                 cid = result.get("Hash")
@@ -127,17 +146,18 @@ class IPFSClient:
         if os.path.exists(local_path):
             with open(local_path, "r", encoding="utf-8") as f:
                 return f.read()
-                
+
         if self.is_simulation:
             raise FileNotFoundError(f"Simulated IPFS file with CID {cid} not found locally.")
-            
+
         # Real IPFS download
         try:
             req = urllib.request.Request(
                 f"{self.api_url}/cat?arg={cid}",
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=5.0) as response:
+            # Scheme restricted to http(s) by _require_http_url in __init__.
+            with urllib.request.urlopen(req, timeout=5.0) as response:  # nosec B310
                 return response.read().decode("utf-8")
         except Exception as e:
             print(f"[IPFS Error] Failed to retrieve from real IPFS: {e}. Checking local cache.")
