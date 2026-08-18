@@ -12,7 +12,7 @@ import secrets
 from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from backend.dependencies import (
     current_user, require_role, get_record_service, get_audit_service,
     get_query_handler, get_command_handler, get_db_manager, get_blockchain_notarizer,
@@ -50,12 +50,47 @@ def is_abnormal(value_str: str, range_str: str) -> bool:
 
 
 # ── LIS WEBHOOK GATEWAY ────────────────────────────────────────
+def _verify_lis_gateway(request: Request) -> None:
+    """
+    Authenticates the laboratory gateway.
+
+    This endpoint appends blocks to a patient's chain, so it cannot be open: an
+    unauthenticated caller could forge clinical results in a record set the whole
+    system presents as tamper-evident. It fails closed - with no key configured
+    the gateway is disabled rather than public.
+    """
+    from core.services.alert_service import alert_service
+    from backend.dependencies import _get_client_ip
+
+    expected = os.getenv("VHV_LIS_API_KEY", "").strip()
+    presented = (request.headers.get("X-LIS-Api-Key") or "").strip()
+
+    if not expected:
+        raise HTTPException(
+            503,
+            "LIS gateway is disabled: set VHV_LIS_API_KEY to enable laboratory result ingestion."
+        )
+
+    if not presented or not secrets.compare_digest(presented, expected):
+        alert_service.raise_alert(
+            alert_type="LIS_GATEWAY_AUTH_FAILED",
+            severity="HIGH",
+            title="Rejected LIS Gateway Submission",
+            description="A laboratory result submission was rejected: missing or invalid gateway credentials.",
+            client_ip=_get_client_ip(request),
+        )
+        raise HTTPException(401, "Invalid LIS gateway credentials.")
+
+
 @router.post("/webhooks/lis", summary="LIS Hospital Webhook Gateway")
 def lis_webhook(
     payload: LisWebhookPayload,
+    request: Request,
     command_handler: CommandHandler = Depends(get_command_handler),
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
+    _verify_lis_gateway(request)
+    check_patient_id(payload.patient_id)
     block_data = {
         "record_type":       "lab_result",
         "record_type_label": RECORD_TYPES["lab_result"],
@@ -81,9 +116,11 @@ def lis_webhook(
     }
     
     try:
+        from backend.middleware.xss_protection import sanitize_xss_data
+
         cmd = AddRecordCommand(
             patient_id=payload.patient_id,
-            data=block_data,
+            data=sanitize_xss_data(block_data),
             is_protected=False,
             protection_password=None,
             username="LIS_GATEWAY"

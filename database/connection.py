@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import lmdb
 import contextvars
@@ -42,7 +43,24 @@ class LMDBConnectionManager:
 
     def get_project_path(self, project_name: str) -> str:
         self.ensure_projects_dir()
-        return os.path.join(self.base_dir, project_name)
+        safe_name = self._safe_project_name(project_name)
+        return os.path.join(self.base_dir, safe_name)
+
+    @staticmethod
+    def _safe_project_name(project_name: str) -> str:
+        """
+        Confine a chain store to the projects directory.
+
+        Project names are derived from caller-supplied patient identifiers, so a
+        name carrying path separators or parent references would place an LMDB
+        store anywhere on disk. Callers validate their identifiers, but the store
+        must not depend on every one of them getting it right.
+        """
+        if not isinstance(project_name, str) or not project_name.strip():
+            raise ValueError("Project name must be a non-empty string")
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", project_name) or project_name.strip(".") == "":
+            raise ValueError(f"Unsafe project name rejected: {project_name!r}")
+        return project_name
 
     def get_db_path(self, project_name: str) -> str:
         project_path = self.get_project_path(project_name)
