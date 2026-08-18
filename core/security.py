@@ -182,6 +182,23 @@ def decrypt_data(encrypted_data: str, password: str, salt: bytes) -> str:
     return get_kms().decrypt(encrypted_data, password, salt)
 
 
+def derive_rest_secret(context: str) -> str:
+    """
+    Server-held secret for at-rest record encryption.
+
+    Bound to the KMS signing key and a context (the patient id), so every
+    patient chain is encrypted under a distinct key. The signing key lives
+    outside the chain store — an environment variable or the OS keyring in
+    production — so a stolen backup of the ``projects/`` directory alone cannot
+    be decrypted. The server holds the key and decrypts for authorized sessions;
+    this protects data at rest, not against a fully compromised running server.
+    """
+    key = get_kms().get_signing_key()
+    if isinstance(key, str):
+        key = key.encode("utf-8")
+    return hmac.new(key, f"rest-v1:{context}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 # ══════════════════════════════════════════════
 # 7. HMAC-SHA256 SIGNATURE  (delegates to KMS)
 # ══════════════════════════════════════════════

@@ -93,11 +93,25 @@ class TestLisGatewayInput(unittest.TestCase):
         res = self._post(payload(test_name="Troponin I (high-sensitivity) <5 ng/L"))
         self.assertEqual(res.status_code, 200, res.text)
 
+        # Records are encrypted at rest, so read the decrypted view the service
+        # returns — the property under test is "not HTML-escaped", not "on disk".
+        from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
+        from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
+        from core.services.record_service import RecordService
+
+        service = RecordService(LMDBBlockRepository(), AESGCMStrategy())
+        revealed = " ".join(str(v) for v in service.get_final_data("VIP-001").values())
+        self.assertIn("<5 ng/L", revealed)
+        self.assertNotIn("&lt;5 ng/L", revealed)
+
+    def test_records_are_ciphertext_on_disk(self):
+        """The raw chain store must not hold plaintext clinical text."""
+        self._post(payload(test_name="SECRET-MARKER-XYZ"))
+
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
         blocks = LMDBBlockRepository().load_all_blocks("patient_VIP_001")
-        stored = " ".join(str(b.data) for b in blocks)
-        self.assertIn("<5 ng/L", stored)
-        self.assertNotIn("&lt;5 ng/L", stored)
+        on_disk = " ".join(str(b.data) for b in blocks)
+        self.assertNotIn("SECRET-MARKER-XYZ", on_disk)
 
 
 class TestChainStorePathSafety(unittest.TestCase):

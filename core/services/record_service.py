@@ -9,8 +9,14 @@ from core.security import (
     hash_block_password,
     verify_message,
     get_device_id,
+    derive_rest_secret,
 )
 from core.events.event_bus import event_bus, RecordAddedEvent, RecordReadEvent
+
+# Marks a value that is AES-256 encrypted at rest under the server's KMS key.
+# The marker keeps the reveal path unambiguous and never collides with legacy
+# plaintext (a dict) or password-protected ciphertext (stored with is_protected).
+_REST_PREFIX = "vhv-rest:"
 
 class RecordService:
     def __init__(self, block_repo: IBlockRepository, crypto_strategy: IEncryptionStrategy):
@@ -19,6 +25,45 @@ class RecordService:
 
     def _get_project_name(self, patient_id: str) -> str:
         return f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+
+    # ── At-rest encryption (server-held KMS key) ────────────────────────
+    def _encrypt_at_rest(self, patient_id: str, index: int, payload: Any) -> str:
+        """Encrypt a clinical payload for storage; returns a prefixed ciphertext."""
+        project_name = self._get_project_name(patient_id)
+        payload_str = (
+            json.dumps(payload, sort_keys=True, ensure_ascii=False)
+            if isinstance(payload, dict)
+            else str(payload)
+        )
+        secret = derive_rest_secret(patient_id)
+        patient_salt = self.block_repo.get_patient_salt(project_name)
+        ciphertext, salt = self.crypto_strategy.encrypt_data(payload_str, secret, patient_salt)
+        self.block_repo.save_block_salt(project_name, index, salt)
+        return _REST_PREFIX + ciphertext
+
+    def _reveal(self, patient_id: str, index: int, value: Any) -> Any:
+        """
+        Return the plaintext for a stored value.
+
+        At-rest ciphertext (prefixed) is decrypted with the server key. Anything
+        else — legacy plaintext dicts, or password-protected ciphertext handled by
+        the password path — passes through untouched.
+        """
+        if not (isinstance(value, str) and value.startswith(_REST_PREFIX)):
+            return value
+        project_name = self._get_project_name(patient_id)
+        salt = self.block_repo.load_block_salt(project_name, index)
+        if not salt:
+            return value
+        secret = derive_rest_secret(patient_id)
+        try:
+            decrypted = self.crypto_strategy.decrypt_data(value[len(_REST_PREFIX):], secret, salt)
+        except Exception:
+            return value
+        try:
+            return json.loads(decrypted)
+        except Exception:
+            return decrypted
 
     def _get_or_create_chain(self, patient_id: str) -> List[Block]:
         project_name = self._get_project_name(patient_id)
@@ -76,6 +121,7 @@ class RecordService:
         protection_hash = None
 
         if is_protected and protection_password:
+            # Password-protected: encrypted under a key the server never holds.
             protection_hash = hash_block_password(protection_password)
             payload_str = (
                 json.dumps(data, sort_keys=True, ensure_ascii=False)
@@ -88,6 +134,10 @@ class RecordService:
             )
             data_to_store = encrypted_str
             self.block_repo.save_block_salt(project_name, index, salt)
+        else:
+            # Default: encrypted at rest under the server's KMS key, so the chain
+            # store never holds plaintext clinical data.
+            data_to_store = self._encrypt_at_rest(patient_id, index, data)
 
         block = BlockFactory.create_data_block(
             index=index,
@@ -155,6 +205,10 @@ class RecordService:
             )
             data_content = encrypted_str
             self.block_repo.save_block_salt(project_name, index, salt)
+        else:
+            # The correction wrapper stays a readable dict so the chain can resolve
+            # it; only the corrected clinical payload is encrypted at rest.
+            data_content = self._encrypt_at_rest(patient_id, index, corrected_data)
 
         block = BlockFactory.create_correction_block(
             index=index,
@@ -260,7 +314,7 @@ class RecordService:
             ))
             return result
 
-        # Unprotected
+        # Unprotected (may be encrypted at rest under the server key)
         event_bus.publish(RecordReadEvent(
             project_name=project_name,
             username=username,
@@ -268,7 +322,7 @@ class RecordService:
             device_id=get_device_id(),
             action="BLOCK_READ_SUCCESS"
         ))
-        return block.data
+        return self._reveal(patient_id, block_index, block.data)
 
     def get_final_block_data(
         self,
@@ -358,7 +412,7 @@ class RecordService:
             ))
             return result
 
-        # Unprotected block correction
+        # Unprotected block correction (corrected payload may be encrypted at rest)
         event_bus.publish(RecordReadEvent(
             project_name=project_name,
             username=username,
@@ -367,7 +421,7 @@ class RecordService:
             action="BLOCK_READ_SUCCESS",
             extra={"correction_index": correction_block.index}
         ))
-        return corrected_data
+        return self._reveal(patient_id, correction_block.index, corrected_data)
 
     def get_final_data(self, patient_id: str) -> Dict[int, Any]:
         chain = self._get_or_create_chain(patient_id)
@@ -376,13 +430,17 @@ class RecordService:
         for block in chain:
             if isinstance(block.data, dict) and block.data.get("type") == "correction":
                 continue
-            result[block.index] = block.data
+            # Decrypt at-rest records; password-protected ciphertext and legacy
+            # plaintext pass through and are handled by the query layer.
+            result[block.index] = self._reveal(patient_id, block.index, block.data)
 
         for block in chain:
             if isinstance(block.data, dict) and block.data.get("type") == "correction":
                 target = block.data.get("correction_of")
                 if target is not None and target in result:
-                    result[target] = block.data["corrected_data"]
+                    result[target] = self._reveal(
+                        patient_id, block.index, block.data["corrected_data"]
+                    )
 
         return result
 
