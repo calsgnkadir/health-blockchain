@@ -41,11 +41,32 @@ cd health-blockchain
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Launch application server
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+# 3. Launch application server in demo mode
+ENVIRONMENT=development VHV_DEMO_MODE=true   python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
 Access the Stealth Vault Web Console at: `http://127.0.0.1:8000`
+
+### Demo Mode
+
+`VHV_DEMO_MODE=true` seeds four demo accounts and one worked example chart for
+patient `VIP-001` — four weeks of a cardiology follow-up with vital sign trends, a
+severe allergy, a prescription, a vaccination and one AES-256 encrypted record — so
+a first run opens on a working vault rather than eight empty panels. Nothing is
+seeded in any other configuration, and an existing chart is never overwritten.
+
+| Account | Password | Shows |
+| :--- | :--- | :--- |
+| `vip001` | `VIPPatient@2026!` | the patient's own chart, consent grants, passkey enrolment |
+| `dr.smith` | `Doctor@2026Secure!` | consented clinical access and the Break-Glass override |
+| `admin` | `Admin@2026Secure!` | records locked by Dual-Control until a second principal co-signs |
+| `sec.officer` | `SecOfficer@2026!` | the co-signing side of Dual-Control |
+
+The encrypted demo record opens with `DemoRecord@2026!`.
+
+Optional environment variables: `VHV_LIS_API_KEY` enables the laboratory result
+gateway (disabled without it), and `VHV_WEBAUTHN_RP_ID` / `VHV_WEBAUTHN_ORIGINS`
+pin passkey verification to a specific host — see `.env.example`.
 
 ---
 
