@@ -392,7 +392,7 @@ export async function loadDashboard() {
         <div class="alert alert-error" style="line-height:1.5">
           <strong>${isPolicyBlock ? 'Patient records are locked by policy' : 'Could not load dashboard data'}</strong><br>
           ${e.message || 'Unknown error'}
-          ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' onclick=\"navigate('dual-control')\">Open Dual-Control Access</button>" : ''}
+          ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' data-action=\"navigate\" data-arg=\"dual-control\">Open Dual-Control Access</button>" : ''}
         </div>`;
     }
   }

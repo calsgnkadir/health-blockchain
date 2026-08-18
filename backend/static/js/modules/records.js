@@ -1,5 +1,6 @@
 /* records.js — VIP Health Vault UI Records Module */
 import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml } from './utils.js';
+import { stashPayload } from './actions.js';
 import { addNotification } from './notifications.js';
 
 export let allRecords = [];
@@ -106,7 +107,7 @@ export function renderRecordCard(r) {
   const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>`;
   return `
   <div class="record-card ${r.is_protected?'is-encrypted':''} ${r.is_correction?'is-correction':''}"
-       onclick="window.openRecord(${r.block_index})">
+       data-action="open-record" data-arg="${r.block_index}">
     <div class="record-type-icon record-type-text">${escapeHtml(typeAbbr)}</div>
     <div class="record-main">
       <div class="record-title">${escapeHtml(r.title)}</div>
@@ -136,7 +137,7 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
           <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${fileName} [Off-chain Blockchain Locked]</div>
           <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${fileType || 'Unknown'}</div>
         </div>
-        <button class="btn btn-gold btn-sm" onclick="window.downloadOffchainFile('${patientIdVal}', ${blockIndexVal}, '${passwordVal || ''}', '${fileName}')">Download Secure File</button>
+        <button class="btn btn-gold btn-sm" data-action="download-offchain" data-arg="${stashPayload({ patientId: patientIdVal, blockIndex: blockIndexVal, password: passwordVal || '', fileName })}">Download Secure File</button>
       </div>
     `;
   } else if (fileType && fileType.startsWith('image/')) {
@@ -144,7 +145,7 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
       <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: rgba(255,255,255,0.02);">
         <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">IMAGE ATTACHMENT: ${fileName}</div>
         <img src="data:${fileType};base64,${fileData}" style="max-width:100%; max-height:240px; border-radius:4px; display:block; margin:0 auto;" />
-        <button class="btn btn-gold btn-sm" style="margin-top:10px; width:100%" onclick="window.downloadBase64File('${fileName}', '${fileType}', '${fileData}')">Download Image</button>
+        <button class="btn btn-gold btn-sm" style="margin-top:10px; width:100%" data-action="download-attachment" data-arg="${stashPayload({ fileName, fileType, fileData })}">Download Image</button>
       </div>
     `;
   } else {
@@ -154,7 +155,7 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
           <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${fileName}</div>
           <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${fileType || 'Unknown'}</div>
         </div>
-        <button class="btn btn-gold btn-sm" onclick="window.downloadBase64File('${fileName}', '${fileType}', '${fileData}')">Download File</button>
+        <button class="btn btn-gold btn-sm" data-action="download-attachment" data-arg="${stashPayload({ fileName, fileType, fileData })}">Download File</button>
       </div>
     `;
   }
@@ -294,7 +295,7 @@ export async function openRecord(idx) {
           <input type="password" id="modal-decrypt-password" placeholder="••••••••" style="width:100%;margin-bottom:12px;padding:8px 12px;border-radius:4px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:white;" />
         </div>
       </div>
-      <button class="btn btn-gold btn-full" onclick="window.decryptRecord(${idx})">Decrypt &amp; View</button>
+      <button class="btn btn-gold btn-full" data-action="decrypt-record" data-arg="${idx}">Decrypt &amp; View</button>
       <hr style="border-color:var(--border);margin:16px 0">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
       <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
@@ -331,7 +332,7 @@ export async function openRecord(idx) {
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
     <div style="margin-top:16px">
-      <button class="btn btn-ghost btn-sm" onclick="window.verifyMerkleProof(${r.block_index})">Verify Merkle Inclusion Proof</button>
+      <button class="btn btn-ghost btn-sm" data-action="verify-proof" data-arg="${r.block_index}">Verify Merkle Inclusion Proof</button>
       <div id="merkle-proof-result" style="margin-top:12px"></div>
     </div>
   `;
@@ -476,11 +477,11 @@ export function renderDynamicFields() {
         <div class="dicom-viewport-box" style="height: 240px; position:relative;">
           <canvas id="dicom-canvas" class="dicom-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
           <div class="dicom-controls">
-            <button type="button" onclick="window.zoomDicom(1.2)">Zoom +</button>
-            <button type="button" onclick="window.zoomDicom(0.8)">Zoom -</button>
-            <button type="button" onclick="window.invertDicom()">Invert</button>
-            <button type="button" onclick="window.startAddingDicomAnnotation()" id="btn-add-annotation-mode" style="background:rgba(16,185,129,0.2); border:1px solid var(--accent-integrations); color:var(--accent-integrations);">+ Add Annotation</button>
-            <button type="button" onclick="window.resetDicom()">Reset</button>
+            <button type="button" data-action="dicom-zoom" data-arg="1.2">Zoom +</button>
+            <button type="button" data-action="dicom-zoom" data-arg="0.8">Zoom -</button>
+            <button type="button" data-action="dicom-invert">Invert</button>
+            <button type="button" data-action="dicom-annotate" id="btn-add-annotation-mode" style="background:rgba(16,185,129,0.2); border:1px solid var(--accent-integrations); color:var(--accent-integrations);">+ Add Annotation</button>
+            <button type="button" data-action="dicom-reset">Reset</button>
           </div>
           <div class="dicom-overlay-text top-left">MODALITY: <span id="dicom-modality">CT</span></div>
           <div class="dicom-overlay-text bottom-left"><span id="dicom-wl">W: 240 L: 120</span></div>
@@ -570,17 +571,17 @@ export function getDicomViewerHtml() {
       <div class="dicom-viewport-box">
         <canvas id="dicom-canvas" class="dicom-canvas"></canvas>
         <div class="dicom-controls" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" onclick="window.zoomDicom(1.2)">Zoom +</button>
-          <button type="button" onclick="window.zoomDicom(0.8)">Zoom -</button>
-          <button type="button" onclick="window.invertDicom()">Invert Colors</button>
-          <button type="button" onclick="window.resetDicom()">Reset</button>
+          <button type="button" data-action="dicom-zoom" data-arg="1.2">Zoom +</button>
+          <button type="button" data-action="dicom-zoom" data-arg="0.8">Zoom -</button>
+          <button type="button" data-action="dicom-invert">Invert Colors</button>
+          <button type="button" data-action="dicom-reset">Reset</button>
           <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; margin-left: 10px;">
             <span style="color: var(--muted-hi);">Level:</span>
-            <input type="range" id="dicom-level-slider" min="-512" max="512" value="120" oninput="window.setDicomLevel(this.value)" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
+            <input type="range" id="dicom-level-slider" min="-512" max="512" value="120" data-input-action="dicom-level" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
           </div>
           <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
             <span style="color: var(--muted-hi);">Width:</span>
-            <input type="range" id="dicom-width-slider" min="10" max="1024" value="240" oninput="window.setDicomWidth(this.value)" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
+            <input type="range" id="dicom-width-slider" min="10" max="1024" value="240" data-input-action="dicom-width" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
           </div>
         </div>
         <div class="dicom-overlay-text top-left">MODALITY: <span id="dicom-modality">-</span></div>
@@ -1149,7 +1150,7 @@ export function updateDicomAnnotationsList() {
         <span style="color:#ff8a80; font-weight:600; margin-right:8px;">[${idx+1}] ${ann.text}</span>
         <div style="display:flex; align-items:center; gap:10px;">
           <span style="font-size:10px; color:var(--muted)">X: ${Math.round(ann.x)}, Y: ${Math.round(ann.y)}</span>
-          ${isAddMode ? `<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px; font-size:10px; color:var(--danger); border-color:rgba(239,68,68,0.2); background:transparent;" onclick="window.deleteDicomAnnotation(${idx})">Delete</button>` : ''}
+          ${isAddMode ? `<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px; font-size:10px; color:var(--danger); border-color:rgba(239,68,68,0.2); background:transparent;" data-action="dicom-delete-annotation" data-arg="${idx}">Delete</button>` : ''}
         </div>
       </div>
     `).join('')}

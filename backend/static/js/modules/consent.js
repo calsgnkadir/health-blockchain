@@ -56,7 +56,7 @@ export async function loadConsents() {
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)">
                   <span>Granted: ${grantedDate}</span>
                   <span>Expires: ${expDate}</span>
-                  ${canRevoke ? `<button class="btn btn-error btn-sm" style="padding:2px 8px;font-size:10px;border-radius:4px;font-weight:600;" onclick="window.revokeConsent('${c.doctor_username}', '${c.record_type}')">Revoke</button>` : ''}
+                  ${canRevoke ? `<button class="btn btn-error btn-sm" style="padding:2px 8px;font-size:10px;border-radius:4px;font-weight:600;" data-action="revoke-consent" data-arg="${escapeHtml(c.doctor_username)}" data-arg2="${escapeHtml(c.record_type)}">Revoke</button>` : ''}
                 </div>
               </div>
             </div>

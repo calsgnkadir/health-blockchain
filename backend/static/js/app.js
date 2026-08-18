@@ -5,6 +5,7 @@ import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, r
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
 import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
+import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
 
 /* -- Particle Background Canvas ---------------------------------------- */
 (function initParticles() {
@@ -104,7 +105,7 @@ window.loadVaccines = async function() {
             ${vaccines.map(r => {
               if (r.is_protected) {
                 return `
-                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="window.openRecord(${r.block_index})">
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" data-action="open-record" data-arg="${r.block_index}">
                     <td colspan="5" style="padding: 14px 8px; color: var(--muted); font-style: italic;">🔐 Confidential Block #${r.block_index} — Click to decrypt in Records</td>
                     <td style="padding: 14px 8px;"><span class="badge badge-encrypted">Encrypted</span></td>
                   </tr>
@@ -114,7 +115,7 @@ window.loadVaccines = async function() {
               const dateStr = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : '—';
               const nextDose = val.next_dose ? new Date(val.next_dose).toLocaleDateString('en-GB') : '—';
               return `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="window.openRecord(${r.block_index})">
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" data-action="open-record" data-arg="${r.block_index}">
                   <td style="padding: 14px 8px; font-weight: 600;">${escapeHtml(val.vaccine_name || '—')}</td>
                   <td style="padding: 14px 8px; font-family: var(--font-mono);">${escapeHtml(val.lot_number || '—')}</td>
                   <td style="padding: 14px 8px;">Dose ${escapeHtml(val.dose_number || '1')}</td>
@@ -194,7 +195,7 @@ window.loadMedications = async function() {
           ${activeList.map(m => {
             if (m.is_protected) {
               return `
-                <div class="stat-card glass" style="border-left:3px solid var(--gold); cursor:pointer" onclick="window.openRecord(${m.block_index})">
+                <div class="stat-card glass" style="border-left:3px solid var(--gold); cursor:pointer" data-action="open-record" data-arg="${m.block_index}">
                   <div class="stat-info">
                     <div class="stat-value" style="font-size:14px; font-weight:600; color:#fff;">🔐 Decrypt Protected Prescription</div>
                     <div class="stat-label" style="font-size:11px; margin-top:4px;">Block #${m.block_index}</div>
@@ -299,8 +300,8 @@ window.renderDualControlToken = function() {
           ${token.co_signed_by ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">Co-signed by <strong>${escapeHtml(token.co_signed_by)}</strong></div>` : ''}
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="btn btn-ghost btn-sm" onclick="window.refreshDualControlStatus()">Refresh Status</button>
-          <button class="btn btn-ghost btn-sm" onclick="window.clearDualControlToken()">Discard Token</button>
+          <button class="btn btn-ghost btn-sm" data-action="dual-control-refresh">Refresh Status</button>
+          <button class="btn btn-ghost btn-sm" data-action="dual-control-discard">Discard Token</button>
         </div>
       </div>
     </div>`;
@@ -533,7 +534,7 @@ async function checkEnvironment() {
         const demoList = document.getElementById('demo-credentials-list');
         if (demoList && config.demo_accounts) {
           demoList.innerHTML = config.demo_accounts.map(acc => `
-            <div class="demo-item" onclick="window.fillCreds('${acc.username}','${acc.password}')">
+            <div class="demo-item" data-action="fill-credentials" data-arg="${escapeHtml(acc.username)}" data-arg2="${escapeHtml(acc.password)}">
               <span class="role-badge badge-${acc.role.toLowerCase()}">${acc.role}</span>
               <span>${acc.username} / ${acc.password}</span>
             </div>
@@ -610,7 +611,7 @@ window.loadSecuritySettings = function() {
           <div style="font-size:12px; color:var(--muted); margin-top:2px;">Enable 2FA to secure your VIP Health Vault account.</div>
         </div>
       </div>
-      <button class="btn btn-gold" style="margin-top:16px;" onclick="window.setup2FA()">Setup 2FA Now</button>
+      <button class="btn btn-gold" style="margin-top:16px;" data-action="setup-2fa">Setup 2FA Now</button>
     `;
     if (setupSection) setupSection.style.display = 'none';
     if (disableSection) disableSection.style.display = 'none';
@@ -760,7 +761,7 @@ function renderCommandPaletteResults(query = '') {
     group.items.forEach(item => {
       const isSelected = globalIndex === commandPaletteSelectedIdx;
       html += `
-        <div class="command-palette-item ${isSelected ? 'selected' : ''}" data-index="${globalIndex}" onclick="triggerCommandPaletteItem(${globalIndex})">
+        <div class="command-palette-item ${isSelected ? 'selected' : ''}" data-index="${globalIndex}" data-action="command-palette-item" data-arg="${globalIndex}">
           <div class="command-palette-item-icon">
             ${item.type === 'nav' ? '🧭' : item.type === 'action' ? '⚡' : '📄'}
           </div>
@@ -896,8 +897,8 @@ window.loadBlockchainExplorerData = async function() {
     const isSimulated = status.is_simulated;
     const onChainPill = onChainVerified 
       ? (isSimulated 
-          ? `<span class="badge badge-private" style="background:rgba(245,158,11,0.1);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" onclick="navigator.clipboard.writeText('${status.on_chain_tx_hash}'); alert('Copied Simulated Tx Hash: ' + '${status.on_chain_tx_hash}');" title="Click to copy Simulated Tx Hash">Simulated Anchor</span>`
-          : `<span class="badge badge-shared" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" onclick="navigator.clipboard.writeText('${status.on_chain_tx_hash}'); alert('Copied Anchor Tx Hash: ' + '${status.on_chain_tx_hash}');" title="Click to copy Anchor Tx Hash">On-Chain Verified</span>`
+          ? `<span class="badge badge-private" style="background:rgba(245,158,11,0.1);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" data-action="copy-tx" data-arg="${escapeHtml(status.on_chain_tx_hash || '')}" title="Click to copy Simulated Tx Hash">Simulated Anchor</span>`
+          : `<span class="badge badge-shared" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" data-action="copy-tx" data-arg="${escapeHtml(status.on_chain_tx_hash || '')}" title="Click to copy Anchor Tx Hash">On-Chain Verified</span>`
         )
       : `<span class="badge badge-private" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);font-size:9px;padding:2px 6px;">Not Anchored</span>`;
 
@@ -1011,10 +1012,110 @@ window.addEventListener('vhv:session-expired', (e) => {
   }
 });
 
+
+/* ── ACTION REGISTRY ──────────────────────────────────────────
+ * Every interactive element in the markup declares a data-action; these are the
+ * handlers behind those declarations. Because nothing is bound with an inline
+ * attribute, the CSP can refuse inline script entirely.
+ */
+const arg  = (el) => el.dataset.arg;
+const arg2 = (el) => el.dataset.arg2;
+
+registerActions('click', {
+  'noop': () => {},
+
+  // navigation and session
+  'navigate':              (el) => navigate(arg(el)),
+  'logout':                () => logout(),
+  'reset-login':           (el, e) => resetLoginForm(e),
+  'passkey-login':         () => loginWithPasskey(),
+  'register-passkey':      () => registerPasskey(),
+  'fill-credentials':      (el) => fillCreds(arg(el), arg2(el)),
+
+  // records
+  'open-record':           (el) => openRecord(Number(arg(el))),
+  'decrypt-record':        (el) => decryptRecord(Number(arg(el))),
+  'verify-proof':          (el) => verifyMerkleProof(Number(arg(el))),
+  'close-modal':           () => closeModal(),
+  'choose-file':           () => document.getElementById('rec-file')?.click(),
+  'download-attachment':   (el) => {
+    const p = takePayload(arg(el)) || {};
+    downloadBase64File(p.fileName, p.fileType, p.fileData);
+  },
+  'download-offchain':     (el) => {
+    const p = takePayload(arg(el)) || {};
+    downloadOffchainFile(p.patientId, p.blockIndex, p.password, p.fileName);
+  },
+
+  // chain
+  'refresh-chain':         () => loadChainStatus(),
+  'toggle-explorer':       () => window.toggleBlockchainExplorer(),
+  'copy-tx':               (el) => {
+    const hash = arg(el);
+    if (!hash) return;
+    navigator.clipboard?.writeText(hash);
+    addNotification('Transaction Hash Copied', hash, 'info');
+  },
+
+  // consent and dual control
+  'revoke-consent':        (el) => revokeConsent(arg(el), arg2(el)),
+  'dual-control-refresh':  () => window.refreshDualControlStatus(),
+  'dual-control-discard':  () => window.clearDualControlToken(),
+
+  // security settings
+  'setup-2fa':             () => setup2FA(),
+  'enable-2fa':            () => enable2FA(),
+  'disable-2fa':           () => disable2FA(),
+
+  // logs
+  'refresh-logs':          () => window.refreshLogPage(),
+  'switch-log-tab':        (el) => window.switchLogTab(arg(el)),
+
+  // notifications
+  'toggle-notifications':  (el, e) => toggleNotifications(e),
+  'clear-notifications':   (el, e) => clearAllNotifications(e),
+  'notification-read':     (el) => markAsRead(arg(el)),
+
+  // command palette
+  'close-command-palette': () => window.closeCommandPalette(),
+  'command-palette-item':  (el) => window.triggerCommandPaletteItem(Number(arg(el))),
+
+  // DICOM viewport
+  'dicom-zoom':            (el) => zoomDicom(Number(arg(el))),
+  'dicom-invert':          () => invertDicom(),
+  'dicom-reset':           () => resetDicom(),
+  'dicom-annotate':        () => startAddingDicomAnnotation(),
+  'dicom-delete-annotation': (el) => deleteDicomAnnotation(Number(arg(el))),
+});
+
+registerActions('change', {
+  'filter-records':        () => filterRecords(),
+  'render-dynamic-fields': () => renderDynamicFields(),
+  'switch-theme':          (el) => window.switchTheme(el.value),
+  'file-selected':         (el) => {
+    const label = document.getElementById('file-name-label');
+    if (label) label.textContent = el.files.length ? el.files[0].name : 'No file chosen';
+  },
+});
+
+registerActions('input', {
+  'filter-records': () => filterRecords(),
+  'dicom-level':    (el) => setDicomLevel(el.value),
+  'dicom-width':    (el) => setDicomWidth(el.value),
+});
+
+registerActions('submit', {
+  'grant-consent':        (el, e) => grantConsent(e),
+  'break-glass':          (el, e) => triggerBreakGlass(e),
+  'dual-control-request': (el, e) => window.requestDualControl(e),
+  'dual-control-cosign':  (el, e) => window.coSignDualControl(e),
+});
+
 // Auto-run on load
 const token = localStorage.getItem('vhv_token');
 const currentUser = getCurrentUser();
 
+initActionDispatch();
 initAuthListeners();
 initRecordsListeners();
 initCommandPaletteListeners();

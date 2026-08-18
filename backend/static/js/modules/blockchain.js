@@ -32,7 +32,7 @@ export async function loadChainStatus() {
     }
     const txHash = status.on_chain_tx_hash;
     const txLabel = txHash 
-      ? `<a href="#" onclick="navigator.clipboard.writeText('${txHash}'); alert('Transaction Hash copied to clipboard: ' + '${txHash}'); return false;" style="color:var(--accent-ledger); text-decoration:underline; font-size:10px;" title="${txHash}">${isSimulated ? 'Copy Sim Tx' : 'Copy Tx'}: ${txHash.substring(0,10)}...</a>` 
+      ? `<a href="#" data-action="copy-tx" data-arg="${escapeHtml(txHash)}" style="color:var(--accent-ledger); text-decoration:underline; font-size:10px;" title="${txHash}">${isSimulated ? 'Copy Sim Tx' : 'Copy Tx'}: ${txHash.substring(0,10)}...</a>` 
       : 'No Tx Hash';
 
     box.innerHTML = `

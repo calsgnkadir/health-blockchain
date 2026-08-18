@@ -105,7 +105,7 @@ export async function updateNotificationsUI() {
         if (n.type === 'success') typeDotClass = 'noti-dot-success';
 
         return `
-          <div class="noti-item" onclick="markAsRead('${n.id}')">
+          <div class="noti-item" data-action="notification-read" data-arg="${escapeHtml(n.id)}">
             <div class="noti-title-row">
               <span class="noti-title">
                 <span class="noti-icon-dot ${typeDotClass}"></span>
