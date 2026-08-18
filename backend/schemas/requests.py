@@ -27,9 +27,16 @@ ACCESS_LEVELS = {
 }
 
 def sanitize_html(v: str) -> str:
-    """Helper to escape HTML characters and prevent XSS."""
+    """
+    Normalises free text on the way in. Deliberately does NOT HTML-escape.
+
+    Clinical text is stored verbatim: a record is a medical document, and
+    rewriting "Dr. Smith & Co" to "Dr. Smith &amp; Co" corrupts it permanently in
+    an append-only chain. Escaping belongs at the point of rendering, which the
+    web client does for every value it interpolates.
+    """
     if isinstance(v, str):
-        return html.escape(v.strip())
+        return v.strip()
     return v
 
 def validate_iso_date(v: str) -> str:

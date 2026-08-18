@@ -88,14 +88,16 @@ class TestLisGatewayInput(unittest.TestCase):
         for bad in ("", "VIP", "patient_1", "VIP-1", "VIP-001; DROP TABLE users"):
             self.assertEqual(self._post(payload(patient_id=bad)).status_code, 422, bad)
 
-    def test_submitted_markup_is_neutralised(self):
-        res = self._post(payload(test_name="<img src=x onerror=alert(1)>"))
+    def test_submitted_text_is_stored_verbatim(self):
+        """Clinical text is preserved as written; escaping happens at render."""
+        res = self._post(payload(test_name="Troponin I (high-sensitivity) <5 ng/L"))
         self.assertEqual(res.status_code, 200, res.text)
-        # The stored value must not still be live markup.
+
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
         blocks = LMDBBlockRepository().load_all_blocks("patient_VIP_001")
         stored = " ".join(str(b.data) for b in blocks)
-        self.assertNotIn("<img src=x onerror=", stored)
+        self.assertIn("<5 ng/L", stored)
+        self.assertNotIn("&lt;5 ng/L", stored)
 
 
 class TestChainStorePathSafety(unittest.TestCase):

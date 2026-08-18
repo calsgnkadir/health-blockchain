@@ -7,41 +7,17 @@ backend/middleware/xss_protection.py — Security & XSS Protection Middleware
    - X-Content-Type-Options
    - X-Frame-Options
    - Referrer-Policy
-2. Sanitizes dynamic string inputs against Reflected and Stored XSS.
+2. Sets a Content-Security-Policy that keeps a script injection from executing.
+
+Note on layering: clinical text is stored verbatim (see backend.schemas.requests)
+and escaped where it is rendered, so this module deliberately does not rewrite
+request payloads. Escaping on the way in corrupts medical records permanently and
+still leaves any unescaped sink exploitable.
 """
 
-import re
-import html
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-
-def strip_dangerous_xss_tags(text: str) -> str:
-    """
-    Sanitizes string against XSS attack vectors:
-    - Removes <script>, <iframe>, <object>, <embed>, <svg>, <img> event handlers
-    - Escapes dangerous characters (<, >, ", ', &)
-    - Strips javascript: and data: pseudo-protocols
-    """
-    if not isinstance(text, str):
-        return text
-
-    clean = re.sub(r'(?i)javascript\s*:', 'blocked-scheme:', text)
-    clean = re.sub(r'(?i)vbscript\s*:', 'blocked-scheme:', clean)
-    clean = re.sub(r'(?i)on[a-z]+\s*=', 'blocked-event=', clean)
-    clean = re.sub(r'(?i)<\s*/?\s*(script|iframe|object|embed|svg|applet|meta|link)[^>]*>', '', clean)
-
-    return html.escape(clean, quote=True)
-
-def sanitize_xss_data(data):
-    """Recursively sanitizes dynamic strings in dicts/lists against XSS attacks."""
-    if isinstance(data, str):
-        return strip_dangerous_xss_tags(data)
-    elif isinstance(data, dict):
-        return {k: sanitize_xss_data(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [sanitize_xss_data(item) for item in data]
-    return data
 
 class XSSProtectionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:

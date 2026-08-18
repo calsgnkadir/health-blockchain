@@ -137,8 +137,8 @@ def add_record(
         err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
         raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
 
-    from backend.middleware.xss_protection import sanitize_xss_data
-    block_data = sanitize_xss_data({
+    # Stored verbatim; the client escapes at render. See sanitize_html().
+    block_data = ({
         "record_type":       rec.record_type,
         "record_type_label": RECORD_TYPES[rec.record_type],
         "title":             rec.title,

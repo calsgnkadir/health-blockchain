@@ -128,12 +128,10 @@ def break_glass(
     if u["role"] != "doctor":
         raise HTTPException(403, "Only doctors can invoke emergency override")
         
-    from backend.middleware.xss_protection import strip_dangerous_xss_tags
-    clean_reason = strip_dangerous_xss_tags(data.reason)
     consent_validator.break_glass_override(
         patient_id=patient_id,
         doctor_username=u["username"],
-        reason=clean_reason,
+        reason=data.reason,
         device_id=get_device_id()
     )
     return {"success": True, "message": "Emergency access granted. Audit entry logged."}

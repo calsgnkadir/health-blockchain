@@ -116,11 +116,9 @@ def lis_webhook(
     }
     
     try:
-        from backend.middleware.xss_protection import sanitize_xss_data
-
         cmd = AddRecordCommand(
             patient_id=payload.patient_id,
-            data=sanitize_xss_data(block_data),
+            data=block_data,
             is_protected=False,
             protection_password=None,
             username="LIS_GATEWAY"

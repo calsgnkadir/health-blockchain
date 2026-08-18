@@ -27,7 +27,7 @@
 ### 5. Application & Network Level Security
 - **Network Level Isolation:** `IPAllowlistMiddleware` blocks public internet access attempts, accepting requests exclusively from authorized CIDR subnets and private VPNs.
 - **XSS Protection Middleware:** Enforces strict `Content-Security-Policy (CSP)`, `X-XSS-Protection`, `X-Content-Type-Options: nosniff`, and `X-Frame-Options: SAMEORIGIN`.
-- **Input Sanitization:** Recursive HTML entity escaping against Reflected, Stored, and Header Injection XSS.
+- **Output Encoding:** Clinical text is stored verbatim and HTML-escaped at the point of rendering (`escapeHtml` in the web client). Escaping on input was removed deliberately: it corrupted medical text permanently in an append-only chain, and left any unescaped sink exploitable anyway.
 - **CSRF Token Verification:** Double-Submit Cookie pattern for state-changing endpoints.
 - **Rate Limiting:** Sliding-window IP rate limiting middleware to prevent brute-force attacks.
 
