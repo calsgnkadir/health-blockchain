@@ -125,6 +125,37 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestMetadataDisclosure(unittest.TestCase):
+    """Chain metadata and the liveness probe must not leak across boundaries."""
 
-if __name__ == "__main__":
-    unittest.main()
+    @classmethod
+    def setUpClass(cls):
+        from database.sql_db import default_sql_db
+        default_sql_db.seed_default_users()
+
+    def setUp(self):
+        os.environ["TESTING"] = "true"
+        self.client = TestClient(app)
+
+    def _token(self, username, password):
+        res = self.client.post("/api/v1/auth/login",
+                               json={"username": username, "password": password})
+        self.assertEqual(res.status_code, 200, res.text)
+        return res.json()["access_token"]
+
+    def test_patient_cannot_read_another_chain_status(self):
+        token = self._token("vip001", "VIPPatient@2026!")
+        res = self.client.get("/api/v1/blockchain/VIP-999/status",
+                              headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_patient_can_read_their_own_chain_status(self):
+        token = self._token("vip001", "VIPPatient@2026!")
+        res = self.client.get("/api/v1/blockchain/VIP-001/status",
+                              headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_health_probe_does_not_disclose_the_device_fingerprint(self):
+        body = self.client.get("/api/v1/health").json()
+        self.assertEqual(body["status"], "healthy")
+        self.assertNotIn("device_id", body)

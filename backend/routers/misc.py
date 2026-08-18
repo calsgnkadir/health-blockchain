@@ -192,6 +192,12 @@ def chain_status(
     record_service: RecordService = Depends(get_record_service),
     notarizer = Depends(get_blockchain_notarizer)
 ):
+    check_patient_id(patient_id)
+    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+        # Chain length and Merkle root disclose that a person is a patient here and
+        # how much of a record they have - metadata this vault exists to conceal.
+        raise HTTPException(403, "Access denied")
+
     chain = record_service.get_chain(patient_id)
     brk = record_service.find_broken_link_index(patient_id)
     

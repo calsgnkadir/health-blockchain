@@ -119,12 +119,16 @@ def startup_event():
 
 @app.get("/api/v1/health", summary="System Health Metrics")
 def health_check():
-    """Returns database connection state, IPFS connection state, and block validation status."""
+    """
+    Liveness probe for container orchestration.
+
+    Deliberately anonymous: it is the one route the IP allowlist lets through, so
+    it must not disclose the device fingerprint or anything else identifying.
+    """
     from database.sql_db import default_sql_db
     
     health_status = {
         "status": "healthy",
-        "device_id": get_device_id(),
         "database": "unknown",
         "blockchain_simulation": os.getenv("VHV_DEMO_MODE", "false").lower() == "true",
     }
