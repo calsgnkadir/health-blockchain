@@ -1,9 +1,5 @@
 import time
-import secrets
-import hashlib
-import json
 import os
-from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from backend.dependencies import (
@@ -33,8 +29,8 @@ def _public_user(user: dict) -> dict:
 
 @router.post("/login", summary="User Login")
 def login(
-    req: LoginReq, 
-    request: Request, 
+    req: LoginReq,
+    request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service)
 ):
@@ -109,11 +105,11 @@ def logout(
     import jwt
     import database.storage as storage
     from backend.dependencies import JWT_PUBLIC_KEY, ALGORITHM
-    
+
     token = request.cookies.get("access_token")
     if not token and creds:
         token = creds.credentials
-        
+
     if token:
         try:
             payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
@@ -140,7 +136,7 @@ def setup_2fa(
 
 @router.post("/2fa/enable", summary="Verify and Enable 2FA")
 def enable_2fa(
-    req: Verify2FAReq, 
+    req: Verify2FAReq,
     u: dict = Depends(current_user),
     auth_service: AuthService = Depends(get_auth_service)
 ):
@@ -148,7 +144,7 @@ def enable_2fa(
     user_entity = User.from_dict(u)
     if not user_entity.totp_secret:
         raise HTTPException(400, "2FA setup has not been initiated. Call /api/v1/auth/2fa/setup first.")
-    
+
     if auth_service.enable_2fa(user_entity, req.code):
         return {"success": True, "message": "Two-factor authentication enabled successfully"}
     else:
@@ -156,7 +152,7 @@ def enable_2fa(
 
 @router.post("/2fa/disable", summary="Disable 2FA")
 def disable_2fa(
-    req: Verify2FAReq, 
+    req: Verify2FAReq,
     u: dict = Depends(current_user),
     auth_service: AuthService = Depends(get_auth_service)
 ):
@@ -164,10 +160,10 @@ def disable_2fa(
     user_entity = User.from_dict(u)
     if not user_entity.totp_enabled:
         raise HTTPException(400, "2FA is not enabled for this account.")
-        
+
     if not user_entity.totp_secret:
         raise HTTPException(500, "Database inconsistency: enabled 2FA but missing secret.")
-        
+
     if auth_service.disable_2fa(user_entity, req.code):
         return {"success": True, "message": "Two-factor authentication disabled successfully"}
     else:

@@ -6,7 +6,6 @@ Tests for Granular Time-Bound RBAC & Audit Enforcement (Phase 4 of VIP Vault har
 
 import os
 import sys
-import time
 import unittest
 import tempfile
 
@@ -15,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.services.consent_validator import ConsentValidator
 from core.cqrs.commands import GrantConsentCommand, RevokeConsentCommand, CommandHandler
-from core.cqrs.queries import GetPatientRecordsQuery, DecryptRecordQuery, QueryHandler
+from core.cqrs.queries import GetPatientRecordsQuery, QueryHandler
 from core.services.record_service import RecordService
 from core.services.auth_service import AuthService
 from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository, LMDBUserRepository
@@ -165,16 +164,16 @@ class TestTimeBoundConsent(unittest.TestCase):
 
         proj_name = f"patient_{self.patient_id.replace('-', '_').replace(' ', '_')}"
         access_logs = storage.load_access_logs(proj_name)
-        self.assertTrue(any(l.get("action") == "BREAK_GLASS_ACCESS" for l in access_logs))
+        self.assertTrue(any(entry.get("action") == "BREAK_GLASS_ACCESS" for entry in access_logs))
 
         audit_logs = storage.load_audit_logs(proj_name)
-        self.assertTrue(any(l.get("action") == "BREAK_GLASS_BYPASS" for l in audit_logs))
+        self.assertTrue(any(entry.get("action") == "BREAK_GLASS_BYPASS" for entry in audit_logs))
 
     def test_repeated_break_glass_triggers_critical_alert(self):
         """Repeated break-glass overrides within 15 mins trigger REPEATED_BREAK_GLASS_ABUSE alert."""
         from core.services.alert_service import alert_service
         doc_user = "dr.repeated_test"
-        
+
         for i in range(3):
             self.consent_validator.break_glass_override(
                 patient_id=self.patient_id,

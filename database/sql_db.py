@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import time
-from typing import Optional
 
 # Dynamic PostgreSQL import
 try:
@@ -20,7 +19,7 @@ class SQLDatabaseManager:
     def __init__(self):
         self.db_url = os.getenv("VHV_DATABASE_URL")
         self.is_postgres = False
-        
+
         # Check environment and try PostgreSQL
         if self.db_url and POSTGRES_AVAILABLE:
             try:
@@ -38,7 +37,7 @@ class SQLDatabaseManager:
             print(f"[SQL DB] Using SQLite database at: {DEFAULT_SQLITE_PATH}")
             # Ensure database directory exists
             os.makedirs(os.path.dirname(DEFAULT_SQLITE_PATH), exist_ok=True)
-            
+
         self.init_db()
 
     def get_connection(self):
@@ -55,9 +54,8 @@ class SQLDatabaseManager:
         """Creates tables if they do not exist."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        
+
         # Determine syntax compatibility
-        serial_type = "SERIAL" if self.is_postgres else "INTEGER"
         text_type = "TEXT"
         boolean_type = "BOOLEAN"
         double_type = "DOUBLE PRECISION" if self.is_postgres else "REAL"
@@ -158,7 +156,7 @@ class SQLDatabaseManager:
         """Seeds default users if database is empty."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        
+
         try:
             from core.security import hash_password
             defaults = [
@@ -218,7 +216,7 @@ class SQLDatabaseManager:
                     False
                 ),
             ]
-            
+
             insert_sql = """
                 INSERT INTO users (id, username, password_hash, role, full_name, specialty, institution, patient_id, clearance, totp_secret, totp_enabled)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -226,7 +224,7 @@ class SQLDatabaseManager:
                 INSERT INTO users (id, username, password_hash, role, full_name, specialty, institution, patient_id, clearance, totp_secret, totp_enabled)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            
+
             # Seed per account rather than all-or-nothing, so an existing database
             # picks up accounts added in later versions.
             seeded = 0

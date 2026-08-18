@@ -91,7 +91,7 @@ class LMDBConnectionManager:
                 path = self.get_db_path(project_name)
                 if project_name not in self._map_sizes:
                     self._map_sizes[project_name] = self.default_map_size
-                
+
                 while True:
                     try:
                         self._envs[project_name] = lmdb.open(path, map_size=self._map_sizes[project_name], subdir=True)
@@ -126,7 +126,7 @@ class LMDBConnectionManager:
 
         if project_name not in self._map_sizes:
             self._map_sizes[project_name] = self.default_map_size
-        
+
         for attempt in range(5):
             try:
                 env = self.open_db(project_name)

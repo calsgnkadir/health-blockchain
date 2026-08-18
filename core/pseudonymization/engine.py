@@ -29,8 +29,7 @@ import os
 import hashlib
 import hmac
 import secrets
-import time
-from typing import Optional, Tuple, Dict, List
+from typing import Optional, Dict
 
 
 # Default secret — override via PSEUDONYM_SECRET env var in production

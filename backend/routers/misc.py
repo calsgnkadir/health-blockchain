@@ -6,10 +6,7 @@ Removed: Appointment booking, AI Triage chatbot, and FHIR export bridges.
 """
 
 import os
-import json
-import time
 import secrets
-from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -26,7 +23,6 @@ from backend.routers.records import create_notification, check_patient_id
 from core.cqrs.queries import GetNotificationsQuery
 from core.cqrs.commands import AddRecordCommand
 from core.security import get_device_id
-import database.storage as storage
 from database.connection import LMDBConnectionManager
 from core.services.record_service import RecordService
 from core.services.audit_service import AuditService
@@ -114,7 +110,7 @@ def lis_webhook(
         "file_type":         None,
         "file_data":         None,
     }
-    
+
     try:
         cmd = AddRecordCommand(
             patient_id=payload.patient_id,
@@ -124,7 +120,7 @@ def lis_webhook(
             username="LIS_GATEWAY"
         )
         block = command_handler.handle_add_record(cmd)
-        
+
         if is_abnormal(payload.result_value, payload.reference_range):
             create_notification(
                 patient_id=payload.patient_id,
@@ -139,7 +135,7 @@ def lis_webhook(
                 message=f"Tahlil sonucunuz ({payload.test_name}: {payload.result_value} {payload.unit}) sisteme yüklendi ve blockchain'e kaydedildi.",
                 severity="info"
             )
-            
+
         return {
             "success": True,
             "block_index": block.index,
@@ -152,14 +148,14 @@ def lis_webhook(
 # ── SMART NOTIFICATIONS ───────────────────────────────────────
 @router.get("/notifications/{patient_id}", summary="Get Patient Notifications")
 def get_notifications(
-    patient_id: str, 
+    patient_id: str,
     u: dict = Depends(current_user),
     query_handler: QueryHandler = Depends(get_query_handler)
 ):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-        
+
     query = GetNotificationsQuery(patient_id=patient_id, username=u["username"])
     notifs = query_handler.handle_get_notifications(query)
     return {"notifications": notifs}
@@ -167,15 +163,15 @@ def get_notifications(
 
 @router.post("/notifications/{patient_id}/{notif_id}/read", summary="Mark Notification as Read")
 def mark_notification_read(
-    patient_id: str, 
-    notif_id: str, 
+    patient_id: str,
+    notif_id: str,
     u: dict = Depends(current_user),
     notif_repo: INotificationRepository = Depends(get_notification_repository)
 ):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-        
+
     success = notif_repo.mark_as_read(patient_id, notif_id)
     if not success:
         raise HTTPException(404, "Notification not found")
@@ -185,7 +181,7 @@ def mark_notification_read(
 # ── LOCAL HASH-CHAIN STATUS & AUDIT LOGS ──────────────────────
 @router.get("/blockchain/{patient_id}/status", summary="Chain Status")
 def chain_status(
-    patient_id: str, 
+    patient_id: str,
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service),
     notarizer = Depends(get_blockchain_notarizer)
@@ -198,17 +194,17 @@ def chain_status(
 
     chain = record_service.get_chain(patient_id)
     brk = record_service.find_broken_link_index(patient_id)
-    
+
     # Run on-chain verification
     verification = notarizer.verify_on_chain(patient_id)
-    
+
     return {
         "patient_id":   patient_id,
         "chain_length": len(chain),
         "is_valid":     brk == -1,
         "broken_at":    brk if brk != -1 else None,
         "device_id":    get_device_id()[:16] + "...",
-        
+
         # On-Chain Notarization details. The anchor is a local signed Merkle
         # hash-chain (ADR-0001) unless a real chain RPC is configured, and the UI
         # labels it as such rather than implying a public-chain settlement.
@@ -285,7 +281,7 @@ def get_config():
     env = os.environ.get("ENVIRONMENT", "production")
     if env == "development":
         demo_mode = True
-        
+
     accounts = []
     if demo_mode:
         accounts = [

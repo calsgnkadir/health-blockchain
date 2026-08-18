@@ -8,7 +8,6 @@ has ever written — the exact opposite of the tamper-evidence claim.
 """
 
 import os
-import shutil
 import sys
 import unittest
 

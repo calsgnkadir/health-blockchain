@@ -7,7 +7,6 @@ Covering:
 3. Dual-Control (M-of-N Approval) Engine & Anti-Self-Approval
 """
 
-import os
 import unittest
 from fastapi.testclient import TestClient
 from backend.main import app
@@ -42,7 +41,7 @@ class TestVIPSecurityHardening(unittest.TestCase):
 
     def test_dual_control_workflow_and_security(self):
         patient_id = "VIP-SEC-999"
-        
+
         # 1. Initiate Dual Control Request
         req_res = dual_control_engine.request_dual_control_access(
             request_type="DECRYPT_RAW_RECORD",
@@ -107,7 +106,6 @@ class TestVIPSecurityHardening(unittest.TestCase):
     def test_ip_spoofing_header_blocked_if_untrusted_peer(self):
         from backend.middleware.ip_allowlist import resolve_secure_client_ip
         from unittest.mock import MagicMock
-        import os
 
         mock_req = MagicMock()
         mock_req.client.host = "203.0.113.195"  # Public attacker IP

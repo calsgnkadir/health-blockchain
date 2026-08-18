@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Setup project root import path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,7 +22,7 @@ class TestBlockchainNotarizer(unittest.TestCase):
         self.block_repo = LMDBBlockRepository(self.db_manager)
         self.crypto_strategy = AESGCMStrategy()
         self.record_service = RecordService(self.block_repo, self.crypto_strategy)
-        
+
         # Override VHV env vars to guarantee Simulation Mode for base tests
         self.env_patcher = patch.dict(os.environ, {
             "VHV_RPC_URL": "",
@@ -54,21 +54,21 @@ class TestBlockchainNotarizer(unittest.TestCase):
     def test_simulated_notarization_flow(self):
         patient_id = "VIP-TEST-100"
         project_name = f"patient_{patient_id.replace('-', '_')}"
-        
+
         # Add a block to the patient's chain
         data = {"record_type": "vital_signs", "title": "Checkup", "data": {"hr": 75}}
         block = self.record_service.add_record(patient_id, data, username="dr.notary")
         self.assertIsNotNone(block)
-        
+
         # Verify that notarization transaction was auto-saved during add_record
         tx_hash = self.block_repo.load_notarization_tx(project_name)
         self.assertIsNotNone(tx_hash)
         self.assertTrue(tx_hash.startswith("0x"))
-        
+
         # Check simulated Merkle Root in storage
         stored_root = self.block_repo.load_simulated_merkle_root(project_name)
         self.assertIsNotNone(stored_root)
-        
+
         # Run on-chain verification
         verification = self.notarizer.verify_on_chain(patient_id)
         self.assertTrue(verification["verified"])
@@ -77,7 +77,7 @@ class TestBlockchainNotarizer(unittest.TestCase):
 
     def test_verify_on_chain_unanchored(self):
         patient_id = "VIP-UNANCHORED-999"
-        
+
         # Querying verification for non-existent chain
         verification = self.notarizer.verify_on_chain(patient_id)
         self.assertFalse(verification["verified"])

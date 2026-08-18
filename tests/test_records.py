@@ -30,25 +30,25 @@ class TestRecordService(unittest.TestCase):
 
     def test_add_record_and_chain_validation(self):
         patient_id = "VIP-007"
-        
+
         # Initial chain validation (empty/Genesis auto-creation)
         self.assertTrue(self.record_service.is_chain_valid(patient_id))
-        
+
         # Add a block
         data1 = {"record_type": "vital_signs", "title": "Checkup", "data": {"hr": 80}}
         block1 = self.record_service.add_record(patient_id, data1, is_protected=False, protection_password=None, username="dr.test")
         self.assertIsNotNone(block1)
         self.assertEqual(block1.index, 1)
-        
+
         # Chain should still be valid
         self.assertTrue(self.record_service.is_chain_valid(patient_id))
-        
+
         # Add protected block
         data2 = {"record_type": "prescription", "title": "Meds", "data": {"med": "Aspirin"}}
         block2 = self.record_service.add_record(patient_id, data2, is_protected=True, protection_password="SuperSecurePassword123!", username="dr.test")
         self.assertIsNotNone(block2)
         self.assertEqual(block2.index, 3)  # Expect 3 because index 2 is the system audit block for block 1
         self.assertTrue(block2.is_protected)
-        
+
         # Verify valid chain
         self.assertTrue(self.record_service.is_chain_valid(patient_id))

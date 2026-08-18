@@ -23,7 +23,7 @@ class AuditService:
                         **{k: v for k, v in block.data.items() if k not in ("type", "action", "username", "target_block_index", "device_id")}
                     })
             return logs[:limit]
-        
+
         logs = self.audit_repo.load_audit_logs(project_name, limit)
         if not logs:
             return self.get_audit_logs(patient_id, limit, source="blockchain")
@@ -33,7 +33,7 @@ class AuditService:
         project_name = self.record_service._get_project_name(patient_id)
         if source == "blockchain":
             return self.get_audit_logs(patient_id, limit, source="blockchain")
-            
+
         logs = self.audit_repo.load_access_logs(project_name, limit)
         if not logs:
             return self.get_audit_logs(patient_id, limit, source="blockchain")

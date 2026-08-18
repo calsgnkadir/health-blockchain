@@ -4,7 +4,6 @@ backend/routers/pseudonymization.py — Pseudonymization API Router
 Admin-only endpoints for managing patient identity pseudonymization.
 """
 
-import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends

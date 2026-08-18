@@ -6,7 +6,6 @@ import json
 import time
 from typing import Optional, List
 from database.connection import LMDBConnectionManager
-from core.security import get_device_id
 
 def append_access_log(
     project_name: str,

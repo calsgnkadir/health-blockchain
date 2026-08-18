@@ -62,7 +62,7 @@ event_bus = EventBus()
 def handle_record_added(event: RecordAddedEvent):
     from infrastructure.repositories.lmdb_repositories import LMDBAuditRepository
     audit_repo = LMDBAuditRepository()
-    
+
     audit_repo.append_audit_log(
         event.project_name,
         action="BLOCK_ADDED",
@@ -82,7 +82,7 @@ def handle_record_added(event: RecordAddedEvent):
 def handle_record_read(event: RecordReadEvent):
     from infrastructure.repositories.lmdb_repositories import LMDBAuditRepository
     audit_repo = LMDBAuditRepository()
-    
+
     audit_repo.append_audit_log(
         event.project_name,
         action=event.action,
@@ -102,7 +102,7 @@ def handle_record_read(event: RecordReadEvent):
 def handle_system_audit(event: SystemAuditEvent):
     from infrastructure.repositories.lmdb_repositories import LMDBAuditRepository
     audit_repo = LMDBAuditRepository()
-    
+
     audit_repo.append_audit_log(
         event.project_name,
         action=event.action,

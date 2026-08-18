@@ -12,7 +12,7 @@ class BlockFactory:
         device = device_id or get_device_id()
         msg = f"0|{ts}|Genesis Block|0|{nonce}"
         sig = signaturedata(msg, device)
-        
+
         return Block(
             index=0,
             timestamp=ts,
@@ -41,11 +41,11 @@ class BlockFactory:
         ts = time.time()
         nonce = secrets.token_hex(16)
         device = device_id or get_device_id()
-        
+
         merkle_root = calculate_merkle_root(data)
         msg = f"{index}|{ts}|{merkle_root}|{previous_hash}|{nonce}"
         sig = signaturedata(msg, device)
-        
+
         return Block(
             index=index,
             timestamp=ts,
@@ -76,7 +76,7 @@ class BlockFactory:
             "note": "Correction block — does not overwrite the previous record.",
             "corrected_by": username,
         }
-        
+
         return BlockFactory.create_data_block(
             index=index,
             previous_hash=previous_hash,
@@ -105,7 +105,7 @@ class BlockFactory:
             "device_id": device,
             **(extra or {})
         }
-        
+
         return BlockFactory.create_data_block(
             index=index,
             previous_hash=previous_hash,

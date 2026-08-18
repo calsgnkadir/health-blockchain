@@ -33,12 +33,12 @@ class SQLUserRepository(IUserRepository):
             sql_check = _to_placeholder("SELECT id FROM users WHERE username = ?")
             cursor.execute(sql_check, (user.username,))
             exists = cursor.fetchone()
-            
+
             if exists:
                 # Update
                 sql_update = _to_placeholder("""
-                    UPDATE users 
-                    SET password_hash = ?, role = ?, full_name = ?, specialty = ?, 
+                    UPDATE users
+                    SET password_hash = ?, role = ?, full_name = ?, specialty = ?,
                         institution = ?, patient_id = ?, clearance = ?, totp_secret = ?, totp_enabled = ?, wallet_address = ?
                     WHERE username = ?
                 """)
@@ -186,10 +186,10 @@ class SQLNotificationRepository(INotificationRepository):
             sql_check = _to_placeholder("SELECT 1 FROM notifications WHERE id = ?")
             cursor.execute(sql_check, (notification["id"],))
             exists = cursor.fetchone()
-            
+
             if exists:
                 sql_update = _to_placeholder("""
-                    UPDATE notifications 
+                    UPDATE notifications
                     SET patient_id = ?, title = ?, message = ?, severity = ?, timestamp = ?, read = ?
                     WHERE id = ?
                 """)

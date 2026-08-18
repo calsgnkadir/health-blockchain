@@ -13,18 +13,18 @@ class TestSQLHybrid(unittest.TestCase):
         # Create a temp dir for database
         self.test_dir = tempfile.mkdtemp()
         self.db_path = os.path.join(self.test_dir, "test_vault.db")
-        
+
         # Override SQLITE path and force re-initialization
         self.original_path = sql_db.DEFAULT_SQLITE_PATH
         sql_db.DEFAULT_SQLITE_PATH = self.db_path
-        
+
         # Re-create manager for test environment
         self.db_manager = SQLDatabaseManager()
-        
+
         # Patch the default_sql_db in sql_db and repositories modules
         self.original_manager = sql_db.default_sql_db
         sql_db.default_sql_db = self.db_manager
-        
+
         self.user_repo = SQLUserRepository()
         self.notif_repo = SQLNotificationRepository()
 
@@ -32,14 +32,14 @@ class TestSQLHybrid(unittest.TestCase):
         # Restore original settings
         sql_db.DEFAULT_SQLITE_PATH = self.original_path
         sql_db.default_sql_db = self.original_manager
-        
+
         # Clean up temp dir
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_database_init(self):
         # Verify the database file is created
         self.assertTrue(os.path.exists(self.db_path))
-        
+
         # Verify default tables can be queried
         conn = self.db_manager.get_connection()
         cursor = conn.cursor()
@@ -47,7 +47,7 @@ class TestSQLHybrid(unittest.TestCase):
         tables = [row[0] for row in cursor.fetchall()]
         cursor.close()
         conn.close()
-        
+
         self.assertIn("users", tables)
         self.assertIn("notifications", tables)
         self.assertIn("blacklisted_tokens", tables)
@@ -63,11 +63,11 @@ class TestSQLHybrid(unittest.TestCase):
             institution="SQL Medical Center",
             totp_enabled=False
         )
-        
+
         # 1. Save user
         self.user_repo.save_user(user)
         self.assertTrue(self.user_repo.user_exists("dr.sqltest"))
-        
+
         # 2. Load user
         loaded = self.user_repo.load_user("dr.sqltest")
         self.assertIsNotNone(loaded)
@@ -75,21 +75,21 @@ class TestSQLHybrid(unittest.TestCase):
         self.assertEqual(loaded.specialty, "Pediatrics")
         self.assertEqual(loaded.institution, "SQL Medical Center")
         self.assertFalse(loaded.totp_enabled)
-        
+
         # 3. Update user
         loaded.totp_enabled = True
         loaded.specialty = "Cardiology"
         self.user_repo.save_user(loaded)
-        
+
         updated = self.user_repo.load_user("dr.sqltest")
         self.assertTrue(updated.totp_enabled)
         self.assertEqual(updated.specialty, "Cardiology")
-        
+
         # 4. Load all
         all_users = self.user_repo.load_all_users()
         self.assertEqual(len(all_users), 1)
         self.assertEqual(all_users[0].username, "dr.sqltest")
-        
+
         # 5. Delete user
         deleted = self.user_repo.delete_user("dr.sqltest")
         self.assertTrue(deleted)
@@ -107,20 +107,20 @@ class TestSQLHybrid(unittest.TestCase):
             "timestamp": time.time(),
             "read": False
         }
-        
+
         # 1. Save
         self.notif_repo.save_notification(notif)
-        
+
         # 2. Load by Patient
         list_notifs = self.notif_repo.load_notifications_by_patient("VIP-888")
         self.assertEqual(len(list_notifs), 1)
         self.assertEqual(list_notifs[0]["id"], "notif-test-222")
         self.assertFalse(list_notifs[0]["read"])
-        
+
         # 3. Mark as read
         marked = self.notif_repo.mark_as_read("VIP-888", "notif-test-222")
         self.assertTrue(marked)
-        
+
         updated_notifs = self.notif_repo.load_notifications_by_patient("VIP-888")
         self.assertTrue(updated_notifs[0]["read"])
 

@@ -8,11 +8,8 @@ Zero public blockchain / Web3 RPC dependencies — ensures 100% stealth and
 local tamper-evidence for VIP medical data.
 """
 
-import os
-import hashlib
-import json
 import secrets
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 from core.ports.repositories import IBlockRepository
 from core.utils.crypto_utils import calculate_merkle_root
 

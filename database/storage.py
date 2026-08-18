@@ -10,12 +10,20 @@ import json
 import base64
 import lmdb
 import shutil
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 
-from database.connection import (
+from database.connection import (  # noqa: F401 - re-exported for callers
     LMDBConnectionManager, active_txn, active_project,
     after_commit_hooks, run_after_commit,
 )
+
+# This module is the storage facade: the unit of work and the repositories reach
+# the transaction context through `storage.active_txn` and friends rather than
+# importing database.connection directly. They are re-exports, not dead imports.
+__all__ = [
+    "LMDBConnectionManager", "active_txn", "active_project",
+    "after_commit_hooks", "run_after_commit",
+]
 
 # ──────────────────────────────────────────────
 # CONSTANTS & SETUP

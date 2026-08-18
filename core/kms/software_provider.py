@@ -17,13 +17,11 @@ fell back to a weak fingerprint on non-Windows platforms.
 """
 
 import os
-import hmac
 import hashlib
 import base64
 import uuid
 import socket
 import platform
-import secrets
 from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives import hashes

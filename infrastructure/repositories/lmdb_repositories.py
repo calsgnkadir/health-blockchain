@@ -68,7 +68,7 @@ class LMDBBlockRepository(IBlockRepository):
                     return int(val.decode("utf-8"))
         except Exception:
             pass
-        
+
         blocks = storage.load_all_blocks(project_name, self.db_manager)
         if blocks:
             return blocks[-1]["index"]

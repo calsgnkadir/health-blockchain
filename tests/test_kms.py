@@ -7,8 +7,6 @@ Tests for the KMS abstraction layer (Phase 1 of VIP Vault hardening).
 import os
 import sys
 import unittest
-import tempfile
-import hashlib
 
 # Ensure project root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -13,7 +13,7 @@ def test_e2e_flow():
     if r.status_code != 200:
         print(f"FAILED to get config: {r.status_code} {r.text}")
         sys.exit(1)
-    
+
     config = r.json()
     print("Config response:", config)
     assert config.get("demo_mode") is True
@@ -39,12 +39,12 @@ def test_e2e_flow():
     if r.status_code != 200:
         print(f"FAILED to login as VIP: {r.status_code} {r.text}")
         sys.exit(1)
-    
+
     vip_login_data = r.json()
     vip_token = vip_login_data["access_token"]
     vip_patient_id = vip_login_data["user"]["patient_id"]
     print(f"VIP Login Success! Username: {vip_login_data['user']['username']}, Patient ID: {vip_patient_id}")
-    
+
     # 3. Check me endpoint for VIP
     session.headers.update({"Authorization": f"Bearer {vip_token}"})
     r = session.get(f"{BASE_URL}/api/v1/auth/me")
@@ -61,11 +61,11 @@ def test_e2e_flow():
         "record_type": "all",
         "duration_days": 30
     }
-    
+
     # Update csrf token since session cookies might have updated
     csrf_token = session.cookies.get("csrf_token")
     headers = {"X-CSRF-Token": csrf_token}
-    
+
     r = session.post(f"{BASE_URL}/api/v1/consent", json=consent_payload, headers=headers)
     if r.status_code != 200:
         print(f"FAILED to grant consent: {r.status_code} {r.text}")
@@ -103,7 +103,7 @@ def test_e2e_flow():
     if r.status_code != 200:
         print(f"FAILED to login as Doctor: {r.status_code} {r.text}")
         sys.exit(1)
-    
+
     doc_login_data = r.json()
     doc_token = doc_login_data["access_token"]
     print("Doctor Login Success!")
@@ -115,7 +115,7 @@ def test_e2e_flow():
     if r.status_code != 200:
         print(f"FAILED to access records: {r.status_code} {r.text}")
         sys.exit(1)
-    
+
     records_data = r.json()
     print(f"Access SUCCESS! Doctor retrieved {len(records_data.get('records', []))} records.")
 

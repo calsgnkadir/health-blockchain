@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional
 from core.domain.entities import User, Block
 from core.ports.repositories import IBlockRepository
 from infrastructure.repositories.lmdb_unit_of_work import LMDBUnitOfWork
@@ -155,10 +155,10 @@ class CommandHandler:
             "duration_days": cmd.duration_days,
         }
         key = f"consent_{cmd.doctor_username}_{cmd.record_type}".encode("utf-8")
-        
+
         def txn_consent(txn):
             txn.put(key, json.dumps(consent_data).encode("utf-8"))
-        
+
         with LMDBUnitOfWork(project_name):
             storage.run_write_transaction(project_name, txn_consent)
             storage.append_access_log(
@@ -186,10 +186,10 @@ class CommandHandler:
     def handle_revoke_consent(self, cmd: RevokeConsentCommand) -> None:
         project_name = self.record_service._get_project_name(cmd.patient_id)
         key = f"consent_{cmd.doctor_username}_{cmd.record_type}".encode("utf-8")
-        
+
         def txn_revoke(txn):
             txn.delete(key)
-            
+
         with LMDBUnitOfWork(project_name):
             storage.run_write_transaction(project_name, txn_revoke)
             storage.append_access_log(

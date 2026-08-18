@@ -1,10 +1,8 @@
 import os
 import re
 import time
-import json
 import base64
 import secrets
-import hashlib
 from typing import Optional
 from datetime import datetime, timezone
 
@@ -69,9 +67,9 @@ def _enforce_privileged_dual_control(request: Request, u: dict, patient_id: str)
             )
 
 def create_notification(
-    patient_id: str, 
-    title: str, 
-    message: str, 
+    patient_id: str,
+    title: str,
+    message: str,
     severity: str = "info",
     db_manager: Optional[LMDBConnectionManager] = None,
     notif_repo: Optional[INotificationRepository] = None
@@ -79,7 +77,7 @@ def create_notification(
     if notif_repo is None:
         from backend.dependencies import get_notification_repository
         notif_repo = get_notification_repository()
-        
+
     notif_id = f"notif_{time.time_ns()}"
     notif_data = {
         "id": notif_id,
@@ -94,7 +92,7 @@ def create_notification(
 
 @router.post("", summary="Add Health Record")
 def add_record(
-    rec: RecordCreate, 
+    rec: RecordCreate,
     u: dict = Depends(current_user),
     command_handler: CommandHandler = Depends(get_command_handler),
     db_manager: LMDBConnectionManager = Depends(get_db_manager),
@@ -157,14 +155,13 @@ def add_record(
         "file_data":         None,
     })
 
-    file_hash = None
     if rec.file_data:
         file_pwd = secrets.token_hex(16)
         enc_data_b64, file_salt_bytes = encrypt_data(rec.file_data, file_pwd)
-        
+
         # Upload to IPFS (real or simulated)
         cid = ipfs_client.upload_to_ipfs(enc_data_b64)
-        
+
         block_data["file_hash"] = cid
         block_data["file_salt"] = base64.b64encode(file_salt_bytes).decode("utf-8")
         block_data["file_pwd"] = file_pwd
@@ -197,7 +194,7 @@ def add_record(
 
 @router.get("/{patient_id}", summary="Get Patient Records")
 def get_records(
-    patient_id: str, 
+    patient_id: str,
     request: Request,
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service),
@@ -248,9 +245,9 @@ def get_records(
 
 @router.get("/{patient_id}/{block_index}", summary="Get Single Record")
 def get_single_record(
-    patient_id: str, 
+    patient_id: str,
     request: Request,
-    block_index: int = Path(..., ge=0), 
+    block_index: int = Path(..., ge=0),
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service)
 ):
@@ -276,10 +273,10 @@ def get_single_record(
 
 @router.post("/{patient_id}/{block_index}/decrypt", summary="Decrypt Encrypted Record")
 def decrypt_record(
-    patient_id: str, 
+    patient_id: str,
     request: Request,
-    block_index: int = Path(..., ge=0), 
-    req: DecryptRequest = None, 
+    block_index: int = Path(..., ge=0),
+    req: DecryptRequest = None,
     u: dict = Depends(current_user),
     query_handler: QueryHandler = Depends(get_query_handler),
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
@@ -343,10 +340,10 @@ def decrypt_record(
 
 @router.get("/offchain/download/{patient_id}/{block_index}", summary="Download Off-chain File")
 def download_offchain_file(
-    patient_id: str, 
-    block_index: int, 
+    patient_id: str,
+    block_index: int,
     request: Request,
-    password: Optional[str] = None, 
+    password: Optional[str] = None,
     u: dict = Depends(current_user),
     record_service: RecordService = Depends(get_record_service),
     consent_validator: ConsentValidator = Depends(get_consent_validator),
@@ -357,7 +354,7 @@ def download_offchain_file(
     _enforce_privileged_dual_control(request, u, patient_id)
     role = u["role"]
     ignore_consent = False
-    
+
     if role == "doctor":
         proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
@@ -374,24 +371,24 @@ def download_offchain_file(
             )
             if not has_any:
                 raise HTTPException(403, "Access denied: Patient consent is required to download this file.")
-                
+
     if role == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-        
+
     try:
         data = record_service.get_final_block_data(patient_id, block_index, password=password, username=u["username"])
         if isinstance(data, str) and ("SECURE" in data or "INCORRECT" in data or "ERROR" in data):
             raise HTTPException(400, f"Decryption failed: {data}")
-            
+
         if not isinstance(data, dict) or not data.get("file_hash"):
             raise HTTPException(404, "File not found or not stored off-chain")
-            
+
         file_hash = data["file_hash"]
         file_salt = base64.b64decode(data["file_salt"])
         file_pwd = data["file_pwd"]
         file_name = data.get("file_name", "download")
         file_type = data.get("file_type", "application/octet-stream")
-        
+
         # Check cache/legacy local off-chain store first
         enc_data_b64 = None
         legacy_path = os.path.join(_PROJECT_ROOT, "backend", "offchain_storage", file_hash)
@@ -403,10 +400,10 @@ def download_offchain_file(
                 enc_data_b64 = ipfs_client.download_from_ipfs(file_hash)
             except Exception as e:
                 raise HTTPException(404, f"Encrypted file not found on IPFS storage: {str(e)}")
-            
+
         decrypted_b64 = decrypt_data(enc_data_b64, file_pwd, file_salt)
         file_bytes = base64.b64decode(decrypted_b64)
-        
+
         return Response(
             content=file_bytes,
             media_type=file_type,

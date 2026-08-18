@@ -8,7 +8,7 @@ def calculate_merkle_root(data: Any) -> str:
     """
     if data is None:
         return hashlib.sha256(b"").hexdigest()
-        
+
     leaves = []
     if isinstance(data, dict):
         for k in sorted(data.keys()):
@@ -24,10 +24,10 @@ def calculate_merkle_root(data: Any) -> str:
     else:
         leaf_hash = hashlib.sha256(str(data).encode("utf-8")).hexdigest()
         leaves.append(leaf_hash)
-        
+
     if not leaves:
         return hashlib.sha256(b"").hexdigest()
-        
+
     nodes = leaves
     while len(nodes) > 1:
         temp_nodes = []
@@ -37,7 +37,7 @@ def calculate_merkle_root(data: Any) -> str:
             combined = hashlib.sha256((left + right).encode("utf-8")).hexdigest()
             temp_nodes.append(combined)
         nodes = temp_nodes
-        
+
     return nodes[0]
 
 

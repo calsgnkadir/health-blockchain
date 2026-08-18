@@ -125,7 +125,7 @@ def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption()
             ).decode("utf-8")
-            
+
             with open(_JWT_PUBLIC_KEY_FILE, "r") as f:
                 public_pem = f.read()
             return private_pem, public_pem
@@ -200,7 +200,7 @@ def current_user(
         db_mgr = getattr(user_repo, "db_manager", None)
         if jti and storage.is_token_blacklisted(jti, db_mgr):
             raise HTTPException(401, "Token has been revoked")
-            
+
         username = payload.get("sub")
         user = user_repo.load_user(username)
         if not user:

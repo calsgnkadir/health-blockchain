@@ -20,7 +20,7 @@ Usage:
 """
 
 import time
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 
 from core.pseudonymization.engine import PseudonymizationEngine, PseudonymMapping
 
@@ -173,7 +173,6 @@ class PseudonymizationService:
         """Load all existing mappings from DB into memory cache."""
         try:
             from database.sql_db import get_sql_db
-            from infrastructure.repositories.sql_repositories import _to_placeholder
 
             db = get_sql_db()
             conn = db.get_connection()

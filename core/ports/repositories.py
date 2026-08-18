@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from core.domain.entities import User, Block
 
 class IUserRepository(ABC):

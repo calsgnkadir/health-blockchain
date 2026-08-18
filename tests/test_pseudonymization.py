@@ -6,7 +6,6 @@ Tests for the identity decoupling layer (Phase 2 of VIP Vault hardening).
 
 import os
 import sys
-import time
 import unittest
 import tempfile
 

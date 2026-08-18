@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from fastapi import APIRouter, HTTPException, Depends
 from backend.dependencies import (
@@ -8,7 +7,6 @@ from backend.dependencies import (
 from backend.schemas.requests import ConsentReq, BreakGlassReq
 from core.cqrs.commands import GrantConsentCommand, RevokeConsentCommand
 from core.security import get_device_id
-import database.storage as storage
 from database.connection import LMDBConnectionManager
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository
 from core.cqrs.commands import CommandHandler
@@ -74,7 +72,7 @@ def get_consents(
 
 @router.post("", summary="Grant or Update Doctor Consent")
 def grant_consent(
-    data: ConsentReq, 
+    data: ConsentReq,
     u: dict = Depends(current_user),
     user_repository: LMDBUserRepository = Depends(get_user_repository),
     command_handler: CommandHandler = Depends(get_command_handler)
@@ -85,7 +83,7 @@ def grant_consent(
     doc = user_repository.load_user(data.doctor_username)
     if not doc or doc.role != "doctor":
         raise HTTPException(404, "Doctor not found")
-        
+
     cmd = GrantConsentCommand(
         patient_id=data.patient_id,
         doctor_username=data.doctor_username,
@@ -99,9 +97,9 @@ def grant_consent(
 
 @router.delete("/{patient_id}/{doctor_username}/{record_type}", summary="Revoke Doctor Consent")
 def revoke_consent(
-    patient_id: str, 
-    doctor_username: str, 
-    record_type: str, 
+    patient_id: str,
+    doctor_username: str,
+    record_type: str,
     u: dict = Depends(current_user),
     command_handler: CommandHandler = Depends(get_command_handler)
 ):
@@ -119,15 +117,15 @@ def revoke_consent(
 
 @router.post("/{patient_id}/break-glass", summary="Break Glass Emergency Override")
 def break_glass(
-    patient_id: str, 
-    data: BreakGlassReq, 
+    patient_id: str,
+    data: BreakGlassReq,
     u: dict = Depends(current_user),
     consent_validator: ConsentValidator = Depends(get_consent_validator)
 ):
     check_patient_id(patient_id)
     if u["role"] != "doctor":
         raise HTTPException(403, "Only doctors can invoke emergency override")
-        
+
     consent_validator.break_glass_override(
         patient_id=patient_id,
         doctor_username=u["username"],

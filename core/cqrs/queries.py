@@ -1,8 +1,6 @@
 import json
-import time
 from datetime import datetime, timezone
-from typing import Any, Optional, Dict, List
-from core.domain.entities import Block
+from typing import Any, Optional, List
 from core.ports.repositories import IBlockRepository, INotificationRepository
 from core.services.record_service import RecordService
 from core.services.consent_validator import ConsentValidator
@@ -78,7 +76,7 @@ class QueryHandler:
                 rec_type = "other"
                 if isinstance(data, dict):
                     rec_type = data.get("record_type", "other")
-                
+
                 # Check explicit consent
                 has_access = self.consent_validator.has_consent(patient_id, username, rec_type)
                 if not has_access:
@@ -126,7 +124,7 @@ class QueryHandler:
                 entry["file_type"]    = data.get("file_type")
                 entry["file_data"]    = data.get("file_data")
                 entry["file_hash"]    = data.get("file_hash")  # For off-chain files
-            
+
             records.append(entry)
 
         return records
@@ -139,7 +137,7 @@ class QueryHandler:
             block = next((b for b in chain if b.index == query.block_index), None)
             if not block:
                 return "Record not found"
-            
+
             # Read metadata (non-decrypted if protected) to find record type
             # Wait, since block is protected, we can check if there's any decrypted index or if consent allows 'all'
             has_all_consent = self.consent_validator.has_consent(query.patient_id, query.requester_username, "all")

@@ -83,7 +83,7 @@ class ConsentValidator:
         Creates an immutable audit and access entry logging the bypass event.
         """
         project_name = self._get_project_name(patient_id)
-        
+
         # Log to LMDB Access Logs
         storage.append_access_log(
             project_name=project_name,
@@ -112,7 +112,7 @@ class ConsentValidator:
                 description=f"Doctor {doctor_username} triggered emergency break-glass override for patient {patient_id}. Reason: {reason}",
                 client_ip="internal"
             )
-            
+
             # Check for Repeated Break-Glass Anomaly Pattern (3+ overrides in 15 minutes)
             now = time.time()
             window = 900  # 15 minutes
@@ -142,7 +142,7 @@ class ConsentValidator:
             "timestamp": time.time(),
             "read": False
         }
-        
+
         def txn_notif(txn):
             key = f"notif_{notif_id}".encode("utf-8")
             txn.put(key, json.dumps(notif_data).encode("utf-8"))

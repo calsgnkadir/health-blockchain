@@ -1,5 +1,4 @@
 import json
-import time
 from typing import Any, Optional, Dict, List
 from core.domain.entities import Block
 from core.domain.factories import BlockFactory

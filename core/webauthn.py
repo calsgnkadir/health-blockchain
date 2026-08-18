@@ -25,7 +25,7 @@ import os
 import re
 import secrets
 import time
-from typing import Iterable, Optional, Set
+from typing import Optional, Set
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes

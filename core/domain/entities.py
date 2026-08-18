@@ -84,8 +84,6 @@ class HealthRecord:
         }
 
 
-import hashlib
-import json
 
 
 @dataclass
@@ -113,7 +111,7 @@ class Block:
         prot_hash_str = str(self.protection_hash) if self.protection_hash else ""
         device_id_str = str(self.device_id) if self.device_id else ""
         is_prot_str = "1" if self.is_protected else "0"
-        
+
         metadata_suffix = f"{is_prot_str}{prot_hash_str}{device_id_str}"
 
         if not self.merkle_root:

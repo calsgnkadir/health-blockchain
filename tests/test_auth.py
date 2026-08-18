@@ -66,10 +66,10 @@ class TestAuthService(unittest.TestCase):
         exp = time.time() + 60
         storage.blacklist_token(jti, exp, self.db_manager)
         self.assertTrue(storage.is_token_blacklisted(jti, self.db_manager))
-        
+
         # Check non-existent
         self.assertFalse(storage.is_token_blacklisted("non-existent-jti", self.db_manager))
-        
+
         # Check expired jti
         expired_jti = "expired-jti"
         storage.blacklist_token(expired_jti, time.time() - 10, self.db_manager)
@@ -80,7 +80,7 @@ class TestAuthService(unittest.TestCase):
         import database.storage as storage
         storage.blacklist_token("jti-1", time.time() - 10, self.db_manager)
         storage.blacklist_token("jti-2", time.time() + 60, self.db_manager)
-        
+
         storage.clean_expired_blacklisted_tokens(self.db_manager)
         self.assertFalse(storage.is_token_blacklisted("jti-1", self.db_manager))
         self.assertTrue(storage.is_token_blacklisted("jti-2", self.db_manager))
@@ -89,7 +89,7 @@ class TestAuthService(unittest.TestCase):
         import jwt
         from backend.dependencies import create_token, ALGORITHM, JWT_PUBLIC_KEY
         import database.storage as storage
-        
+
         user_dict = {
             "id": "USR-002",
             "username": "test_vip",
@@ -101,7 +101,7 @@ class TestAuthService(unittest.TestCase):
         jti = payload.get("jti")
         exp = payload.get("exp")
         self.assertIsNotNone(jti)
-        
+
         storage.blacklist_token(jti, exp, self.db_manager)
         self.assertTrue(storage.is_token_blacklisted(jti, self.db_manager))
 
@@ -110,7 +110,7 @@ class TestAuthService(unittest.TestCase):
         from fastapi import HTTPException
         from backend.dependencies import create_token, current_user, ALGORITHM, JWT_PUBLIC_KEY
         import database.storage as storage
-        
+
         # Save user first so user_repo can load it
         from core.domain.entities import User
         from core.security import hash_password
@@ -129,9 +129,9 @@ class TestAuthService(unittest.TestCase):
         payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
         jti = payload.get("jti")
         exp = payload.get("exp")
-        
+
         storage.blacklist_token(jti, exp, self.db_manager)
-        
+
         with self.assertRaises(HTTPException) as ctx:
             current_user(access_token=token, creds=None, user_repo=self.user_repo)
         self.assertEqual(ctx.exception.status_code, 401)

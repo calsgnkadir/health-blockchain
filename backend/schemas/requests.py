@@ -1,5 +1,4 @@
 import re
-import html
 from datetime import datetime
 from pydantic import BaseModel, field_validator
 from typing import Optional, Dict, Any
@@ -43,21 +42,21 @@ def validate_iso_date(v: str) -> str:
     """Helper to validate ISO 8601 date format and ensure it is not in the future."""
     if not isinstance(v, str):
         raise ValueError("Date must be a string")
-    
+
     dt = None
     # Try YYYY-MM-DD
     try:
         dt = datetime.strptime(v, "%Y-%m-%d")
     except ValueError:
         pass
-    
+
     if not dt:
         # Try full ISO datetime
         try:
             dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
         except ValueError:
             raise ValueError("Date must be in ISO 8601 format (e.g., YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
-    
+
     # Check if the date is in the future
     now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
     if dt > now:

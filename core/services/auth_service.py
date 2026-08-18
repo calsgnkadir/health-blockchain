@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
 import uuid as _uuid
-from typing import Optional, List
+from typing import Optional
 from core.domain.entities import User
 from core.ports.repositories import IUserRepository
 from core.security import verify_password, hash_password, get_device_id
@@ -39,7 +38,7 @@ class AuthService:
         secret = totp.generate_totp_secret()
         user.totp_secret = secret
         self.user_repo.save_user(user)
-        
+
         uri = totp.get_totp_uri(user.username, secret)
         qr_code = totp.get_totp_qr_base64(uri)
         return {
@@ -51,7 +50,7 @@ class AuthService:
         secret = user.totp_secret
         if not secret:
             return False
-            
+
         if totp.verify_totp(secret, code):
             user.totp_enabled = True
             self.user_repo.save_user(user)
@@ -67,11 +66,11 @@ class AuthService:
     def disable_2fa(self, user: User, code: str) -> bool:
         if not user.totp_enabled:
             return False
-            
+
         secret = user.totp_secret
         if not secret:
             return False
-            
+
         if totp.verify_totp(secret, code):
             user.totp_enabled = False
             user.totp_secret = None
