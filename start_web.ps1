@@ -15,6 +15,7 @@ Write-Host 'Demo Hesaplar:' -ForegroundColor Yellow
 Write-Host '  Admin  : admin / Admin@2026Secure!'
 Write-Host '  Doktor : dr.smith / Doctor@2026Secure!'
 Write-Host '  VIP    : vip001 / VIPPatient@2026!'
+Write-Host '  SecOff : sec.officer / SecOfficer@2026!   (co-signs Dual-Control requests)'
 Write-Host ""
 
 $env:ENVIRONMENT="development"

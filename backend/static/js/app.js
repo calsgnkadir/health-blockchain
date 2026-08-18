@@ -1,4 +1,4 @@
-import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, appState } from './modules/utils.js';
+import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
@@ -256,6 +256,151 @@ window.loadMedications = async function() {
     container.innerHTML = activeHtml + expiredHtml;
   } catch(e) {
     container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+  }
+};
+
+window.loadDualControl = function() {
+  const errEl = document.getElementById('dc-error');
+  const succEl = document.getElementById('dc-success');
+  if (errEl) errEl.style.display = 'none';
+  if (succEl) succEl.style.display = 'none';
+  window.renderDualControlToken();
+  // Pick up a co-signature granted while this page was closed.
+  if (getDualControlToken()) window.refreshDualControlStatus();
+};
+
+window.renderDualControlToken = function() {
+  const box = document.getElementById('dc-active-token');
+  if (!box) return;
+
+  const token = getDualControlToken();
+  if (!token) {
+    box.innerHTML = `
+      <div class="glass" style="padding:16px; border-radius:var(--radius); border:1px solid var(--border);">
+        <div style="font-size:13px; color:var(--muted);">No co-signed token held. Patient records stay locked until a second privileged principal approves a request.</div>
+      </div>`;
+    return;
+  }
+
+  const approved = token.status === 'APPROVED';
+  const expiresIn = token.expires_at ? Math.max(0, Math.round((token.expires_at * 1000 - Date.now()) / 60000)) : null;
+  box.innerHTML = `
+    <div class="glass" style="padding:16px 20px; border-radius:var(--radius); border:1px solid ${approved ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.35)'};">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700; font-size:14px; color:${approved ? '#10b981' : '#f59e0b'};">
+            ${approved ? 'CO-SIGNED — raw record access unlocked' : 'PENDING CO-APPROVAL'}
+          </div>
+          <div style="font-size:12px; color:var(--muted-hi); margin-top:4px;">
+            Patient <strong>${token.target_patient_id || '—'}</strong> ·
+            Token <code style="font-family:var(--font-mono);">${token.token_id}</code>
+            ${expiresIn !== null ? ` · expires in ${expiresIn} min` : ''}
+          </div>
+          ${token.co_signed_by ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">Co-signed by <strong>${token.co_signed_by}</strong></div>` : ''}
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="window.refreshDualControlStatus()">Refresh Status</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.clearDualControlToken()">Discard Token</button>
+        </div>
+      </div>
+    </div>`;
+};
+
+window.refreshDualControlStatus = async function() {
+  const held = getDualControlToken();
+  if (!held) return;
+  const errEl = document.getElementById('dc-error');
+  try {
+    const info = await apiFetch(`/api/security/dual-control/${held.token_id}`);
+    setDualControlToken({
+      token_id: info.token_id,
+      status: info.status,
+      target_patient_id: info.target_patient_id,
+      expires_at: info.expires_at,
+      co_signed_by: info.co_signed_by
+    });
+    window.renderDualControlToken();
+    if (info.status === 'APPROVED') {
+      addNotification('Dual-Control Approved', `Token ${info.token_id} was co-signed by ${info.co_signed_by}.`, 'success');
+    }
+  } catch (e) {
+    if (errEl) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+    }
+  }
+};
+
+window.clearDualControlToken = function() {
+  setDualControlToken(null);
+  window.renderDualControlToken();
+  addNotification('Dual-Control Token Discarded', 'Privileged raw record access has been relinquished.', 'info');
+};
+
+window.requestDualControl = async function(event) {
+  if (event) event.preventDefault();
+  const errEl = document.getElementById('dc-error');
+  const succEl = document.getElementById('dc-success');
+  errEl.style.display = 'none';
+  succEl.style.display = 'none';
+
+  try {
+    const res = await apiFetch('/api/security/dual-control/request', {
+      method: 'POST',
+      body: JSON.stringify({
+        request_type: 'DECRYPT_RAW_RECORD',
+        target_patient_id: document.getElementById('dc-patient-id').value.trim(),
+        reason: document.getElementById('dc-reason').value.trim(),
+        validity_minutes: parseInt(document.getElementById('dc-validity').value || 30)
+      })
+    });
+
+    setDualControlToken({
+      token_id: res.token_id,
+      status: res.status,
+      target_patient_id: document.getElementById('dc-patient-id').value.trim(),
+      expires_at: res.expires_at
+    });
+    window.renderDualControlToken();
+
+    succEl.textContent = `${res.message} Token: ${res.token_id}`;
+    succEl.style.display = 'block';
+    document.getElementById('dc-cosign-token').value = res.token_id;
+    addNotification('Dual-Control Requested', `Access request raised for ${document.getElementById('dc-patient-id').value.trim()}. Awaiting co-signature.`, 'warning');
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+};
+
+window.coSignDualControl = async function(event) {
+  if (event) event.preventDefault();
+  const errEl = document.getElementById('dc-error');
+  const succEl = document.getElementById('dc-success');
+  errEl.style.display = 'none';
+  succEl.style.display = 'none';
+
+  const tokenId = document.getElementById('dc-cosign-token').value.trim();
+  try {
+    const res = await apiFetch('/api/security/dual-control/co-sign', {
+      method: 'POST',
+      body: JSON.stringify({ token_id: tokenId })
+    });
+
+    // Only the requester benefits from holding the token locally; a co-signer
+    // approving someone else's request keeps whatever token they already had.
+    const held = getDualControlToken();
+    if (held && held.token_id === res.token_id) {
+      setDualControlToken({ ...held, status: res.status, co_signed_by: res.co_signed_by });
+    }
+    window.renderDualControlToken();
+
+    succEl.textContent = res.message;
+    succEl.style.display = 'block';
+    addNotification('Dual-Control Co-Signed', `Token ${res.token_id} approved for patient ${res.target_patient_id}.`, 'success');
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
   }
 };
 

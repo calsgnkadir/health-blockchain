@@ -81,6 +81,26 @@ def create_dual_control_request(
     return result
 
 
+@router.get("/dual-control/{token_id}", summary="Dual-Control Request Status")
+def get_dual_control_status(
+    token_id: str,
+    u: dict = Depends(current_user)
+):
+    if u["role"] not in ("admin", "security_officer", "auditor", "doctor"):
+        raise HTTPException(403, "Only privileged operators can inspect dual-control requests.")
+
+    info = dual_control_engine.get_request(token_id)
+    if not info:
+        raise HTTPException(404, "Dual-control request token not found.")
+
+    # The justification text can name a patient and a legal matter; only the two
+    # parties to the request need to read it back.
+    if u["username"] not in (info["requested_by"], info.get("co_signed_by")):
+        info.pop("reason", None)
+
+    return info
+
+
 @router.post("/dual-control/co-sign", summary="Co-Sign Dual-Control Request (Security Officer)")
 def co_sign_dual_control_request(
     req: CoSignReq,

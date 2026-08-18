@@ -1,5 +1,5 @@
 /* auth.js — VIP Health Vault UI Authentication Module */
-import { apiFetch, setToken, setCurrentUser, getCurrentUser, bytesToB64url, b64urlToBytes } from './utils.js';
+import { apiFetch, setToken, setCurrentUser, getCurrentUser, setDualControlToken, bytesToB64url, b64urlToBytes } from './utils.js';
 import { updateNotificationsUI, addNotification } from './notifications.js';
 
 export let mfaRequired = false;
@@ -100,6 +100,7 @@ export function logout() {
   apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   setToken(null);
   setCurrentUser(null);
+  setDualControlToken(null);
   resetLoginFormState();
   document.getElementById('page-login').classList.add('active');
   document.getElementById('page-login').style.display = 'block';

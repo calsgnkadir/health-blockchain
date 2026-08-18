@@ -331,6 +331,13 @@ export function renderActivityChart(records) {
 }
 
 export async function loadDashboard() {
+  // Clear first: on a failed or blocked load the panel must not keep showing the
+  // previous session's figures as if they belonged to the current user.
+  ['stat-total-blocks', 'stat-total-records', 'stat-encrypted'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+
   try {
     const pid = patientId();
     const [recData, statusData] = await Promise.all([
@@ -384,8 +391,19 @@ export async function loadDashboard() {
         addNotification('Chain Integrity Compromised', `Integrity check failed. Block #${statusData.broken_at} is broken!`, 'warning');
       }
     }
-  } catch(e) { 
-    console.error(e); 
+  } catch(e) {
+    console.error(e);
+    // Never leave the dashboard silently showing em-dashes: say why it is empty.
+    const recent = document.getElementById('recent-records');
+    if (recent) {
+      const isPolicyBlock = /Dual-Control/i.test(e.message || '');
+      recent.innerHTML = `
+        <div class="alert alert-error" style="line-height:1.5">
+          <strong>${isPolicyBlock ? 'Patient records are locked by policy' : 'Could not load dashboard data'}</strong><br>
+          ${e.message || 'Unknown error'}
+          ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' onclick=\"navigate('dual-control')\">Open Dual-Control Access</button>" : ''}
+        </div>`;
+    }
   }
 }
 
@@ -407,6 +425,7 @@ export function navigate(page) {
     users:          'User Management',
     audit:          'Access & Audit History',
     security:       'Security & 2FA Settings',
+    'dual-control': 'Dual-Control Access',
     consent:        'Consent Management',
   };
   
@@ -420,5 +439,6 @@ export function navigate(page) {
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');
   if (page === 'security')      if (window.loadSecuritySettings) window.loadSecuritySettings();
+  if (page === 'dual-control')  if (window.loadDualControl) window.loadDualControl();
   if (page === 'consent')       if (window.loadConsents) window.loadConsents();
 }

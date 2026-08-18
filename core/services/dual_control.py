@@ -118,6 +118,40 @@ class DualControlEngine:
             "message": f"Dual-Control request co-signed successfully by {co_signer_username}. Access granted."
         }
 
+    def get_request(self, token_id: str) -> Optional[Dict]:
+        """Read-only status of a dual-control request, or None when unknown."""
+        db = get_sql_db()
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT token_id, request_type, target_patient_id, requested_by,
+                       reason, status, created_at, expires_at, co_signed_by
+                FROM dual_control_tokens WHERE token_id = ?
+                """,
+                (token_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+        status = row[5]
+        expires_at = row[7]
+        if status == "APPROVED" and time.time() > expires_at:
+            status = "EXPIRED"
+
+        return {
+            "token_id":          row[0],
+            "request_type":      row[1],
+            "target_patient_id": row[2],
+            "requested_by":      row[3],
+            "reason":            row[4],
+            "status":            status,
+            "created_at":        row[6],
+            "expires_at":        expires_at,
+            "co_signed_by":      row[8],
+        }
+
     def is_dual_control_approved(self, token_id: str, patient_id: str) -> bool:
         """
         Verifies whether an active, approved dual-control token exists for the target patient.

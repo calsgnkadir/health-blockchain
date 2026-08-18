@@ -44,8 +44,13 @@ def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
 
-def _enforce_admin_dual_control(request: Request, u: dict, patient_id: str):
-    if u.get("role") == "admin":
+# Operator roles that administer the vault but have no clinical relationship with
+# the patient. None of them may read raw records on their own authority.
+PRIVILEGED_NON_CLINICAL_ROLES = ("admin", "security_officer", "auditor")
+
+
+def _enforce_privileged_dual_control(request: Request, u: dict, patient_id: str):
+    if u.get("role") in PRIVILEGED_NON_CLINICAL_ROLES:
         dc_token = request.headers.get("X-Dual-Control-Token") or request.query_params.get("dual_control_token")
         if not dc_token or not dual_control_engine.is_dual_control_approved(dc_token, patient_id):
             client_ip = _get_client_ip(request)
@@ -60,7 +65,7 @@ def _enforce_admin_dual_control(request: Request, u: dict, patient_id: str):
             )
             raise HTTPException(
                 status_code=403,
-                detail=f"Dual-Control Policy Violation: System Administrators cannot view or decrypt VIP patient records without an active Security Officer co-signed token for patient {patient_id}."
+                detail=f"Dual-Control Policy Violation: privileged operators cannot view or decrypt VIP patient records without an active co-signed token for patient {patient_id}. Open Dual-Control Access to request one."
             )
 
 def create_notification(
@@ -200,7 +205,7 @@ def get_records(
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
-    _enforce_admin_dual_control(request, u, patient_id)
+    _enforce_privileged_dual_control(request, u, patient_id)
     role = u["role"]
     if role == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -250,7 +255,7 @@ def get_single_record(
     record_service: RecordService = Depends(get_record_service)
 ):
     check_patient_id(patient_id)
-    _enforce_admin_dual_control(request, u, patient_id)
+    _enforce_privileged_dual_control(request, u, patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
@@ -280,7 +285,7 @@ def decrypt_record(
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
-    _enforce_admin_dual_control(request, u, patient_id)
+    _enforce_privileged_dual_control(request, u, patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
@@ -349,7 +354,7 @@ def download_offchain_file(
     ipfs_client: IPFSClient = Depends(get_ipfs_client)
 ):
     check_patient_id(patient_id)
-    _enforce_admin_dual_control(request, u, patient_id)
+    _enforce_privileged_dual_control(request, u, patient_id)
     role = u["role"]
     ignore_consent = False
     

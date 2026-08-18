@@ -98,6 +98,16 @@ def seed_default_users(db_manager: LMDBConnectionManager) -> None:
             "totp_secret": None,
             "totp_enabled": False,
         },
+        {
+            "id": "USR-SECOFF-001",
+            "username": "sec.officer",
+            "password_hash": hash_password("SecOfficer@2026!"),
+            "role": "security_officer",
+            "full_name": "Security Officer",
+            "patient_id": None,
+            "totp_secret": None,
+            "totp_enabled": False,
+        },
     ]
 
     for user in defaults:

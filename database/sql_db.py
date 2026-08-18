@@ -160,11 +160,6 @@ class SQLDatabaseManager:
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT COUNT(*) FROM users WHERE username = 'vip001'")
-            row = cursor.fetchone()
-            if row and row[0] > 0:
-                return  # Default users already seeded
-                
             from core.security import hash_password
             defaults = [
                 (
@@ -206,6 +201,22 @@ class SQLDatabaseManager:
                     None,
                     False
                 ),
+                # The Security Officer exists so the M-of-N Dual-Control policy is
+                # actually satisfiable: an administrator cannot co-sign their own
+                # request, so a second privileged principal is required.
+                (
+                    "USR-SECOFF-001",
+                    "sec.officer",
+                    hash_password("SecOfficer@2026!"),
+                    "security_officer",
+                    "Security Officer",
+                    None,
+                    None,
+                    None,
+                    "TOP_SECRET",
+                    None,
+                    False
+                ),
             ]
             
             insert_sql = """
@@ -216,9 +227,23 @@ class SQLDatabaseManager:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
-            cursor.executemany(insert_sql, defaults)
+            # Seed per account rather than all-or-nothing, so an existing database
+            # picks up accounts added in later versions.
+            seeded = 0
+            for account in defaults:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM users WHERE username = %s" if self.is_postgres
+                    else "SELECT COUNT(*) FROM users WHERE username = ?",
+                    (account[1],)
+                )
+                row = cursor.fetchone()
+                if row and row[0] > 0:
+                    continue
+                cursor.execute(insert_sql, account)
+                seeded += 1
             conn.commit()
-            print("[SQL DB] Default users seeded successfully.")
+            if seeded:
+                print(f"[SQL DB] Default users seeded successfully ({seeded} account(s)).")
         except Exception as e:
             conn.rollback()
             print(f"[SQL DB Error] Seeding failed: {e}")

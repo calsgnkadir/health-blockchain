@@ -49,6 +49,13 @@ export async function apiFetch(path, opts = {}) {
   if (csrfToken) {
     headers['X-CSRF-Token'] = csrfToken;
   }
+
+  // Privileged operators (admin / security officer / auditor) may hold a
+  // co-signed Dual-Control token authorising raw record access.
+  const dualControlToken = getDualControlToken();
+  if (dualControlToken) {
+    headers['X-Dual-Control-Token'] = dualControlToken.token_id;
+  }
   
   const res = await fetch(API + fullPath, { ...opts, headers });
   const json = await res.json().catch(() => ({}));
@@ -56,6 +63,23 @@ export async function apiFetch(path, opts = {}) {
     throw new Error(json.detail || 'An error occurred');
   }
   return json;
+}
+
+/* -- Dual-Control token (co-signed privileged access) ----------------- */
+export function getDualControlToken() {
+  try {
+    return JSON.parse(localStorage.getItem('vhv_dual_control') || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setDualControlToken(token) {
+  if (token) {
+    localStorage.setItem('vhv_dual_control', JSON.stringify(token));
+  } else {
+    localStorage.removeItem('vhv_dual_control');
+  }
 }
 
 /* -- base64url helpers (WebAuthn binary payloads) -------------------- */
@@ -147,6 +171,11 @@ export const appState = {
       // Role-based navigation visibility
       const navUsers = document.getElementById('nav-users');
       if (navUsers) navUsers.style.display = (this.currentUser.role === 'admin') ? 'flex' : 'none';
+      const navDualControl = document.getElementById('nav-dual-control');
+      if (navDualControl) {
+        navDualControl.style.display =
+          ['admin', 'security_officer', 'auditor'].includes(this.currentUser.role) ? 'flex' : 'none';
+      }
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       const navAdd = document.getElementById('nav-add');
