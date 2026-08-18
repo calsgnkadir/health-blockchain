@@ -1,4 +1,4 @@
-import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
+import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
@@ -986,6 +986,31 @@ window.switchTheme = function(themeName) {
   window.switchTheme(savedTheme);
 })();
 
+/* -- Session expiry: bounce back to the login screen ----------------- */
+window.addEventListener('vhv:session-expired', (e) => {
+  const pageApp = document.getElementById('page-app');
+  if (pageApp) {
+    pageApp.style.display = 'none';
+    pageApp.classList.remove('active');
+  }
+  const pageLogin = document.getElementById('page-login');
+  if (pageLogin) {
+    pageLogin.style.display = 'block';
+    pageLogin.classList.add('active');
+  }
+
+  closeModal();
+  window.closeCommandPalette();
+  resetLoginFormState();
+  updateNotificationsUI();
+
+  const err = document.getElementById('login-error');
+  if (err) {
+    err.textContent = e.detail || 'Your session has expired. Please sign in again.';
+    err.style.display = 'block';
+  }
+});
+
 // Auto-run on load
 const token = localStorage.getItem('vhv_token');
 const currentUser = getCurrentUser();
@@ -995,7 +1020,19 @@ initRecordsListeners();
 initCommandPaletteListeners();
 
 if (token && currentUser) {
-  window.enterApp();
+  // Confirm the stored token is still accepted before showing the vault: a token
+  // left over from an earlier server run is rejected on every call, which used to
+  // leave the UI looking signed in while nothing loaded. This also refreshes the
+  // cached profile (role, 2FA state) from the server.
+  apiFetch('/api/auth/me')
+    .then(user => {
+      setCurrentUser(user);
+      window.enterApp();
+    })
+    .catch(() => {
+      // A 401 already cleared the session and raised vhv:session-expired.
+      resetLoginFormState();
+    });
 } else {
   resetLoginFormState();
 }

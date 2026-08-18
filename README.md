@@ -4,17 +4,7 @@
 
 ---
 
-## 📸 Interface & System Showcase
-
-> 💡 **Public Ingress Architecture Note**: By security design, **VIP Health Vault** enforces strict private subnet CIDR isolation (`IPAllowlistMiddleware`) and air-gapped hardware passkeys. As a consequence, the application cannot and should not be hosted on public SaaS URLs (`0.0.0.0/0`). Below is the complete interface walkthrough and system showcase for local demonstration.
-
-| Stealth Login & Passkey Authentication | VIP Executive Clinical Dashboard |
-| :---: | :---: |
-| ![Login Interface](docs/screenshots/01_login.png) | ![Executive Dashboard](docs/screenshots/02_dashboard.png) |
-
-| Merkle Root Cryptographic Proof | Emergency Access Audit Controls |
-| :---: | :---: |
-| ![Merkle Proof](docs/screenshots/03_blockchain_proof.png) | ![Emergency Access](docs/screenshots/04_emergency_access.png) |
+> 💡 **Public Ingress Architecture Note**: By security design, **VIP Health Vault** enforces strict private subnet CIDR isolation (`IPAllowlistMiddleware`) and per-device hardware passkeys. As a consequence, the application cannot and should not be hosted on public SaaS URLs (`0.0.0.0/0`) — it is intended to be run locally or inside a private VPC. See [Quick Start](#-quick-start) to bring the vault up on your own machine.
 
 ---
 
@@ -24,9 +14,10 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 
 | Security Component | Implementation Status | Enforcing Class / File | Technical Guarantee |
 | :--- | :---: | :--- | :--- |
-| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.BlockchainNotarizer` | Local Merkle root signed hash-chain (`ADR-0001`). Zero Web3/RPC dependencies. |
-| **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `backend.routers.auth.login_webauthn_credential` | Native browser WebAuthn API + `secp256r1` signature verification in Python. |
-| **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw admin access (`403 Forbidden`) without Security Officer co-signature. |
+| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.BlockchainNotarizer` | Local Merkle root signed hash-chain (`ADR-0001`), re-anchored after every committed write. Zero Web3/RPC dependencies. Per-record inclusion proofs are verifiable from the record view (`GET /api/v1/records/proof/{patient_id}/{block_index}`). |
+| **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `core.webauthn.verify_assertion` | Native browser WebAuthn API + `secp256r1` (ES256) assertion verification in Python: single-use challenge, origin and rpId binding, User Present flag, and signature-counter clone detection. No credential is ever pre-seeded. |
+| **Patient-Controlled Consent** | **LIVE / WORKING** | `backend.routers.consent._require_consent_owner` | Only the patient who owns the chart may grant or revoke clinical access — practitioners and administrators cannot self-authorize; they must use the audited Break-Glass override. |
+| **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw record access by every non-clinical operator role — admin, auditor, security officer — with `403 Forbidden` until a *different* privileged principal co-signs. Self-approval is rejected; tokens are bound to one patient and expire. Drivable from the Dual-Control Access screen. |
 | **Network IP Allowlist** | **LIVE / WORKING** | `backend.middleware.ip_allowlist.resolve_secure_client_ip` | Direct socket peer host verification. Prevents `X-Forwarded-For` header spoofing. |
 | **Immutable Decrypt Access Log** | **LIVE / WORKING** | `backend.routers.records.decrypt_record` | Writes immutable `RECORD_DECRYPTED` log entry to LMDB and SQLite access logs. |
 | **Hardware Passkey Revocation** | **LIVE / WORKING** | `POST /api/v1/auth/webauthn/revoke` | Revokes stolen hardware credentials with Dual-Control authorization. |

@@ -148,6 +148,21 @@ STATIC = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(STATIC):
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+    @app.middleware("http")
+    async def revalidate_frontend_assets(request, call_next):
+        """
+        Force browsers to revalidate the SPA shell and its ES modules.
+
+        Without this a browser keeps serving heuristically-cached JavaScript after
+        a deployment, so frontend security fixes silently fail to reach anyone who
+        already visited the vault.
+        """
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
     @app.get("/", include_in_schema=False)
     async def frontend_root():
         return FileResponse(os.path.join(STATIC, "index.html"))

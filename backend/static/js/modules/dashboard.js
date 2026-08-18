@@ -256,21 +256,20 @@ export function renderActivityChart(records) {
   const days = 7;
   const labels = [];
   const commitCounts = [];
-  const accessCounts = [];
 
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
-    const displayStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    labels.push(displayStr);
+    labels.push(d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
 
+    // Only real ledger activity is plotted. A tamper-evidence dashboard that pads
+    // quiet days with invented numbers is worse than an empty one.
     const dayRecords = records.filter(r => {
       const recDate = r.timestamp_iso ? r.timestamp_iso.split('T')[0] : new Date(r.timestamp * 1000).toISOString().split('T')[0];
       return recDate === dateStr;
     });
-    commitCounts.push(dayRecords.length || (i === 0 ? records.length % 5 : Math.floor(Math.random() * 3)));
-    accessCounts.push(dayRecords.length * 2 || (i === 0 ? (records.length % 5) * 2 : Math.floor(Math.random() * 5)));
+    commitCounts.push(dayRecords.length);
   }
 
   if (activityChartInstance) {
@@ -288,14 +287,6 @@ export function renderActivityChart(records) {
           data: commitCounts,
           backgroundColor: 'rgba(10, 191, 188, 0.65)',
           borderColor: '#0ABFBC',
-          borderWidth: 1,
-          borderRadius: 4
-        },
-        {
-          label: 'Access Audits',
-          data: accessCounts,
-          backgroundColor: 'rgba(242, 201, 76, 0.45)',
-          borderColor: '#F2C94C',
           borderWidth: 1,
           borderRadius: 4
         }

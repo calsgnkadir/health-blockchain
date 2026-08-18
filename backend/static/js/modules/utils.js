@@ -59,6 +59,14 @@ export async function apiFetch(path, opts = {}) {
   
   const res = await fetch(API + fullPath, { ...opts, headers });
   const json = await res.json().catch(() => ({}));
+
+  // A 401 on an authenticated call means the stored token is no longer usable
+  // (expired, revoked, or issued for a different device fingerprint). Without
+  // this, the UI keeps looking signed in while every request fails.
+  if (res.status === 401 && !isAuthEntryPoint(fullPath)) {
+    handleSessionExpiry(json.detail);
+  }
+
   if (!res.ok) {
     throw new Error(json.detail || 'An error occurred');
   }
@@ -80,6 +88,42 @@ export function setDualControlToken(token) {
   } else {
     localStorage.removeItem('vhv_dual_control');
   }
+}
+
+/* -- Session expiry handling ----------------------------------------- */
+// Endpoints that legitimately answer 401 while signed out (a rejected login is
+// not an expired session).
+const AUTH_ENTRY_POINTS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/webauthn/login',
+  '/api/v1/auth/webauthn/challenge',
+];
+
+function isAuthEntryPoint(fullPath) {
+  return AUTH_ENTRY_POINTS.some(entry => fullPath.startsWith(entry));
+}
+
+let sessionExpiryPending = false;
+
+export function handleSessionExpiry(detail) {
+  // Nothing to expire when signed out, and a burst of parallel 401s must only
+  // bounce the user back to the login screen once.
+  if (sessionExpiryPending || !getToken()) return;
+  sessionExpiryPending = true;
+
+  setToken(null);
+  setCurrentUser(null);
+  setDualControlToken(null);
+
+  // The server's wording ("Invalid token", "Token has been revoked") is not
+  // actionable for the person at the keyboard; keep it for the console only.
+  if (detail) console.warn('Session ended by server:', detail);
+
+  window.dispatchEvent(new CustomEvent('vhv:session-expired', {
+    detail: 'Your session has expired. Please sign in again.'
+  }));
+
+  setTimeout(() => { sessionExpiryPending = false; }, 1000);
 }
 
 /* -- base64url helpers (WebAuthn binary payloads) -------------------- */
