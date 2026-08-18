@@ -96,6 +96,27 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ## ⚖️ Compliance & Governance
 
-- **GDPR / KVKK**: Complete compliance via identity pseudonymization, local data sovereignty, and key destruction erasure.
-- **ISO 27001 / INFOSEC**: Full cryptographic access audit logs and Dual-Control co-signatures for privileged operations.
+- **GDPR / KVKK (live)**: Local data sovereignty (records never leave the private deployment), time-bound consent with automatic expiry, and a full cryptographic access audit trail.
+- **GDPR / KVKK (planned)**: Identity pseudonymization (`anon_id` decoupling) and key-destruction erasure are scaffolded but not yet wired into the write path — see the [Roadmap](#-roadmap) and `docs/GDPR_KVKK_COMPLIANCE.md`.
+- **ISO 27001 / INFOSEC**: Cryptographic access audit logs and Dual-Control co-signatures for privileged operations.
 - **Institutional Gate**: Satisfies Private VPC isolation and out-of-band identity onboarding requirements ([PRIVATE_VPC_DEPLOYMENT.md](docs/PRIVATE_VPC_DEPLOYMENT.md)).
+
+---
+
+## 🧭 Roadmap
+
+The vault stands on two pillars: a **tamper-evident chain** (integrity) and
+**confidentiality** for VIP health records. Work is sequenced so each step is
+independently shippable with the test suite green.
+
+| Status | Item | Pillar |
+| :---: | :--- | :--- |
+| ✅ done | Signed, append-only hash-chain with per-block Merkle inclusion proofs | Integrity |
+| ✅ done | Passkey/FIDO2 auth, patient-owned consent, Dual-Control for operators | Confidentiality |
+| ✅ done | Verified WebAuthn, authenticated LIS gateway, render-time output encoding, strict CSP | Confidentiality |
+| 🔜 next | **Encryption at rest** — every clinical payload AES-256 encrypted on disk with a KMS-derived key (server decrypts for authorized sessions) | Confidentiality |
+| 🔜 next | **Access trail on chain** — `RECORD_DECRYPTED` / `RECORDS_VIEWED` written as blocks, surfaced to the patient | Both |
+| 🔜 next | **Medical correction flow** — records are never overwritten; a correction is a new block, both stay visible | Integrity |
+| 📋 planned | Identity pseudonymization (`anon_id` decoupling) wired into the write path | Confidentiality |
+| 📋 planned | Key-destruction erasure (GDPR/KVKK right to be forgotten on an append-only chain) | Confidentiality |
+| 📋 planned | External Merkle-root anchoring (RFC 3161 / signed daily root) and HSM-backed signing key | Integrity |
