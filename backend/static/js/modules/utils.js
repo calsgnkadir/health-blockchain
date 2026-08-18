@@ -151,6 +151,12 @@ export const appState = {
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       const navAdd = document.getElementById('nav-add');
       if (navAdd) navAdd.style.display = (this.currentUser.role === 'vip_patient') ? 'none' : 'flex';
+
+      // Only the patient who owns the chart may grant or revoke clinical access.
+      const consentGrantCard = document.getElementById('consent-grant-card');
+      if (consentGrantCard) {
+        consentGrantCard.style.display = (this.currentUser.role === 'vip_patient') ? 'block' : 'none';
+      }
     }
 
     // 2. Render Chain Pill

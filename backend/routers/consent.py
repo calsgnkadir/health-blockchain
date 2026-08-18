@@ -20,20 +20,39 @@ def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
 
+
+def _require_consent_owner(u: dict, patient_id: str) -> None:
+    """
+    Consent is the patient's decision alone.
+
+    Only the account that owns the record chain may grant or revoke access to it.
+    A practitioner who could grant themselves consent would make the whole consent
+    model decorative, and an administrator who could do so would bypass the
+    Dual-Control policy that keeps them out of raw records. Practitioners needing
+    access without a standing consent must use the audited Break-Glass override.
+    """
+    if u.get("role") != "vip_patient" or u.get("patient_id") != patient_id:
+        raise HTTPException(
+            403,
+            "Consent Policy Violation: only the patient who owns these records may "
+            "grant or revoke clinical access. Practitioners must use the audited "
+            "Break-Glass emergency override instead."
+        )
+
 @router.get("/{patient_id}", summary="Get Patient Consent Rules")
 def get_consents(
-    patient_id: str, 
+    patient_id: str,
     u: dict = Depends(current_user),
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-    
+
     project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
     if not db_manager.project_exists(project_name):
         return {"consents": []}
-        
+
     env = db_manager.open_db(project_name)
     consents = []
     with env.begin(write=False) as txn:
@@ -45,6 +64,12 @@ def get_consents(
                     consents.append(cdata)
                 except Exception:
                     continue
+
+    # A practitioner may see the permissions granted to them, not the patient's
+    # full roster of who else can read the chart.
+    if u["role"] == "doctor":
+        consents = [c for c in consents if c.get("doctor_username") == u["username"]]
+
     return {"consents": consents}
 
 @router.post("", summary="Grant or Update Doctor Consent")
@@ -54,9 +79,9 @@ def grant_consent(
     user_repository: LMDBUserRepository = Depends(get_user_repository),
     command_handler: CommandHandler = Depends(get_command_handler)
 ):
-    if u["role"] == "vip_patient" and u.get("patient_id") != data.patient_id:
-        raise HTTPException(403, "Access denied")
-        
+    check_patient_id(data.patient_id)
+    _require_consent_owner(u, data.patient_id)
+
     doc = user_repository.load_user(data.doctor_username)
     if not doc or doc.role != "doctor":
         raise HTTPException(404, "Doctor not found")
@@ -81,9 +106,8 @@ def revoke_consent(
     command_handler: CommandHandler = Depends(get_command_handler)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
-        raise HTTPException(403, "Access denied")
-        
+    _require_consent_owner(u, patient_id)
+
     cmd = RevokeConsentCommand(
         patient_id=patient_id,
         doctor_username=doctor_username,

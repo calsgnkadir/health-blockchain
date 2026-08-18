@@ -1,5 +1,5 @@
 /* consent.js — VIP Health Vault UI Consent Management Module */
-import { apiFetch, patientId } from './utils.js';
+import { apiFetch, patientId, getCurrentUser } from './utils.js';
 import { addNotification } from './notifications.js';
 
 export async function loadConsents() {
@@ -16,6 +16,10 @@ export async function loadConsents() {
       container.innerHTML = `<div class="empty-state"><p>No active consent permissions granted for your healthcare providers.</p></div>`;
       return;
     }
+
+    // Revocation is a patient-only action; the server enforces the same rule.
+    const currentUser = getCurrentUser();
+    const canRevoke = !!currentUser && currentUser.role === 'vip_patient' && currentUser.patient_id === pid;
 
     const typeLabels = {
       all: 'All Records',
@@ -52,7 +56,7 @@ export async function loadConsents() {
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)">
                   <span>Granted: ${grantedDate}</span>
                   <span>Expires: ${expDate}</span>
-                  <button class="btn btn-error btn-sm" style="padding:2px 8px;font-size:10px;border-radius:4px;font-weight:600;" onclick="window.revokeConsent('${c.doctor_username}', '${c.record_type}')">Revoke</button>
+                  ${canRevoke ? `<button class="btn btn-error btn-sm" style="padding:2px 8px;font-size:10px;border-radius:4px;font-weight:600;" onclick="window.revokeConsent('${c.doctor_username}', '${c.record_type}')">Revoke</button>` : ''}
                 </div>
               </div>
             </div>

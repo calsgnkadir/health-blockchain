@@ -593,8 +593,8 @@
 
             <!-- Right: Grant Consent Form & Break Glass Panel -->
             <div style="display:flex; flex-direction:column; gap:20px;">
-              <!-- Grant Consent Form -->
-              <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <!-- Grant Consent Form (patients only — consent is the patient's decision) -->
+              <div class="glass" id="consent-grant-card" style="padding: 20px; border-radius: var(--radius); display:none;">
                 <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Doctor Access</h3>
                 <div id="consent-grant-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
