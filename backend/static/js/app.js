@@ -111,13 +111,13 @@ window.loadVaccines = async function() {
                 `;
               }
               const val = r.data || {};
-              const dateStr = val.record_date ? new Date(val.record_date).toLocaleDateString('en-GB') : '—';
-              const nextDose = val.data && val.data.next_dose ? new Date(val.data.next_dose).toLocaleDateString('en-GB') : '—';
+              const dateStr = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : '—';
+              const nextDose = val.next_dose ? new Date(val.next_dose).toLocaleDateString('en-GB') : '—';
               return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="window.openRecord(${r.block_index})">
-                  <td style="padding: 14px 8px; font-weight: 600;">${val.data.vaccine_name || '—'}</td>
-                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${val.data.lot_number || '—'}</td>
-                  <td style="padding: 14px 8px;">Dose ${val.data.dose_number || '1'}</td>
+                  <td style="padding: 14px 8px; font-weight: 600;">${val.vaccine_name || '—'}</td>
+                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${val.lot_number || '—'}</td>
+                  <td style="padding: 14px 8px;">Dose ${val.dose_number || '1'}</td>
                   <td style="padding: 14px 8px;">${dateStr}</td>
                   <td style="padding: 14px 8px;">${nextDose}</td>
                   <td style="padding: 14px 8px;"><span class="badge badge-shared">Verified</span></td>
@@ -156,8 +156,8 @@ window.loadMedications = async function() {
       }
       
       const val = r.data || {};
-      const recordDate = new Date(val.record_date);
-      const durationDays = parseInt(val.data.duration || 0);
+      const recordDate = new Date(r.record_date);
+      const durationDays = parseInt(val.duration || 0);
       const expiryDate = new Date(recordDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
       const today = new Date();
       today.setHours(0,0,0,0);
@@ -166,13 +166,13 @@ window.loadMedications = async function() {
       const details = {
         block_index: r.block_index,
         title: r.title,
-        medication: val.data.medication || 'Unknown',
-        dose: val.data.dose || '—',
-        frequency: val.data.frequency || '—',
+        medication: val.medication || 'Unknown',
+        dose: val.dose || '—',
+        frequency: val.frequency || '—',
         duration: durationDays,
-        instructions: val.data.notes || '—',
-        record_date: val.record_date,
-        doctor: val.doctor_name,
+        instructions: r.notes || '—',
+        record_date: r.record_date,
+        doctor: r.doctor_name,
         expiry_date: expiryDate.toLocaleDateString('en-GB'),
         is_protected: false
       };
@@ -577,14 +577,13 @@ function renderCommandPaletteResults(query = '') {
 
   if (allRecords && allRecords.length > 0) {
     const matchedRecords = allRecords.filter(r => {
-      const d = r.data || {};
-      const txt = (r.title + ' ' + (d.doctor_name||'') + ' ' + (d.institution||'') + ' ' + (r.record_type||'')).toLowerCase();
+      const txt = ((r.title||'') + ' ' + (r.doctor_name||'') + ' ' + (r.institution||'') + ' ' + (r.record_type||'')).toLowerCase();
       return txt.includes(query);
     }).map(r => ({
       type: 'record',
       block_index: r.block_index,
       title: r.title,
-      desc: `Block #${r.block_index} · ${(r.data?.doctor_name || 'System')} · ${r.data?.record_date || 'Date N/A'}`,
+      desc: `Block #${r.block_index} · ${(r.doctor_name || 'System')} · ${r.record_date || 'Date N/A'}`,
       shortcut: `#${r.block_index}`
     }));
 

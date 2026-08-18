@@ -81,10 +81,11 @@ export function renderAllRecords() {
   const type = typeEl ? typeEl.value : '';
   
   const filtered = allRecords.filter(r => {
-    const d = r.data || {};
-    const txt = (r.title + (d.doctor_name||'') + (d.institution||'')).toLowerCase();
+    // The list endpoint carries record metadata on the record itself; `r.data`
+    // holds only the clinical fields specific to the record type.
+    const txt = ((r.title || '') + ' ' + (r.doctor_name || '') + ' ' + (r.institution || '')).toLowerCase();
     const matchQ = !q || txt.includes(q);
-    const matchT = !type || (d.record_type === type);
+    const matchT = !type || (r.record_type === type);
     return matchQ && matchT;
   });
   
@@ -95,11 +96,10 @@ export function renderAllRecords() {
 }
 
 export function renderRecordCard(r) {
-  const d = r.data || {};
-  const type = d.record_type || 'unknown';
+  const type = r.record_type || 'unknown';
   const typeAbbr = (TYPE_LABELS[type] || type).substring(0, 3).toUpperCase();
-  const al = d.access_level || 'private';
-  const date = d.record_date ? new Date(d.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
+  const al = r.access_level || 'private';
+  const date = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
   const encBadge = r.is_protected ? '<span class="badge badge-encrypted">ENCRYPTED</span>' : '';
   const corrBadge = r.is_correction ? '<span class="badge badge-private">CORRECTION</span>' : '';
   const typLabel = escapeHtml(recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type);
@@ -110,7 +110,7 @@ export function renderRecordCard(r) {
     <div class="record-type-icon record-type-text">${escapeHtml(typeAbbr)}</div>
     <div class="record-main">
       <div class="record-title">${escapeHtml(r.title)}</div>
-      <div class="record-meta">${escapeHtml(d.doctor_name||'—')} · ${escapeHtml(d.institution||'—')}</div>
+      <div class="record-meta">${escapeHtml(r.doctor_name||'—')} · ${escapeHtml(r.institution||'—')}</div>
       <div class="record-badges">${alBadge}${encBadge}${corrBadge}
         <span class="badge badge-private" style="background:rgba(255,255,255,0.05);color:var(--muted)">${typLabel}</span>
       </div>
@@ -303,13 +303,14 @@ export async function openRecord(idx) {
     return;
   }
 
-  const d = r.data || {};
-  const typLabel = recordTypes.find(t => t.value === d.record_type)?.label || d.record_type || '—';
+  // Record metadata lives on the record; `r.data` holds the clinical fields.
+  const clinical = r.data || {};
+  const typLabel = recordTypes.find(t => t.value === r.record_type)?.label || r.record_type || '—';
 
-  const dataFields = parseFhirData(d.data);
+  const dataFields = parseFhirData(clinical);
 
   const attachmentHtml = renderAttachmentHtml(r.file_name, r.file_type, r.file_data, patientId(), r.block_index);
-  const isImaging = d.record_type === 'imaging';
+  const isImaging = r.record_type === 'imaging';
   const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
   document.getElementById('modal-content').innerHTML = `
@@ -317,24 +318,24 @@ export async function openRecord(idx) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
       <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(d.institution||'—')}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(d.record_date||'—')}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[d.access_level]||d.access_level||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(r.doctor_name||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(r.institution||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(r.record_date||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[r.access_level]||r.access_level||'—')}</div></div>
     </div>
     ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
-    ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(d.notes)}</div></div>` : ''}
+    ${r.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(r.notes)}</div></div>` : ''}
     ${dicomViewerHtml}
     ${attachmentHtml}
     <hr style="border-color:var(--border);margin:16px 0">
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
-    <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
+    <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
 
   if (isImaging) {
-    dicomAnnotations = d.data?.annotations || [];
-    initDicomViewer(d.data || {});
+    dicomAnnotations = clinical.annotations || [];
+    initDicomViewer(clinical);
     if (r.file_data && r.file_type && r.file_type.startsWith('image/')) {
       loadDicomPixelsFromBase64(r.file_data).then(pixels => {
         if (pixels) {

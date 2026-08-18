@@ -121,6 +121,7 @@ class QueryHandler:
                 entry["record_date"]  = data.get("record_date", "")
                 entry["data"]         = data.get("data", {})
                 entry["notes"]        = data.get("notes", "")
+                entry["created_by"]   = data.get("created_by", "")
                 entry["file_name"]    = data.get("file_name")
                 entry["file_type"]    = data.get("file_type")
                 entry["file_data"]    = data.get("file_data")

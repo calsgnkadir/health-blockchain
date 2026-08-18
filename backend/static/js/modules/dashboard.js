@@ -16,9 +16,10 @@ export function updateClinicalHighlights(records) {
   highlightDiv.style.display = 'block';
 
   // 1. Vitals
+  // `r.data` holds the record-type specific clinical fields.
   const vitalsRecord = records.find(r => r.record_type === 'vital_signs' && !r.is_protected && r.data);
-  if (vitalsRecord && vitalsRecord.data && vitalsRecord.data.data) {
-    const v = vitalsRecord.data.data;
+  if (vitalsRecord && vitalsRecord.data) {
+    const v = vitalsRecord.data;
     document.getElementById('vital-bp-val').textContent = v.blood_pressure || '—';
     document.getElementById('vital-hr-val').textContent = v.heart_rate ? `${v.heart_rate} bpm` : '—';
     document.getElementById('vital-temp-val').textContent = v.temperature ? `${v.temperature} °C` : '—';
@@ -52,7 +53,7 @@ export function updateClinicalHighlights(records) {
   
   if (allergyRecords.length > 0) {
     allergyUl.innerHTML = allergyRecords.map(r => {
-      const a = r.data.data || {};
+      const a = r.data || {};
       return `<li><strong>${a.allergen || 'Unknown'}</strong>: ${a.reaction || 'No reaction listed'} (${a.severity || 'Mild'} severity, onset: ${a.onset_date || '—'})</li>`;
     }).join('');
     allergyBox.style.display = 'block';
@@ -67,10 +68,10 @@ export function renderVitalsChart(records) {
   if (!chartPanel) return;
 
   const vitalsRecords = records
-    .filter(r => r.record_type === 'vital_signs' && !r.is_protected && r.data && r.data.data)
+    .filter(r => r.record_type === 'vital_signs' && !r.is_protected && r.data)
     .map(r => ({
-      date: r.data.record_date || new Date(r.timestamp * 1000).toISOString().split('T')[0],
-      v: r.data.data,
+      date: r.record_date || new Date(r.timestamp * 1000).toISOString().split('T')[0],
+      v: r.data,
       timestamp: r.timestamp
     }));
 
