@@ -1,7 +1,7 @@
 import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
-import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
+import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, viewOriginalVersion, renderCorrectionForm, submitCorrection, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
 import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
@@ -1090,6 +1090,9 @@ registerActions('click', {
   'open-record':           (el) => openRecord(Number(arg(el))),
   'decrypt-record':        (el) => decryptRecord(Number(arg(el))),
   'verify-proof':          (el) => verifyMerkleProof(Number(arg(el))),
+  'view-original':         (el) => viewOriginalVersion(Number(arg(el))),
+  'correct-record':        (el) => renderCorrectionForm(Number(arg(el))),
+  'submit-correction':     (el) => submitCorrection(Number(arg(el))),
   'close-modal':           () => closeModal(),
   'choose-file':           () => document.getElementById('rec-file')?.click(),
   'download-attachment':   (el) => {

@@ -1,5 +1,5 @@
 /* records.js — VIP Health Vault UI Records Module */
-import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml } from './utils.js';
+import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser } from './utils.js';
 import { stashPayload } from './actions.js';
 import { addNotification } from './notifications.js';
 
@@ -103,6 +103,7 @@ export function renderRecordCard(r) {
   const date = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
   const encBadge = r.is_protected ? '<span class="badge badge-encrypted">ENCRYPTED</span>' : '';
   const corrBadge = r.is_correction ? '<span class="badge badge-private">CORRECTION</span>' : '';
+  const correctedBadge = r.is_corrected ? '<span class="badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)">CORRECTED</span>' : '';
   const typLabel = escapeHtml(recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type);
   const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>`;
   return `
@@ -112,7 +113,7 @@ export function renderRecordCard(r) {
     <div class="record-main">
       <div class="record-title">${escapeHtml(r.title)}</div>
       <div class="record-meta">${escapeHtml(r.doctor_name||'—')} · ${escapeHtml(r.institution||'—')}</div>
-      <div class="record-badges">${alBadge}${encBadge}${corrBadge}
+      <div class="record-badges">${alBadge}${encBadge}${corrBadge}${correctedBadge}
         <span class="badge badge-private" style="background:rgba(255,255,255,0.05);color:var(--muted)">${typLabel}</span>
       </div>
     </div>
@@ -328,12 +329,21 @@ export async function openRecord(idx) {
     ${r.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(r.notes)}</div></div>` : ''}
     ${dicomViewerHtml}
     ${attachmentHtml}
+    ${r.is_corrected && r.correction ? `
+      <div class="alert" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);margin-top:16px;line-height:1.6">
+        <strong style="color:#f59e0b">✎ This record was corrected</strong><br>
+        <span style="font-size:12px;color:var(--muted-hi)">By <strong>${escapeHtml(r.correction.corrected_by||'—')}</strong>${r.correction.corrected_at ? ' on ' + new Date(r.correction.corrected_at*1000).toLocaleString('en-GB') : ''}</span><br>
+        <span style="font-size:12px">Reason: ${escapeHtml(r.correction.reason||'—')}</span>
+        <div style="margin-top:10px"><button class="btn btn-ghost btn-sm" data-action="view-original" data-arg="${r.block_index}">View original version</button></div>
+        <div id="original-version-view" style="margin-top:12px"></div>
+      </div>` : ''}
     <hr style="border-color:var(--border);margin:16px 0">
     <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r.hash_preview)}</div></div>
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
-    <div style="margin-top:16px">
+    <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-ghost btn-sm" data-action="verify-proof" data-arg="${r.block_index}">Verify Merkle Inclusion Proof</button>
-      <div id="merkle-proof-result" style="margin-top:12px"></div>
+      ${['doctor','vip_patient','admin'].includes((getCurrentUser()||{}).role) ? `<button class="btn btn-ghost btn-sm" data-action="correct-record" data-arg="${r.block_index}">Correct this record</button>` : ''}
+      <div id="merkle-proof-result" style="width:100%;margin-top:12px"></div>
     </div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
@@ -442,8 +452,111 @@ export async function verifyMerkleProof(blockIndex) {
   }
 }
 
-export function closeModal() { 
-  document.getElementById('modal-overlay').classList.remove('open'); 
+export async function viewOriginalVersion(blockIndex) {
+  const box = document.getElementById('original-version-view');
+  if (!box) return;
+  box.innerHTML = '<div class="loading-spinner">Loading original version…</div>';
+  try {
+    const res = await apiFetch(`/api/records/${patientId()}/${blockIndex}?version=original`);
+    const d = res.data || {};
+    const clinical = d.data || {};
+    const rows = Object.entries(clinical)
+      .filter(([k]) => k !== 'annotations')
+      .map(([k, v]) => `<div style="font-size:12px"><span style="color:var(--muted)">${escapeHtml(k)}:</span> ${escapeHtml(String(v))}</div>`)
+      .join('');
+    box.innerHTML = `
+      <div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;background:rgba(255,255,255,0.02)">
+        <div style="font-size:11px;color:var(--muted-hi);text-transform:uppercase;margin-bottom:6px">Original (superseded) — still on the chain</div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">${escapeHtml(d.title || '—')}</div>
+        ${rows || '<div style="font-size:12px;color:var(--muted)">No clinical fields.</div>'}
+        ${d.notes ? `<div style="font-size:12px;margin-top:6px"><span style="color:var(--muted)">notes:</span> ${escapeHtml(d.notes)}</div>` : ''}
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+export function renderCorrectionForm(blockIndex) {
+  const r = allRecords.find(x => x.block_index === blockIndex);
+  if (!r) return;
+  const clinical = r.data || {};
+  const fieldRows = Object.entries(clinical)
+    .filter(([k]) => k !== 'annotations')
+    .map(([k, v]) => `
+      <div class="field-group">
+        <label>${escapeHtml(k)}</label>
+        <input type="text" data-corr-field="${escapeHtml(k)}" value="${escapeHtml(String(v))}" />
+      </div>`).join('');
+
+  document.getElementById('modal-content').innerHTML = `
+    <h2 style="font-size:18px;font-weight:700;margin-bottom:6px">Correct record #${r.block_index}</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.5">
+      The original record is never changed — your correction is appended as a new block and both stay on the chain.
+    </p>
+    <div id="correction-error" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
+    <div class="field-group">
+      <label>Title</label>
+      <input type="text" id="corr-title" value="${escapeHtml(r.title || '')}" />
+    </div>
+    ${fieldRows}
+    <div class="field-group">
+      <label>Notes</label>
+      <input type="text" id="corr-notes" value="${escapeHtml(r.notes || '')}" />
+    </div>
+    <div class="field-group">
+      <label>Reason for correction <span class="req">*</span></label>
+      <input type="text" id="corr-reason" placeholder="e.g. dosage was recorded incorrectly" />
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-gold" data-action="submit-correction" data-arg="${r.block_index}">Append Correction</button>
+      <button class="btn btn-ghost" data-action="open-record" data-arg="${r.block_index}">Cancel</button>
+    </div>
+  `;
+}
+
+export async function submitCorrection(blockIndex) {
+  const r = allRecords.find(x => x.block_index === blockIndex);
+  if (!r) return;
+  const errEl = document.getElementById('correction-error');
+  const reason = (document.getElementById('corr-reason').value || '').trim();
+  if (!reason) {
+    errEl.textContent = 'A correction reason is required.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const data = {};
+  document.querySelectorAll('[data-corr-field]').forEach(inp => {
+    data[inp.getAttribute('data-corr-field')] = inp.value;
+  });
+
+  const corrected_data = {
+    title:        document.getElementById('corr-title').value,
+    record_type:  r.record_type,
+    doctor_name:  r.doctor_name || '',
+    institution:  r.institution || '',
+    record_date:  r.record_date || '',
+    access_level: r.access_level || 'doctor_shared',
+    data,
+    notes:        document.getElementById('corr-notes').value,
+  };
+
+  try {
+    const res = await apiFetch(`/api/records/${patientId()}/${blockIndex}/correct`, {
+      method: 'POST',
+      body: JSON.stringify({ corrected_data, reason }),
+    });
+    addNotification('Record Corrected', res.message || 'Correction appended.', 'success');
+    closeModal();
+    if (window.loadRecords) await window.loadRecords();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+export function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
 }
 
 /* -- Add Record Dynamic Fields --------------------------------- */
