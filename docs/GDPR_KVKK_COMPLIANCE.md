@@ -52,6 +52,9 @@
 5. **Diskte Şifreleme (KVKK M.12 & GDPR Art. 32)**:
    - Her klinik yük, KMS'ten türeyen ve hastaya özel bir anahtarla AES-256-GCM ile diskte şifrelenir (`core/services/record_service.py::_encrypt_at_rest`).
    - Zincir deposu yalnızca şifreli metin tutar; imzalama anahtarı zincir deposunun dışında (ortam değişkeni / OS keyring) yaşadığından, tek başına çalınan bir `projects/` yedeği çözülemez.
+6. **Tamper-Evident Erişim Defteri (ISO 27001 A.12.4 & KVKK M.12)**:
+   - Her okuma ve klinisyen görüntülemesi, `seq` + `prev_hash` + `hash` taşıyan hash-bağlı bir kayıttır (`database/audit_storage.py`).
+   - Geçmiş bir erişim olayını silmek veya değiştirmek zinciri kırar ve `verify_access_log_integrity` tarafından sıra numarasıyla raporlanır. Hasta, kendi kayıtlarına kimin eriştiğini ve defterin bütünlük durumunu **Who Accessed My Records** ekranından görür.
 
 ---
 
@@ -63,7 +66,6 @@ teslim edilebilecek şekilde sıralanmıştır.
 
 | Durum | Mekanizma | Karşılık |
 | :---: | :--- | :--- |
-| 🔜 sırada | **Erişim izinin zincire yazılması** — `RECORD_DECRYPTED` / `RECORDS_VIEWED` olayları blok olarak eklenir ve hastaya gösterilir | ISO 27001 A.12.4 |
 | 📋 planlandı | **Pseudonymization'ın yazma yoluna bağlanması** — kimlik alanları `anon_id` ile ayrıştırılarak zincire yazılır | KVKK M.7 / GDPR Art. 32 |
 | 📋 planlandı | **Anahtar imhası ile silme (erasure)** — append-only zincirde "unutulma hakkı", kayda özel şifreleme anahtarının imhasıyla sağlanır | GDPR Art. 17 / KVKK M.7 |
 | 📋 planlandı | **Merkle kökünün dış çıpalanması** — RFC 3161 zaman damgası veya imzalı günlük kök ile operatör-değiştiremez bütünlük kanıtı | ISO 27001 A.12.4 |
