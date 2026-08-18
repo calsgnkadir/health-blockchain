@@ -1,4 +1,4 @@
-import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
+import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
@@ -115,9 +115,9 @@ window.loadVaccines = async function() {
               const nextDose = val.next_dose ? new Date(val.next_dose).toLocaleDateString('en-GB') : '—';
               return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" onclick="window.openRecord(${r.block_index})">
-                  <td style="padding: 14px 8px; font-weight: 600;">${val.vaccine_name || '—'}</td>
-                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${val.lot_number || '—'}</td>
-                  <td style="padding: 14px 8px;">Dose ${val.dose_number || '1'}</td>
+                  <td style="padding: 14px 8px; font-weight: 600;">${escapeHtml(val.vaccine_name || '—')}</td>
+                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${escapeHtml(val.lot_number || '—')}</td>
+                  <td style="padding: 14px 8px;">Dose ${escapeHtml(val.dose_number || '1')}</td>
                   <td style="padding: 14px 8px;">${dateStr}</td>
                   <td style="padding: 14px 8px;">${nextDose}</td>
                   <td style="padding: 14px 8px;"><span class="badge badge-shared">Verified</span></td>
@@ -206,19 +206,19 @@ window.loadMedications = async function() {
               <div class="stat-card glass" style="border-left:3px solid #10b981; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
                 <div style="width:100%">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:700; font-size:16px; color:#fff;">${m.medication}</span>
+                    <span style="font-weight:700; font-size:16px; color:#fff;">${escapeHtml(m.medication)}</span>
                     <span class="badge badge-shared" style="background:rgba(16,185,129,0.1); color:#10b981; border: 1px solid rgba(16,185,129,0.3)">ACTIVE</span>
                   </div>
                   <div style="font-size:12px; color:var(--muted-hi); margin-top:8px;">
-                    <strong>Dosage:</strong> ${m.dose} · <strong>Frequency:</strong> ${m.frequency}
+                    <strong>Dosage:</strong> ${escapeHtml(m.dose)} · <strong>Frequency:</strong> ${escapeHtml(m.frequency)}
                   </div>
                   <div style="font-size:12px; color:var(--muted); margin-top:4px;">
-                    <strong>Instructions:</strong> ${m.instructions}
+                    <strong>Instructions:</strong> ${escapeHtml(m.instructions)}
                   </div>
                 </div>
                 <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
-                  <span>Expires: <strong>${m.expiry_date}</strong></span>
-                  <span>Dr. ${m.doctor}</span>
+                  <span>Expires: <strong>${escapeHtml(m.expiry_date)}</strong></span>
+                  <span>Dr. ${escapeHtml(m.doctor)}</span>
                 </div>
               </div>
             `;
@@ -236,16 +236,16 @@ window.loadMedications = async function() {
             <div class="stat-card glass" style="border-left:3px solid var(--border); opacity:0.6; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
               <div style="width:100%">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <span style="font-weight:700; font-size:15px; color:var(--muted-hi);">${m.medication}</span>
+                  <span style="font-weight:700; font-size:15px; color:var(--muted-hi);">${escapeHtml(m.medication)}</span>
                   <span class="badge badge-private" style="background:rgba(255,255,255,0.05); color:var(--muted)">EXPIRED</span>
                 </div>
                 <div style="font-size:12px; color:var(--muted); margin-top:8px;">
-                  <strong>Dosage:</strong> ${m.dose} · <strong>Frequency:</strong> ${m.frequency}
+                  <strong>Dosage:</strong> ${escapeHtml(m.dose)} · <strong>Frequency:</strong> ${escapeHtml(m.frequency)}
                 </div>
               </div>
               <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
-                <span>Expired on: <strong>${m.expiry_date}</strong></span>
-                <span>Dr. ${m.doctor}</span>
+                <span>Expired on: <strong>${escapeHtml(m.expiry_date)}</strong></span>
+                <span>Dr. ${escapeHtml(m.doctor)}</span>
               </div>
             </div>
           `).join('')}

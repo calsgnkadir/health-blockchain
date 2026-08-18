@@ -201,32 +201,32 @@ export function parseFhirData(data) {
   
   if (data.resourceType === 'Observation') {
     let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">Observation R4</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${data.status || 'final'}</div></div>`;
+    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.status || 'final')}</div></div>`;
     
     if (data.category && data.category[0] && data.category[0].coding && data.category[0].coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Category</div><div class="modal-field-value">${data.category[0].coding[0].display || data.category[0].coding[0].code}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Category</div><div class="modal-field-value">${escapeHtml(data.category[0].coding[0].display || data.category[0].coding[0].code)}</div></div>`;
     }
     
     if (data.code) {
       const codeLabel = data.code.text || (data.code.coding && data.code.coding[0] && data.code.coding[0].display) || 'Observation';
-      fields += `<div class="modal-field"><div class="modal-field-label">Observation Code</div><div class="modal-field-value">${codeLabel}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Observation Code</div><div class="modal-field-value">${escapeHtml(codeLabel)}</div></div>`;
     }
 
     if (data.valueQuantity) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${data.valueQuantity.value} ${data.valueQuantity.unit || ''}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${escapeHtml(String(data.valueQuantity.value))} ${escapeHtml(data.valueQuantity.unit || '')}</div></div>`;
     } else if (data.valueString) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${data.valueString}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${escapeHtml(data.valueString)}</div></div>`;
     }
     
     if (data.referenceRange && data.referenceRange[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Reference Range</div><div class="modal-field-value">${data.referenceRange[0].text || ''}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Reference Range</div><div class="modal-field-value">${escapeHtml(data.referenceRange[0].text || '')}</div></div>`;
     }
 
     if (data.component && data.component.length > 0) {
       data.component.forEach(c => {
         const compLabel = (c.code && c.code.coding && c.code.coding[0] && c.code.coding[0].display) || (c.code && c.code.text) || 'Component';
         const compVal = c.valueQuantity ? `${c.valueQuantity.value} ${c.valueQuantity.unit || ''}` : (c.valueString || '—');
-        fields += `<div class="modal-field"><div class="modal-field-label">${compLabel}</div><div class="modal-field-value">${compVal}</div></div>`;
+        fields += `<div class="modal-field"><div class="modal-field-label">${escapeHtml(compLabel)}</div><div class="modal-field-value">${escapeHtml(compVal)}</div></div>`;
       });
     }
     return fields;
@@ -236,20 +236,20 @@ export function parseFhirData(data) {
     let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">Condition R4</div></div>`;
     
     if (data.clinicalStatus && data.clinicalStatus.coding && data.clinicalStatus.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Clinical Status</div><div class="modal-field-value" style="text-transform:capitalize;">${data.clinicalStatus.coding[0].code}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Clinical Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.clinicalStatus.coding[0].code)}</div></div>`;
     }
     
     if (data.verificationStatus && data.verificationStatus.coding && data.verificationStatus.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Verification</div><div class="modal-field-value" style="text-transform:capitalize;">${data.verificationStatus.coding[0].code}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Verification</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.verificationStatus.coding[0].code)}</div></div>`;
     }
     
     if (data.code) {
       const codeVal = data.code.coding && data.code.coding[0] ? `${data.code.coding[0].code} - ${data.code.coding[0].display}` : (data.code.text || 'Unknown');
-      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Diagnosis</div><div class="modal-field-value">${codeVal}</div></div>`;
+      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Diagnosis</div><div class="modal-field-value">${escapeHtml(codeVal)}</div></div>`;
     }
     
     if (data.severity && data.severity.coding && data.severity.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Severity</div><div class="modal-field-value">${data.severity.coding[0].display}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Severity</div><div class="modal-field-value">${escapeHtml(data.severity.coding[0].display)}</div></div>`;
     }
     
     return fields;
@@ -257,17 +257,17 @@ export function parseFhirData(data) {
   
   if (data.resourceType === 'MedicationRequest') {
     let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">MedicationRequest R4</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${data.status}</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Intent</div><div class="modal-field-value" style="text-transform:capitalize;">${data.intent}</div></div>`;
+    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.status)}</div></div>`;
+    fields += `<div class="modal-field"><div class="modal-field-label">Intent</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.intent)}</div></div>`;
     
     if (data.medicationCodeableConcept) {
       const medName = data.medicationCodeableConcept.text || (data.medicationCodeableConcept.coding && data.medicationCodeableConcept.coding[0] && data.medicationCodeableConcept.coding[0].display) || 'Medication';
-      fields += `<div class="modal-field"><div class="modal-field-label">Medication</div><div class="modal-field-value">${medName}</div></div>`;
+      fields += `<div class="modal-field"><div class="modal-field-label">Medication</div><div class="modal-field-value">${escapeHtml(medName)}</div></div>`;
     }
     
     if (data.dosageInstruction && data.dosageInstruction[0]) {
       const dose = data.dosageInstruction[0];
-      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Dosage Instructions</div><div class="modal-field-value">${dose.text || '—'}</div></div>`;
+      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Dosage Instructions</div><div class="modal-field-value">${escapeHtml(dose.text || '—')}</div></div>`;
     }
     
     return fields;
