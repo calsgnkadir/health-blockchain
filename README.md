@@ -31,6 +31,7 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 | :--- | :---: | :--- | :--- |
 | **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.BlockchainNotarizer` | Local Merkle root signed hash-chain (`ADR-0001`), re-anchored after every committed write. Zero Web3/RPC dependencies. Per-record inclusion proofs are verifiable from the record view (`GET /api/v1/records/proof/{patient_id}/{block_index}`). |
 | **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `core.webauthn.verify_assertion` | Native browser WebAuthn API + `secp256r1` (ES256) assertion verification in Python: single-use challenge, origin and rpId binding, User Present flag, and signature-counter clone detection. No credential is ever pre-seeded. |
+| **Encryption at Rest** | **LIVE / WORKING** | `core.services.record_service._encrypt_at_rest` | Every clinical payload is AES-256-GCM encrypted on disk under a KMS-derived, patient-scoped key (`core.security.derive_rest_secret`). The chain store holds only ciphertext — a stolen `projects/` backup without the signing key cannot be read. The server decrypts for authorized sessions; a per-record password layer adds server-blind confidentiality on top. |
 | **Patient-Controlled Consent** | **LIVE / WORKING** | `backend.routers.consent._require_consent_owner` | Only the patient who owns the chart may grant or revoke clinical access — practitioners and administrators cannot self-authorize; they must use the audited Break-Glass override. |
 | **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw record access by every non-clinical operator role — admin, auditor, security officer — with `403 Forbidden` until a *different* privileged principal co-signs. Self-approval is rejected; tokens are bound to one patient and expire. Drivable from the Dual-Control Access screen. |
 | **Network IP Allowlist** | **LIVE / WORKING** | `backend.middleware.ip_allowlist.resolve_secure_client_ip` | Direct socket peer host verification. Prevents `X-Forwarded-For` header spoofing. |
@@ -114,7 +115,7 @@ independently shippable with the test suite green.
 | ✅ done | Signed, append-only hash-chain with per-block Merkle inclusion proofs | Integrity |
 | ✅ done | Passkey/FIDO2 auth, patient-owned consent, Dual-Control for operators | Confidentiality |
 | ✅ done | Verified WebAuthn, authenticated LIS gateway, render-time output encoding, strict CSP | Confidentiality |
-| 🔜 next | **Encryption at rest** — every clinical payload AES-256 encrypted on disk with a KMS-derived key (server decrypts for authorized sessions) | Confidentiality |
+| ✅ done | **Encryption at rest** — every clinical payload AES-256-GCM encrypted on disk with a KMS-derived, patient-scoped key (server decrypts for authorized sessions); optional password layer on top for extra-sensitive records | Confidentiality |
 | 🔜 next | **Access trail on chain** — `RECORD_DECRYPTED` / `RECORDS_VIEWED` written as blocks, surfaced to the patient | Both |
 | 🔜 next | **Medical correction flow** — records are never overwritten; a correction is a new block, both stay visible | Integrity |
 | 📋 planned | Identity pseudonymization (`anon_id` decoupling) wired into the write path | Confidentiality |

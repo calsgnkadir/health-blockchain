@@ -49,6 +49,9 @@
    - Doktor rızaları saat ve gün bazlı tanımlanır. Süresi dolduğu anda erişim otomatik kapanır ve `CONSENT_EXPIRED` logu atılır.
 4. **Network Level Isolation (Ağ İzolasyonu)**:
    - `IPAllowlistMiddleware` ile varsayılan olarak kamuya kapalıdır; sadece kurum VPN ve yetkili IP bloklarına açık tutulur.
+5. **Diskte Şifreleme (KVKK M.12 & GDPR Art. 32)**:
+   - Her klinik yük, KMS'ten türeyen ve hastaya özel bir anahtarla AES-256-GCM ile diskte şifrelenir (`core/services/record_service.py::_encrypt_at_rest`).
+   - Zincir deposu yalnızca şifreli metin tutar; imzalama anahtarı zincir deposunun dışında (ortam değişkeni / OS keyring) yaşadığından, tek başına çalınan bir `projects/` yedeği çözülemez.
 
 ---
 
@@ -60,7 +63,6 @@ teslim edilebilecek şekilde sıralanmıştır.
 
 | Durum | Mekanizma | Karşılık |
 | :---: | :--- | :--- |
-| 🔜 sırada | **Diskte şifreleme** — her klinik yük, KMS'ten türeyen anahtarla AES-256 ile diskte şifrelenir (yetkili oturum için sunucu çözer) | GDPR Art. 32 / KVKK M.12 |
 | 🔜 sırada | **Erişim izinin zincire yazılması** — `RECORD_DECRYPTED` / `RECORDS_VIEWED` olayları blok olarak eklenir ve hastaya gösterilir | ISO 27001 A.12.4 |
 | 📋 planlandı | **Pseudonymization'ın yazma yoluna bağlanması** — kimlik alanları `anon_id` ile ayrıştırılarak zincire yazılır | KVKK M.7 / GDPR Art. 32 |
 | 📋 planlandı | **Anahtar imhası ile silme (erasure)** — append-only zincirde "unutulma hakkı", kayda özel şifreleme anahtarının imhasıyla sağlanır | GDPR Art. 17 / KVKK M.7 |
