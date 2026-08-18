@@ -19,6 +19,18 @@ import core.totp as totp
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
+
+def _public_user(user: dict) -> dict:
+    """Client-safe projection of a user record — never exposes credential material."""
+    return {
+        "id":           user["id"],
+        "username":     user["username"],
+        "role":         user["role"],
+        "full_name":    user["full_name"],
+        "patient_id":   user.get("patient_id"),
+        "totp_enabled": bool(user.get("totp_enabled")),
+    }
+
 @router.post("/login", summary="User Login")
 def login(
     req: LoginReq, 
@@ -80,26 +92,12 @@ def login(
         "access_token": token,
         "token_type":   "bearer",
         "expires_in":   TOKEN_HOURS * 3600,
-        "user": {
-            "id":         user["id"],
-            "username":   user["username"],
-            "role":       user["role"],
-            "full_name":  user["full_name"],
-            "patient_id": user.get("patient_id"),
-            "totp_enabled": bool(user.get("totp_enabled")),
-        },
+        "user":         _public_user(user),
     }
 
 @router.get("/me", summary="Current User Info")
 def me(u: dict = Depends(current_user)):
-    return {
-        "id":         u["id"],
-        "username":   u["username"],
-        "role":       u["role"],
-        "full_name":  u["full_name"],
-        "patient_id": u.get("patient_id"),
-        "totp_enabled": bool(u.get("totp_enabled")),
-    }
+    return _public_user(u)
 
 @router.post("/logout", summary="User Logout")
 def logout(
@@ -178,65 +176,110 @@ def disable_2fa(
 
 # ── WEBAUTHN / PASSKEY HARDWARE AUTHENTICATION ─────────────────
 from database.sql_db import get_sql_db
-
-_WEBAUTHN_CHALLENGES = {}
+from core.webauthn import (
+    WebAuthnError, challenge_store, verify_assertion, verify_registration
+)
 
 @router.get("/webauthn/challenge", summary="Generate WebAuthn Challenge")
 def get_webauthn_challenge():
-    challenge = secrets.token_urlsafe(32)
-    _WEBAUTHN_CHALLENGES[challenge] = time.time()
-    return {"challenge": challenge}
+    """Issues a single-use, TTL-bound challenge for a registration or login ceremony."""
+    return {"challenge": challenge_store.issue()}
 
 @router.post("/webauthn/register", summary="Register Passkey / WebAuthn Hardware Credential")
 def register_webauthn_credential(
     req: WebAuthnRegisterReq,
     u: dict = Depends(current_user)
 ):
+    try:
+        verify_registration(req.public_key, req.client_data_json)
+    except WebAuthnError as e:
+        raise HTTPException(400, f"Passkey registration rejected: {e}")
+
     db = get_sql_db()
     with db.get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute(
+            "SELECT username FROM webauthn_credentials WHERE credential_id = ?",
+            (req.credential_id,)
+        )
+        if cursor.fetchone():
+            raise HTTPException(409, "This passkey credential is already registered.")
         cursor.execute(
             "INSERT INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
             (req.credential_id, u["username"], req.public_key, time.time())
         )
         conn.commit()
+
+    from core.events.event_bus import event_bus, SystemAuditEvent
+    event_bus.publish(SystemAuditEvent(
+        project_name="__system__",
+        action="PASSKEY_REGISTERED",
+        username=u["username"],
+        device_id=get_device_id(),
+        extra={"credential_id": req.credential_id[:24]},
+    ))
+
     return {"success": True, "message": "Passkey / WebAuthn hardware credential registered successfully!"}
 
 @router.post("/webauthn/login", summary="Login with Passkey / WebAuthn Credential")
 def login_webauthn_credential(
     req: WebAuthnLoginReq,
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service)
 ):
+    client_ip = _get_client_ip(request)
+
     db = get_sql_db()
     with db.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT username, public_key, sign_count FROM webauthn_credentials WHERE credential_id = ?", (req.credential_id,))
+        cursor.execute(
+            "SELECT username, public_key, sign_count FROM webauthn_credentials WHERE credential_id = ?",
+            (req.credential_id,)
+        )
         row = cursor.fetchone()
-        if not row:
-            raise HTTPException(401, "Invalid or unregistered Passkey credential.")
-        username, public_key, sign_count = row[0], row[1], row[2]
-        
-        cursor.execute("UPDATE webauthn_credentials SET sign_count = sign_count + 1 WHERE credential_id = ?", (req.credential_id,))
-        conn.commit()
+
+    if not row:
+        raise HTTPException(401, "Invalid or unregistered Passkey credential.")
+    username, public_key, sign_count = row[0], row[1], row[2]
+
+    # Cryptographically verify the assertion BEFORE issuing any session token.
+    try:
+        new_sign_count = verify_assertion(
+            public_key_spki_b64=public_key,
+            client_data_json_b64=req.client_data_json,
+            authenticator_data_b64=req.authenticator_data,
+            signature_b64=req.signature,
+            stored_sign_count=sign_count or 0,
+        )
+    except WebAuthnError as e:
+        from core.events.event_bus import event_bus, SystemAuditEvent
+        event_bus.publish(SystemAuditEvent(
+            project_name="__system__",
+            action="PASSKEY_LOGIN_FAILED",
+            username=username,
+            device_id=get_device_id(),
+            extra={"ip": client_ip, "reason": str(e)},
+        ))
+        raise HTTPException(401, f"Passkey authentication failed: {e}")
 
     user_entity = auth_service.user_repo.load_user(username)
     if not user_entity:
-        try:
-            all_users = auth_service.user_repo.load_all_users()
-            user_entity = next((u for u in all_users if u.username == username or getattr(u, "patient_id", None) == username), None)
-            if not user_entity and all_users:
-                user_entity = all_users[0]
-        except Exception:
-            pass
-
-    if not user_entity:
         raise HTTPException(404, "User account not found.")
 
-    token = create_token(user_entity.to_dict())
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE webauthn_credentials SET sign_count = ? WHERE credential_id = ?",
+            (new_sign_count, req.credential_id)
+        )
+        conn.commit()
+
+    auth_service.login_success(user_entity, client_ip)
+    user = user_entity.to_dict()
     return {
-        "access_token": token,
+        "access_token": create_token(user),
         "token_type": "bearer",
-        "user": user_entity.to_dict(),
+        "user": _public_user(user),
         "message": f"Successfully authenticated via Passkey for {username}"
     }
 

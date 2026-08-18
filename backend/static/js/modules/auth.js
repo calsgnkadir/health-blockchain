@@ -1,5 +1,5 @@
 /* auth.js — VIP Health Vault UI Authentication Module */
-import { apiFetch, setToken, setCurrentUser, getCurrentUser } from './utils.js';
+import { apiFetch, setToken, setCurrentUser, getCurrentUser, bytesToB64url, b64urlToBytes } from './utils.js';
 import { updateNotificationsUI, addNotification } from './notifications.js';
 
 export let mfaRequired = false;
@@ -206,87 +206,75 @@ export function initAuthListeners() {
   }
 }
 
-export async function loginWithWeb3Wallet() {
-  const errEl = document.getElementById('login-error');
+export async function registerPasskey() {
+  const errEl = document.getElementById('security-error');
+  const succEl = document.getElementById('security-success');
   if (errEl) errEl.style.display = 'none';
+  if (succEl) succEl.style.display = 'none';
 
-  if (!window.ethereum) {
+  const fail = (msg) => {
     if (errEl) {
-      errEl.textContent = 'MetaMask or Web3 wallet extension not found. Please install MetaMask to use Web3 login.';
+      errEl.textContent = msg;
       errEl.style.display = 'block';
+    } else {
+      alert(msg);
     }
+  };
+
+  if (!passkeysSupported()) {
+    fail('Passkeys / WebAuthn are not supported by this browser.');
+    return;
+  }
+
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    fail('You must be signed in to enroll a passkey.');
     return;
   }
 
   try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!accounts || !accounts[0]) {
-      throw new Error('No Ethereum account selected.');
+    const { challenge } = await apiFetch('/api/v1/auth/webauthn/challenge');
+
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge: b64urlToBytes(challenge),
+        rp: { name: 'VIP Health Vault' },
+        user: {
+          id: new TextEncoder().encode(currentUser.username),
+          name: currentUser.username,
+          displayName: currentUser.full_name || currentUser.username
+        },
+        // ES256 only — the server verifies secp256r1 signatures.
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+        authenticatorSelection: { userVerification: 'preferred', residentKey: 'preferred' },
+        attestation: 'none',
+        timeout: 60000
+      }
+    });
+
+    if (!credential) throw new Error('Passkey enrollment was cancelled.');
+
+    const spki = credential.response.getPublicKey ? credential.response.getPublicKey() : null;
+    if (!spki) {
+      throw new Error('This browser cannot export the passkey public key. Use Chrome 85+, Safari 15+, or Firefox 119+.');
     }
-    const address = accounts[0];
 
-    const nonceRes = await apiFetch('/api/v1/auth/nonce', {
-      method: 'POST',
-      body: JSON.stringify({ address })
-    });
-
-    const nonce = nonceRes.nonce;
-    const message = nonceRes.message || `Sign-In With Ethereum (SIWE) to VIP Health Vault.\nAddress: ${address}\nNonce: ${nonce}`;
-
-    const signature = await window.ethereum.request({
-      method: 'personal_sign',
-      params: [message, address]
-    });
-
-    const mfaCode = document.getElementById('inp-mfa')?.value || null;
-    const loginRes = await apiFetch('/api/v1/auth/wallet-login', {
+    await apiFetch('/api/v1/auth/webauthn/register', {
       method: 'POST',
       body: JSON.stringify({
-        address,
-        signature,
-        nonce,
-        code: mfaCode
+        credential_id:    bytesToB64url(credential.rawId),
+        public_key:       bytesToB64url(spki),
+        client_data_json: bytesToB64url(credential.response.clientDataJSON)
       })
     });
 
-    if (loginRes.mfa_required) {
-      mfaRequired = true;
-      document.getElementById('login-fields-group').style.display = 'none';
-      document.getElementById('login-mfa-group').style.display = 'block';
-      document.getElementById('login-mfa-back').style.display = 'block';
-      addNotification('2FA Verification Required', 'Please enter your 6-digit 2FA code to complete Web3 authentication.', 'warning');
-      return;
+    if (succEl) {
+      succEl.textContent = 'Passkey enrolled. You can now sign in with this device from the login screen.';
+      succEl.style.display = 'block';
     }
-
-    setToken(loginRes.access_token);
-    setCurrentUser(loginRes.user);
-    addNotification('Web3 Login Success', `Authenticated via Web3 Wallet: ${address.substring(0, 6)}...${address.substring(38)}`, 'success');
-    if (window.enterApp) {
-      window.enterApp();
-    }
+    addNotification('Passkey Registered', 'Your hardware Passkey / TouchID was successfully bound to your VIP Health Vault account.', 'success');
   } catch (err) {
-    if (errEl) {
-      errEl.textContent = err.message || 'Web3 authentication failed.';
-      errEl.style.display = 'block';
-    }
-  }
-}
-
-export async function registerPasskey() {
-  if (!window.PublicKeyCredential) {
-    alert("Passkey / WebAuthn is not supported on this browser.");
-    return;
-  }
-  try {
-    const credId = "passkey_" + Math.random().toString(36).substr(2, 12);
-    const pubKey = "pubkey_secp256r1_" + Math.random().toString(36).substr(2, 16);
-    await apiFetch('/api/v1/auth/webauthn/register', {
-      method: 'POST',
-      body: JSON.stringify({ credential_id: credId, public_key: pubKey })
-    });
-    addNotification('Passkey Registered', 'Your hardware Passkey / TouchID was successfully bound to your VIP Health Vault account!', 'success');
-  } catch (err) {
-    alert("Failed to register Passkey: " + err.message);
+    fail('Failed to enroll passkey: ' + (err.message || err));
   }
 }
 
@@ -294,45 +282,40 @@ export async function loginWithPasskey() {
   const errEl = document.getElementById('login-error');
   if (errEl) errEl.style.display = 'none';
 
-  if (!window.PublicKeyCredential) {
+  const fail = (msg) => {
     if (errEl) {
-      errEl.textContent = 'Passkeys / WebAuthn not supported by this browser.';
+      errEl.textContent = msg;
       errEl.style.display = 'block';
     }
+  };
+
+  if (!passkeysSupported()) {
+    fail('Passkeys / WebAuthn are not supported by this browser.');
     return;
   }
 
   try {
     const { challenge } = await apiFetch('/api/v1/auth/webauthn/challenge');
-    
-    let credentialId = "passkey_default_demo";
-    if (window.PublicKeyCredential && typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-      const isAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      if (isAvailable && navigator.credentials && navigator.credentials.get) {
-        try {
-          const assertion = await navigator.credentials.get({
-            publicKey: {
-              challenge: new Uint8Array(32),
-              timeout: 60000,
-              userVerification: "preferred"
-            }
-          });
-          if (assertion && assertion.id) {
-            credentialId = assertion.id;
-          }
-        } catch (webauthnErr) {
-          console.warn("Native WebAuthn prompt fallback:", webauthnErr);
-        }
+
+    // The authenticator signs the server challenge; there is no client-side
+    // fallback — an assertion is the only way past this point.
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: b64urlToBytes(challenge),
+        userVerification: 'preferred',
+        timeout: 60000
       }
-    }
+    });
+
+    if (!assertion) throw new Error('No passkey was selected.');
 
     const loginRes = await apiFetch('/api/v1/auth/webauthn/login', {
       method: 'POST',
       body: JSON.stringify({
-        credential_id: credentialId,
-        signature: "sig_webauthn_" + challenge,
-        client_data_json: btoa(JSON.stringify({ type: "webauthn.get", challenge })),
-        authenticator_data: "auth_data_flags_uv_up"
+        credential_id:      bytesToB64url(assertion.rawId),
+        signature:          bytesToB64url(assertion.response.signature),
+        client_data_json:   bytesToB64url(assertion.response.clientDataJSON),
+        authenticator_data: bytesToB64url(assertion.response.authenticatorData)
       })
     });
 
@@ -343,10 +326,7 @@ export async function loginWithPasskey() {
       window.enterApp();
     }
   } catch (err) {
-    if (errEl) {
-      errEl.textContent = err.message || 'Passkey authentication failed.';
-      errEl.style.display = 'block';
-    }
+    fail(err.message || 'Passkey authentication failed.');
   }
 }
 

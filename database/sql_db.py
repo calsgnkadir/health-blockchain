@@ -116,13 +116,13 @@ class SQLDatabaseManager:
                     created_at {double_type} NOT NULL
                 )
             """)
-            try:
-                cursor.execute(
-                    "INSERT OR IGNORE INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
-                    ("passkey_default_demo", "vip001", "pubkey_secp256r1_demo_seed", time.time())
-                )
-            except Exception:
-                pass
+            # NOTE: No passkey credential is ever seeded here. A pre-seeded
+            # credential would let anyone authenticate as its owner straight from
+            # the login screen. Passkeys must be enrolled per device by the
+            # account holder via POST /api/v1/auth/webauthn/register.
+            cursor.execute(
+                "DELETE FROM webauthn_credentials WHERE credential_id = 'passkey_default_demo'"
+            )
 
             # Rate Limits Table
             cursor.execute(f"""

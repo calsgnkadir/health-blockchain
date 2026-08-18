@@ -544,6 +544,17 @@
           </div>
 
           <div class="glass form-card" style="max-width: 600px; margin-top: 24px;">
+            <h3>Hardware Passkey (FIDO2 / WebAuthn)</h3>
+            <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
+              Bind a hardware security key, TouchID, or Windows Hello to this account. The
+              authenticator signs a server-issued challenge with its private key, which never
+              leaves the device. Passkeys must be enrolled per device — there is no shared or
+              default credential.
+            </p>
+            <button class="btn btn-gold" onclick="window.registerPasskey()">ENROLL PASSKEY ON THIS DEVICE</button>
+          </div>
+
+          <div class="glass form-card" style="max-width: 600px; margin-top: 24px;">
             <h3>Interface Theme Customization</h3>
             <p style="margin-top: 8px; margin-bottom: 16px; color: var(--muted); font-size: 14px; line-height: 1.5;">
               Customize system visual appearance according to clinical workflow scenarios.

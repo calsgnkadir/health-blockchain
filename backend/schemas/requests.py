@@ -76,8 +76,9 @@ class LoginReq(BaseModel):
 
 
 class WebAuthnRegisterReq(BaseModel):
-    credential_id: str
-    public_key: str
+    credential_id: str          # base64url rawId from the authenticator
+    public_key: str             # base64url SPKI DER (ES256 / secp256r1)
+    client_data_json: str       # base64url clientDataJSON of the create() ceremony
 
 
 class WebAuthnLoginReq(BaseModel):
