@@ -16,6 +16,11 @@
   --accent-ledger: #0EA5E9;      /* Sky Blue */
   --accent-security: #8B5CF6;    /* Violet / Purple */
   --accent-integrations: #10B981;/* Emerald */
+  /* Default view accent. Controls outside a #view- section - the login screen,
+     the record modal, the command palette - would otherwise resolve
+     `background: var(--accent-view)` to nothing and render with no fill. */
+  --accent-view: var(--accent-dash);
+  --accent-view-rgb: 245, 158, 11;
   
   --gold:        #E4E4E7;        /* Neutral Zinc 200 */
   --gold-hi:     #F4F4F5;        /* Zinc 50 */
@@ -551,7 +556,7 @@ body {
   --accent-view: var(--accent-ledger);
   --accent-view-rgb: 0, 229, 255;
 }
-#view-consent, #view-security {
+#view-consent, #view-security, #view-dual-control {
   --accent-view: var(--accent-security);
   --accent-view-rgb: 255, 0, 127;
 }
