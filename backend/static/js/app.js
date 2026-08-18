@@ -292,11 +292,11 @@ window.renderDualControlToken = function() {
             ${approved ? 'CO-SIGNED — raw record access unlocked' : 'PENDING CO-APPROVAL'}
           </div>
           <div style="font-size:12px; color:var(--muted-hi); margin-top:4px;">
-            Patient <strong>${token.target_patient_id || '—'}</strong> ·
-            Token <code style="font-family:var(--font-mono);">${token.token_id}</code>
+            Patient <strong>${escapeHtml(token.target_patient_id || '—')}</strong> ·
+            Token <code style="font-family:var(--font-mono);">${escapeHtml(token.token_id)}</code>
             ${expiresIn !== null ? ` · expires in ${expiresIn} min` : ''}
           </div>
-          ${token.co_signed_by ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">Co-signed by <strong>${token.co_signed_by}</strong></div>` : ''}
+          ${token.co_signed_by ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">Co-signed by <strong>${escapeHtml(token.co_signed_by)}</strong></div>` : ''}
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="window.refreshDualControlStatus()">Refresh Status</button>
@@ -412,12 +412,12 @@ window.loadUsers = async function() {
     const d = await apiFetch('/api/admin/users');
     container.innerHTML = d.users.map(u => `
       <div class="user-card glass">
-        <div class="user-avatar" style="background:linear-gradient(135deg,#C9A84C,#8B6914)">${u.full_name.charAt(0)}</div>
+        <div class="user-avatar" style="background:linear-gradient(135deg,#C9A84C,#8B6914)">${escapeHtml(u.full_name.charAt(0))}</div>
         <div style="flex:1">
-          <div style="font-weight:600">${u.full_name}</div>
-          <div style="font-size:12px;color:var(--muted)">@${u.username} · ${u.patient_id||'no patient ID'}</div>
+          <div style="font-weight:600">${escapeHtml(u.full_name)}</div>
+          <div style="font-size:12px;color:var(--muted)">@${escapeHtml(u.username)} · ${escapeHtml(u.patient_id||'no patient ID')}</div>
         </div>
-        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='doctor'?'doctor':'vip'}">${ROLE_LABEL[u.role]||u.role}</span>
+        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='doctor'?'doctor':'vip'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
       </div>`
     ).join('');
   } catch(e) { container.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
@@ -439,11 +439,11 @@ window.loadAuditLog = async function() {
       const statusLabel = isAlert ? 'ALERT' : 'OK';
       return `
       <div class="record-card ${isAlert ? 'is-encrypted' : ''}" style="cursor:default">
-        <div class="record-type-icon record-type-text">${log.action.substring(0,3)}</div>
+        <div class="record-type-icon record-type-text">${escapeHtml(log.action.substring(0,3))}</div>
         <div class="record-main">
-          <div class="record-title">${log.action.replace(/_/g, ' ')}</div>
-          <div class="record-meta">User: <strong>${log.username}</strong> · Block: ${log.block_index !== null ? '#'+log.block_index : '—'}</div>
-          <div class="record-meta" style="font-family:monospace;font-size:11px;color:var(--muted)">Device: ${(log.device_id||'?').substring(0,16)}...</div>
+          <div class="record-title">${escapeHtml(log.action.replace(/_/g, ' '))}</div>
+          <div class="record-meta">User: <strong>${escapeHtml(log.username)}</strong> · Block: ${log.block_index !== null ? '#'+log.block_index : '—'}</div>
+          <div class="record-meta" style="font-family:monospace;font-size:11px;color:var(--muted)">Device: ${escapeHtml((log.device_id||'?').substring(0,16))}...</div>
         </div>
         <div class="record-right">
           <div class="record-date">${formatTsFull(log.timestamp)}</div>
@@ -498,11 +498,11 @@ window.loadAccessLogs = async function() {
       const statusLabel = isAlert ? 'ALERT' : 'ACCESS';
       return `
       <div class="record-card ${isAlert ? 'is-encrypted' : ''}" style="cursor:default">
-        <div class="record-type-icon record-type-text">${log.action.substring(0,3)}</div>
+        <div class="record-type-icon record-type-text">${escapeHtml(log.action.substring(0,3))}</div>
         <div class="record-main">
-          <div class="record-title">${log.action.replace(/_/g, ' ')}</div>
-          <div class="record-meta">User: <strong>${log.username}</strong> · Block: ${log.block_index !== undefined && log.block_index !== null ? '#'+log.block_index : '—'}</div>
-          <div class="record-meta" style="font-family:monospace;font-size:11px;color:var(--muted)">Device: ${(log.device_id||'?').substring(0,16)}...</div>
+          <div class="record-title">${escapeHtml(log.action.replace(/_/g, ' '))}</div>
+          <div class="record-meta">User: <strong>${escapeHtml(log.username)}</strong> · Block: ${log.block_index !== undefined && log.block_index !== null ? '#'+log.block_index : '—'}</div>
+          <div class="record-meta" style="font-family:monospace;font-size:11px;color:var(--muted)">Device: ${escapeHtml((log.device_id||'?').substring(0,16))}...</div>
         </div>
         <div class="record-right">
           <div class="record-date">${formatTsFull(log.timestamp)}</div>
@@ -729,7 +729,7 @@ function renderCommandPaletteResults(query = '') {
       type: 'record',
       block_index: r.block_index,
       title: r.title,
-      desc: `Block #${r.block_index} · ${(r.doctor_name || 'System')} · ${r.record_date || 'Date N/A'}`,
+      desc: `Block #${r.block_index} · ${escapeHtml(r.doctor_name || 'System')} · ${escapeHtml(r.record_date || 'Date N/A')}`,
       shortcut: `#${r.block_index}`
     }));
 
@@ -765,8 +765,8 @@ function renderCommandPaletteResults(query = '') {
             ${item.type === 'nav' ? '🧭' : item.type === 'action' ? '⚡' : '📄'}
           </div>
           <div class="command-palette-item-content">
-            <div class="command-palette-item-title">${item.title}</div>
-            <div class="command-palette-item-desc">${item.desc}</div>
+            <div class="command-palette-item-title">${escapeHtml(item.title)}</div>
+            <div class="command-palette-item-desc">${escapeHtml(item.desc)}</div>
           </div>
           ${item.shortcut ? `<span class="command-palette-item-shortcut">${item.shortcut}</span>` : ''}
         </div>
@@ -940,7 +940,7 @@ window.loadBlockchainExplorerData = async function() {
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Title:</span>
-            <span class="explorer-blk-val" style="font-weight:600">${b.title || '—'}</span>
+            <span class="explorer-blk-val" style="font-weight:600">${escapeHtml(b.title || '—')}</span>
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Timestamp:</span>
@@ -948,19 +948,19 @@ window.loadBlockchainExplorerData = async function() {
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Hash:</span>
-            <span class="explorer-blk-val hash">${b.hash_preview || '—'}</span>
+            <span class="explorer-blk-val hash">${escapeHtml(b.hash_preview || '—')}</span>
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Prev Hash:</span>
-            <span class="explorer-blk-val">${b.prev_hash_preview || '—'}</span>
+            <span class="explorer-blk-val">${escapeHtml(b.prev_hash_preview || '—')}</span>
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Merkle Root:</span>
-            <span class="explorer-blk-val">${b.merkle_root_preview || '—'}</span>
+            <span class="explorer-blk-val">${escapeHtml(b.merkle_root_preview || '—')}</span>
           </div>
           <div class="explorer-blk-row">
             <span class="explorer-blk-lbl">Signature:</span>
-            <span class="explorer-blk-val">${b.signature_preview || '—'}</span>
+            <span class="explorer-blk-val">${escapeHtml(b.signature_preview || '—')}</span>
           </div>
         </div>
       `;

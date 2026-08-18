@@ -1,5 +1,5 @@
 /* consent.js — VIP Health Vault UI Consent Management Module */
-import { apiFetch, patientId, getCurrentUser } from './utils.js';
+import { apiFetch, patientId, getCurrentUser, escapeHtml } from './utils.js';
 import { addNotification } from './notifications.js';
 
 export async function loadConsents() {
@@ -46,8 +46,8 @@ export async function loadConsents() {
           return `
             <div class="gantt-row">
               <div class="gantt-label">
-                <div style="font-weight:700;color:#fff;">Dr. ${c.doctor_username}</div>
-                <div style="font-size:10px;color:var(--accent-ledger);font-weight:600;text-transform:uppercase;">${typeLabels[c.record_type] || c.record_type}</div>
+                <div style="font-weight:700;color:#fff;">Dr. ${escapeHtml(c.doctor_username)}</div>
+                <div style="font-size:10px;color:var(--accent-ledger);font-weight:600;text-transform:uppercase;">${escapeHtml(typeLabels[c.record_type] || c.record_type)}</div>
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <div class="gantt-timeline-track">

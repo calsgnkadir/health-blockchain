@@ -1,5 +1,5 @@
 /* dashboard.js — VIP Health Vault UI Dashboard Module */
-import { apiFetch, patientId, formatTs, emptyState, appState } from './utils.js';
+import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
 
 let vitalsChartInstance = null;
@@ -54,7 +54,7 @@ export function updateClinicalHighlights(records) {
   if (allergyRecords.length > 0) {
     allergyUl.innerHTML = allergyRecords.map(r => {
       const a = r.data || {};
-      return `<li><strong>${a.allergen || 'Unknown'}</strong>: ${a.reaction || 'No reaction listed'} (${a.severity || 'Mild'} severity, onset: ${a.onset_date || '—'})</li>`;
+      return `<li><strong>${escapeHtml(a.allergen || 'Unknown')}</strong>: ${escapeHtml(a.reaction || 'No reaction listed')} (${escapeHtml(a.severity || 'Mild')} severity, onset: ${escapeHtml(a.onset_date || '—')})</li>`;
     }).join('');
     allergyBox.style.display = 'block';
   } else {

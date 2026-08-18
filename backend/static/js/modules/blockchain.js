@@ -1,5 +1,5 @@
 /* blockchain.js — VIP Health Vault UI Blockchain Module */
-import { apiFetch, patientId, formatTs } from './utils.js';
+import { apiFetch, patientId, formatTs, escapeHtml } from './utils.js';
 import { updateChainPill } from './dashboard.js';
 
 export async function loadChainStatus() {
@@ -65,14 +65,14 @@ export async function loadChainStatus() {
           <div class="card-flip-inner">
             <div class="card-front">
               <div class="blk-header">BLOCK #${r.block_index} · ${formatTs(r.timestamp)}</div>
-              <div class="blk-hash">${r.hash_preview}</div>
-              <div style="margin-top:8px;font-size:12px;color:var(--muted);font-weight:600">${r.title}</div>
+              <div class="blk-hash">${escapeHtml(r.hash_preview)}</div>
+              <div style="margin-top:8px;font-size:12px;color:var(--muted);font-weight:600">${escapeHtml(r.title)}</div>
             </div>
             <div class="card-back">
               <div class="blk-header" style="color:var(--accent-ledger)">PROOF #${r.block_index}</div>
-              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Hash:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.hash_preview}</span></div>
-              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Merkle:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.merkle_root_preview}</span></div>
-              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Sig:</span> <span style="font-family:var(--font-mono);word-break:break-all">${r.signature_preview}</span></div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Hash:</span> <span style="font-family:var(--font-mono);word-break:break-all">${escapeHtml(r.hash_preview)}</span></div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Merkle:</span> <span style="font-family:var(--font-mono);word-break:break-all">${escapeHtml(r.merkle_root_preview)}</span></div>
+              <div class="blk-field" style="margin-top:4px;font-size:11px"><span style="color:var(--muted)">Sig:</span> <span style="font-family:var(--font-mono);word-break:break-all">${escapeHtml(r.signature_preview)}</span></div>
             </div>
           </div>
         </div>
