@@ -947,13 +947,9 @@ window.loadBlockchainExplorerData = async function() {
     ]);
     
     const valid = status.is_valid;
-    const onChainVerified = status.on_chain_verified;
-    const isSimulated = status.is_simulated;
-    const onChainPill = onChainVerified 
-      ? (isSimulated 
-          ? `<span class="badge badge-private" style="background:rgba(245,158,11,0.1);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" data-action="copy-tx" data-arg="${escapeHtml(status.on_chain_tx_hash || '')}" title="Click to copy Simulated Tx Hash">Simulated Anchor</span>`
-          : `<span class="badge badge-shared" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" data-action="copy-tx" data-arg="${escapeHtml(status.on_chain_tx_hash || '')}" title="Click to copy Anchor Tx Hash">On-Chain Verified</span>`
-        )
+    const anchorVerified = status.anchor_verified;
+    const onChainPill = anchorVerified
+      ? `<span class="badge badge-shared" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.3);cursor:pointer;font-size:9px;padding:2px 6px;" data-action="copy-tx" data-arg="${escapeHtml(status.anchor_signature || '')}" title="Click to copy the anchor signature (HMAC-SHA256 of the Merkle root)">Local Signed Anchor</span>`
       : `<span class="badge badge-private" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);font-size:9px;padding:2px 6px;">Not Anchored</span>`;
 
     const statusBox = document.querySelector('.explorer-sidebar-status');

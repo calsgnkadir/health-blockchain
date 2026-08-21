@@ -71,6 +71,18 @@ class PseudonymizationService:
 
         return anon_id
 
+    def anon_id(self, patient_id: str) -> str:
+        """
+        Deterministic anonymous identifier for a patient — pure, no DB write.
+
+        Used to namespace the clinical chain store so the on-disk data never
+        carries the real patient identifier. Because it is a keyed HMAC it is
+        stable across reads and writes without a lookup table, so it is safe to
+        call on every storage operation. Persisting the reverse mapping (for
+        ``depseudonymize``) is done separately via :meth:`pseudonymize`.
+        """
+        return self._engine.generate_anon_id(patient_id)
+
     def depseudonymize(self, anon_id: str) -> Optional[str]:
         """
         Reverse-lookup: convert an anonymous ID back to the real patient_id.
@@ -209,3 +221,16 @@ def reset_pseudonymization_service() -> None:
     """Reset the singleton (for testing)."""
     global _service_instance
     _service_instance = None
+
+
+def project_name_for(patient_id: str) -> str:
+    """
+    Canonical chain-store namespace for a patient.
+
+    The clinical store is keyed by the deterministic pseudonym, never the raw
+    patient identifier, so a breach of the block store (or a stolen `projects/`
+    backup) reveals only opaque anon ids. This is the single source of truth for
+    the mapping — every read and write path must derive the project name here so
+    they cannot drift apart.
+    """
+    return f"patient_{get_pseudonymization_service().anon_id(patient_id)}"

@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.main import app
 from database.connection import LMDBConnectionManager
+from core.pseudonymization.service import project_name_for
 
 API_KEY = "test-lis-gateway-key"
 
@@ -109,7 +110,7 @@ class TestLisGatewayInput(unittest.TestCase):
         self._post(payload(test_name="SECRET-MARKER-XYZ"))
 
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
-        blocks = LMDBBlockRepository().load_all_blocks("patient_VIP_001")
+        blocks = LMDBBlockRepository().load_all_blocks(project_name_for("VIP-001"))
         on_disk = " ".join(str(b.data) for b in blocks)
         self.assertNotIn("SECRET-MARKER-XYZ", on_disk)
 

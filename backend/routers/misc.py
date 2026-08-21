@@ -205,15 +205,16 @@ def chain_status(
         "broken_at":    brk if brk != -1 else None,
         "device_id":    get_device_id()[:16] + "...",
 
-        # On-Chain Notarization details. The anchor is a local signed Merkle
-        # hash-chain (ADR-0001) unless a real chain RPC is configured, and the UI
-        # labels it as such rather than implying a public-chain settlement.
-        "is_simulated":      not bool(os.getenv("VHV_RPC_URL")),
-        "on_chain_verified": verification["verified"],
-        "on_chain_tx_hash":  verification["tx_hash"],
-        "local_root":        verification["local_root"],
-        "on_chain_root":     verification["on_chain_root"],
-        "on_chain_reason":   verification["reason"]
+        # Local anchor details (ADR-0001). The anchor is an HMAC-SHA256 signature
+        # of the Merkle root under the server's KMS key — a real, verifiable
+        # commitment, not a public-chain transaction. The UI labels it as a local
+        # signed anchor rather than implying any on-chain settlement.
+        "is_locally_anchored": True,
+        "anchor_verified":     verification["verified"],
+        "anchor_signature":    verification["tx_hash"],
+        "local_root":          verification["local_root"],
+        "anchored_root":       verification["on_chain_root"],
+        "anchor_reason":       verification["reason"]
     }
 
 

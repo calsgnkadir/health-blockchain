@@ -12,6 +12,7 @@ from core.security import (
     derive_rest_secret,
 )
 from core.events.event_bus import event_bus, RecordAddedEvent, RecordReadEvent
+from core.pseudonymization.service import project_name_for, get_pseudonymization_service
 
 # Marks a value that is AES-256 encrypted at rest under the server's KMS key.
 # The marker keeps the reveal path unambiguous and never collides with legacy
@@ -24,7 +25,9 @@ class RecordService:
         self.crypto_strategy = crypto_strategy
 
     def _get_project_name(self, patient_id: str) -> str:
-        return f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        # The clinical chain store is namespaced by the deterministic pseudonym,
+        # never the raw patient id — see core.pseudonymization.service.
+        return project_name_for(patient_id)
 
     # ── At-rest encryption (server-held KMS key) ────────────────────────
     def _encrypt_at_rest(self, patient_id: str, index: int, payload: Any) -> str:
@@ -111,6 +114,10 @@ class RecordService:
         protection_password: Optional[str] = None,
         username: str = "system",
     ) -> Block:
+        # Persist the identity↔pseudonym mapping on the write path so the real id
+        # can still be resolved by an authorized admin and destroyed for erasure.
+        get_pseudonymization_service().pseudonymize(patient_id)
+
         project_name = self._get_project_name(patient_id)
         chain = self._get_or_create_chain(patient_id)
         last_block = chain[-1]

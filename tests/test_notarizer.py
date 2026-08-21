@@ -51,28 +51,32 @@ class TestBlockchainNotarizer(unittest.TestCase):
         self.assertIsNotNone(computed_root)
         self.assertEqual(len(computed_root), 64)
 
-    def test_simulated_notarization_flow(self):
+    def test_notarization_anchor_is_a_real_signature(self):
+        from core.security import signaturedata
+
         patient_id = "VIP-TEST-100"
-        project_name = f"patient_{patient_id.replace('-', '_')}"
+        project_name = self.record_service._get_project_name(patient_id)
 
         # Add a block to the patient's chain
         data = {"record_type": "vital_signs", "title": "Checkup", "data": {"hr": 75}}
         block = self.record_service.add_record(patient_id, data, username="dr.notary")
         self.assertIsNotNone(block)
 
-        # Verify that notarization transaction was auto-saved during add_record
-        tx_hash = self.block_repo.load_notarization_tx(project_name)
-        self.assertIsNotNone(tx_hash)
-        self.assertTrue(tx_hash.startswith("0x"))
-
-        # Check simulated Merkle Root in storage
+        # The anchor auto-saved during add_record must be a real HMAC-SHA256
+        # signature of the stored Merkle root — not a random token.
+        anchor = self.block_repo.load_notarization_tx(project_name)
         stored_root = self.block_repo.load_simulated_merkle_root(project_name)
+        self.assertIsNotNone(anchor)
         self.assertIsNotNone(stored_root)
+        self.assertEqual(len(anchor), 64)             # 32-byte HMAC hex, no "0x"
+        int(anchor, 16)                               # parses as hex
+        self.assertEqual(anchor, signaturedata(stored_root))
 
-        # Run on-chain verification
+        # Verification passes only because the anchor is a valid signature of the
+        # current root; a mismatch would set reason to "Anchor signature invalid".
         verification = self.notarizer.verify_on_chain(patient_id)
         self.assertTrue(verification["verified"])
-        self.assertEqual(verification["tx_hash"], tx_hash)
+        self.assertEqual(verification["tx_hash"], anchor)
         self.assertEqual(verification["reason"], "Match")
 
     def test_verify_on_chain_unanchored(self):

@@ -4,6 +4,7 @@ from typing import Optional
 from collections import defaultdict
 import database.storage as storage
 from core.ports.repositories import IBlockRepository
+from core.pseudonymization.service import project_name_for
 
 class ConsentValidator:
     def __init__(self, block_repo: IBlockRepository):
@@ -11,7 +12,7 @@ class ConsentValidator:
         self._break_glass_history = defaultdict(list)
 
     def _get_project_name(self, patient_id: str) -> str:
-        return f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        return project_name_for(patient_id)
 
     def has_consent(
         self,

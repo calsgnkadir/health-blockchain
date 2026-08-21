@@ -11,6 +11,7 @@ from database.connection import LMDBConnectionManager
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository
 from core.cqrs.commands import CommandHandler
 from core.services.consent_validator import ConsentValidator
+from core.pseudonymization.service import project_name_for
 
 router = APIRouter(prefix="/api/v1/consent", tags=["consent"])
 
@@ -47,7 +48,7 @@ def get_consents(
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    project_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    project_name = project_name_for(patient_id)
     if not db_manager.project_exists(project_name):
         return {"consents": []}
 

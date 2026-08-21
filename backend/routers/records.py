@@ -37,6 +37,7 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from core.services.dual_control import dual_control_engine
 from core.services.alert_service import alert_service
 from backend.dependencies import _get_client_ip
+from core.pseudonymization.service import project_name_for
 
 def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
@@ -209,7 +210,7 @@ def get_records(
 
     ignore_consent = False
     if role == "doctor":
-        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
             if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
@@ -312,7 +313,7 @@ def decrypt_record(
 
     ignore_consent = False
     if u["role"] == "doctor":
-        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
             if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
@@ -334,7 +335,7 @@ def decrypt_record(
         raise HTTPException(403, "Incorrect password — decryption failed")
 
     # Record immutable audit access log
-    proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+    proj_name = project_name_for(patient_id)
     storage.append_access_log(
         project_name=proj_name,
         username=u["username"],
@@ -400,7 +401,7 @@ def correct_record(
 
     # A doctor must hold consent (or an active break-glass) to touch the record.
     if u["role"] == "doctor":
-        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = project_name_for(patient_id)
         ignore_consent = False
         for log in storage.load_access_logs(proj_name, limit=5, db_manager=db_manager):
             if (log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]
@@ -432,7 +433,7 @@ def correct_record(
     correction_block = command_handler.handle_add_correction(cmd)
 
     storage.append_access_log(
-        project_name=f"patient_{patient_id.replace('-', '_').replace(' ', '_')}",
+        project_name=project_name_for(patient_id),
         username=u["username"],
         action="RECORD_CORRECTED",
         device_id=get_device_id(),
@@ -467,7 +468,7 @@ def download_offchain_file(
     ignore_consent = False
 
     if role == "doctor":
-        proj_name = f"patient_{patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
             if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:

@@ -45,7 +45,7 @@ class TestTimeBoundConsent(unittest.TestCase):
 
         self.patient_id = f"VIP-TEST-{self._testMethodName.upper()}"
         self.doctor = "dr.smith"
-        proj_name = f"patient_{self.patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = self.record_service._get_project_name(self.patient_id)
         try:
             self.block_repo.reset_db(proj_name)
         except Exception:
@@ -119,7 +119,7 @@ class TestTimeBoundConsent(unittest.TestCase):
 
     def test_doctor_record_filtering_by_consent(self):
         """Doctor should only see records for which active consent is granted."""
-        proj_name = f"patient_{self.patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = self.record_service._get_project_name(self.patient_id)
         self.block_repo.reset_db(proj_name)
 
         # Add two records: one vital_signs, one lab_result
@@ -162,7 +162,7 @@ class TestTimeBoundConsent(unittest.TestCase):
             device_id="emergency-device-01"
         )
 
-        proj_name = f"patient_{self.patient_id.replace('-', '_').replace(' ', '_')}"
+        proj_name = self.record_service._get_project_name(self.patient_id)
         access_logs = storage.load_access_logs(proj_name)
         self.assertTrue(any(entry.get("action") == "BREAK_GLASS_ACCESS" for entry in access_logs))
 

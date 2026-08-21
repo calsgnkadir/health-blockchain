@@ -1,5 +1,82 @@
 # Changelog — VIP Health Vault
 
+## [5.3.0] - 2026-08-21
+
+### 🎯 Scope realignment — closing the gap between claimed and actual behavior
+
+A line-by-line audit of the mission ("single-tenant, private, tamper-evident
+vault for a few protected individuals") flagged three things the README claimed
+but the code did not do. Two are now fixed.
+
+- **Identity pseudonymization is wired into the write path** (was: an isolated
+  admin API that no record ever touched). The clinical chain store is now keyed by
+  a deterministic `anon_id` (HMAC-SHA256 of the patient id under `PSEUDONYM_SECRET`),
+  never the raw identifier — so the block store on disk holds only opaque
+  pseudonyms. All read/write paths derive the store name from one canonical
+  `project_name_for()`, so they cannot drift apart; the write path persists the
+  reverse mapping for authorized resolution. Verified end-to-end: a record for
+  `VIP-042` lands under `patient_18ce198d…`, the raw id names nothing on disk, and
+  the server still decrypts and resolves it. **Breaking:** existing chains keyed by
+  the raw id are not found under the new naming and must be re-seeded/migrated.
+- **The notarizer anchor is a real signature, not a random number.** It previously
+  generated `anchor_tx = f"0x{secrets.token_hex(32)}"` — a random token dressed up
+  as a blockchain transaction hash — and stored it via `save_simulated_merkle_root`.
+  The anchor is now an **HMAC-SHA256 signature of the Merkle root** under the KMS
+  key; verification recomputes and checks it in constant time, so a tampered block
+  fails as "Anchor signature invalid." The status API and UI drop the misleading
+  `on_chain_tx_hash` / "Simulated Anchor" / "On-Chain Verified" wording for honest
+  `anchor_signature` / "Local Signed Anchor" labels.
+
+Still open from the same audit (tracked, not yet done): remove the dead
+`wallet_address` field, fold IPFS attachments into the encrypted LMDB store,
+decide the LIS webhook gateway's fate, key-destruction erasure, and an
+externally-held/HSM signing key.
+
+## [5.2.0] - 2026-08-21
+
+### 🔑 Key-management hardening & honest documentation
+
+The signing key both signs blocks and derives the at-rest encryption key, so its
+handling is now treated as a first-class operational concern rather than an
+implementation detail.
+
+- **`keyring` is now a declared dependency** — the code advertised OS-keyring
+  storage (DPAPI / Keychain / Secret Service) but never listed the package, so a
+  clean install silently fell back to a plaintext `.private_key` file next to the
+  encrypted chain store. `keyring==25.2.1` is now in `requirements.txt`.
+- **Production refuses to auto-generate a signing key** — a key minted on boot
+  would either land in plaintext on disk or orphan every record already encrypted
+  under a previous key. Startup now fails with clear guidance unless a key is
+  configured, with a `VHV_ALLOW_GENERATED_KEY=true` opt-in for a first-run install
+  that has no data. Plaintext-on-disk storage logs a warning on every startup.
+- **Honest threat model** — the README no longer implies the ciphertext is safe
+  unconditionally; it is safe only while the key is kept out of the data backup.
+  New [docs/KEY_MANAGEMENT.md](docs/KEY_MANAGEMENT.md) documents key sources,
+  backup, and the rotation procedure.
+
+### 🐞 Fixed — silent loss of access-log entries (audit trail)
+
+- **The access ledger keyed entries on a wall-clock timestamp** (`time.time_ns()`),
+  whose resolution on Windows is ~15.6 ms. Two access events in the same tick
+  produced the **same LMDB key**, so the second silently overwrote the first — the
+  audit trail could lose reads under any real load. Entries are now keyed on the
+  monotonic, collision-free sequence number, so every access is stored and the
+  hash-chain verifies deterministically. Confirmed: four back-to-back appends
+  within one clock tick now store four rows (previously one). This also removes a
+  timing-dependent flake in `tests/test_access_ledger.py`.
+
+### 🧹 Removed misleading configuration
+
+- **`.env.example` no longer advertises a public-chain integration that does not
+  exist** — the `VHV_RPC_URL` (Polygon/Alchemy), `VHV_PRIVATE_KEY` and
+  `VHV_CONTRACT_ADDRESS` lines contradicted the README's "Zero Web3/RPC
+  dependencies" and were removed. The file now documents the real signing-key and
+  file-attachment settings instead.
+- **File attachments documented honestly** — the IPFS client is a real, working
+  code path that AES-encrypts attachments and, with no daemon configured, stores
+  them locally without any network call. It now appears in the feature matrix
+  rather than being an undocumented surface.
+
 ## [5.1.0] - 2026-08-18
 
 ### 🔐 Security Audit — Findings and Remediation

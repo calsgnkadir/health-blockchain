@@ -17,23 +17,17 @@ export async function loadChainStatus() {
     ]);
     const valid = status.is_valid;
     updateChainPill(valid);
-    const onChainVerified = status.on_chain_verified;
-    const isSimulated = status.is_simulated;
+    const anchorVerified = status.anchor_verified;
     let onChainColor = 'var(--danger)';
     let onChainText = 'NOT ANCHORED';
-    if (onChainVerified) {
-      if (isSimulated) {
-        onChainColor = '#f59e0b'; // amber color for simulated warning/info
-        onChainText = 'SIMULATED';
-      } else {
-        onChainColor = 'var(--success)';
-        onChainText = 'SECURED';
-      }
+    if (anchorVerified) {
+      onChainColor = 'var(--success)';
+      onChainText = 'SECURED';
     }
-    const txHash = status.on_chain_tx_hash;
-    const txLabel = txHash 
-      ? `<a href="#" data-action="copy-tx" data-arg="${escapeHtml(txHash)}" style="color:var(--accent-ledger); text-decoration:underline; font-size:10px;" title="${txHash}">${isSimulated ? 'Copy Sim Tx' : 'Copy Tx'}: ${txHash.substring(0,10)}...</a>` 
-      : 'No Tx Hash';
+    const sig = status.anchor_signature;
+    const txLabel = sig
+      ? `<a href="#" data-action="copy-tx" data-arg="${escapeHtml(sig)}" style="color:var(--accent-ledger); text-decoration:underline; font-size:10px;" title="Anchor signature (HMAC-SHA256 of the Merkle root)">Copy anchor sig: ${sig.substring(0,10)}...</a>`
+      : 'No anchor signature';
 
     box.innerHTML = `
       <div class="chain-stat"><div class="chain-stat-val">${status.chain_length}</div><div class="chain-stat-lbl">Total Blocks</div></div>
