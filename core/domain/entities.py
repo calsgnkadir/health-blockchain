@@ -17,7 +17,6 @@ class User:
     specialty: Optional[str] = None
     institution: Optional[str] = None
     clearance: Optional[str] = None
-    wallet_address: Optional[str] = None
     account_status: str = "ACTIVE_ENROLLED"
 
     def to_dict(self) -> dict:
@@ -33,7 +32,6 @@ class User:
             "specialty": self.specialty,
             "institution": self.institution,
             "clearance": self.clearance,
-            "wallet_address": self.wallet_address,
             "account_status": self.account_status,
         }
 
@@ -51,7 +49,6 @@ class User:
             specialty=data.get("specialty"),
             institution=data.get("institution"),
             clearance=data.get("clearance"),
-            wallet_address=data.get("wallet_address"),
             account_status=data.get("account_status", "ACTIVE_ENROLLED"),
         )
 

@@ -74,14 +74,9 @@ class SQLDatabaseManager:
                     patient_id VARCHAR(100),
                     clearance VARCHAR(50),
                     totp_secret VARCHAR(100),
-                    totp_enabled {boolean_type} DEFAULT FALSE,
-                    wallet_address VARCHAR(100)
+                    totp_enabled {boolean_type} DEFAULT FALSE
                 )
             """)
-            try:
-                cursor.execute("ALTER TABLE users ADD COLUMN wallet_address VARCHAR(100)")
-            except Exception:
-                pass
 
             # Notifications Table
             cursor.execute(f"""
