@@ -19,10 +19,13 @@ fell back to a weak fingerprint on non-Windows platforms.
 import os
 import hashlib
 import base64
+import logging
 import uuid
 import socket
 import platform
 from typing import Optional, Tuple
+
+logger = logging.getLogger("vhv.kms")
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -37,6 +40,19 @@ _PRIVATE_KEY_ENV = "HEALTH_BLOCKCHAIN_KEY"
 _PRIVATE_KEY_FILE = ".private_key"
 _KEYRING_SERVICE = "VIPHealthVault"
 _KEYRING_KEY_NAME = "private_key"
+# Opt-in that lets a production boot mint a brand-new signing key on first run.
+# Without it, production refuses to auto-generate — a silently generated key would
+# either land in a plaintext file next to the data or orphan every record already
+# encrypted under the previous (now lost) key.
+_ALLOW_GENERATED_KEY_ENV = "VHV_ALLOW_GENERATED_KEY"
+
+
+def _is_production() -> bool:
+    """Production unless explicitly in development, demo, or a test run."""
+    env = os.getenv("ENVIRONMENT", "production").strip().lower()
+    demo = os.getenv("VHV_DEMO_MODE", "false").strip().lower() == "true"
+    testing = os.getenv("TESTING", "false").strip().lower() == "true"
+    return env != "development" and not demo and not testing
 
 
 class SoftwareKMSProvider(KMSProvider):
@@ -207,18 +223,27 @@ class SoftwareKMSProvider(KMSProvider):
     def _load_signing_key() -> bytes:
         """
         Load or generate the HMAC signing key.
-        Priority:
-          1. HEALTH_BLOCKCHAIN_KEY env var
+
+        This key both signs every block AND derives the at-rest encryption key
+        (``core.security.derive_rest_secret``), so losing it makes every encrypted
+        record permanently unrecoverable. Source priority:
+
+          1. HEALTH_BLOCKCHAIN_KEY env var          (recommended for production)
           2. OS keyring (DPAPI / Keychain / libsecret)
           3. .private_key file (legacy — auto-migrates to keyring)
-          4. Generate new random key
+          4. Generate a new random key             (blocked in production unless
+             VHV_ALLOW_GENERATED_KEY=true)
+
+        Back up whatever source you use; see docs/KEY_MANAGEMENT.md.
         """
-        # 1. Env var
+        production = _is_production()
+
+        # 1. Env var — the recommended production source.
         key_str = os.environ.get(_PRIVATE_KEY_ENV)
         if key_str:
             return key_str.encode() if isinstance(key_str, str) else key_str
 
-        # 2. OS keyring
+        # 2. OS keyring.
         try:
             import keyring as _keyring
             key_str = _keyring.get_password(_KEYRING_SERVICE, _KEYRING_KEY_NAME)
@@ -228,29 +253,61 @@ class SoftwareKMSProvider(KMSProvider):
         except Exception:
             pass
 
-        # 3. Legacy plaintext file
+        # 3. Legacy plaintext file — try to migrate it into the keyring.
         if os.path.exists(_PRIVATE_KEY_FILE):
             with open(_PRIVATE_KEY_FILE, "r") as f:
                 key_str = f.read().strip()
             if key_str:
-                # Auto-migrate to keyring if available
+                migrated = False
                 try:
                     import keyring as _keyring
                     _keyring.set_password(_KEYRING_SERVICE, _KEYRING_KEY_NAME, key_str)
                     os.remove(_PRIVATE_KEY_FILE)
+                    migrated = True
                 except Exception:
                     pass
+                if not migrated and production:
+                    logger.warning(
+                        "Signing key is stored in the plaintext file %s, on the same "
+                        "disk as the encrypted chain store. A stolen backup then holds "
+                        "both the ciphertext and its key. Move it to HEALTH_BLOCKCHAIN_KEY "
+                        "or an OS keyring (pip install keyring). See docs/KEY_MANAGEMENT.md.",
+                        _PRIVATE_KEY_FILE,
+                    )
                 os.environ[_PRIVATE_KEY_ENV] = key_str
                 return key_str.encode()
 
-        # 4. Generate new key
+        # 4. Generate a new key. In production this is refused unless explicitly
+        #    opted in: a silently minted key would orphan any data already
+        #    encrypted under a previous key, or land in plaintext on disk.
+        if production and os.getenv(_ALLOW_GENERATED_KEY_ENV, "false").lower() != "true":
+            raise RuntimeError(
+                "No signing key is configured. Refusing to auto-generate one in "
+                "production: it would orphan any existing encrypted records and may be "
+                "written to disk in plaintext. Set HEALTH_BLOCKCHAIN_KEY (or provision "
+                "the OS keyring), or set VHV_ALLOW_GENERATED_KEY=true for a first-run "
+                "install with no data yet. See docs/KEY_MANAGEMENT.md."
+            )
+
         key_str = base64.urlsafe_b64encode(os.urandom(32)).decode()
+        stored_in_keyring = False
         try:
             import keyring as _keyring
             _keyring.set_password(_KEYRING_SERVICE, _KEYRING_KEY_NAME, key_str)
+            stored_in_keyring = True
         except Exception:
             with open(_PRIVATE_KEY_FILE, "w") as f:
                 f.write(key_str)
+
+        if stored_in_keyring:
+            logger.info("Generated a new signing key and stored it in the OS keyring.")
+        else:
+            logger.warning(
+                "Generated a new signing key and wrote it to the plaintext file %s "
+                "(OS keyring unavailable — pip install keyring). Back this file up and "
+                "keep it off any shared backup of the chain store. See docs/KEY_MANAGEMENT.md.",
+                _PRIVATE_KEY_FILE,
+            )
 
         os.environ[_PRIVATE_KEY_ENV] = key_str
         return key_str.encode()
