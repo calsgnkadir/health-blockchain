@@ -1,5 +1,28 @@
 # Changelog — VIP Health Vault
 
+## [5.5.0] - 2026-08-21
+
+### 🔐 Externally-held signing key (HSM / Vault-ready)
+
+Closes the "a rogue admin has both the database and the key" gap.
+
+- **The KMS interface moved from "hand over the key" to "sign for me."** Every
+  key use in the vault — block signatures, the notarizer anchor, and the at-rest
+  key derivation — is a MAC over some context, so they now all go through a single
+  `KMSProvider.mac()` primitive. Raw key material no longer flows through
+  application code. For the default software provider the output is byte-for-byte
+  identical to before, so existing signatures and encrypted data remain valid — no
+  migration.
+- **HashiCorp Vault Transit provider.** With `KMS_PROVIDER=vault` the MAC is
+  computed by Vault's `/transit/hmac` endpoint under a key held in Vault; the key
+  never enters this process, so an operator with the host and the `projects/` store
+  still cannot forge a signature or derive an at-rest key. It fails closed — a
+  broken Vault stops signing rather than silently falling back to a local key.
+  `get_signing_key()` is refused. Tested end-to-end against a fake Vault endpoint
+  (sign/verify roundtrip, right URL/token, no local key, fail-closed).
+- Config documented in `.env.example` (`KMS_PROVIDER`, `VAULT_ADDR`,
+  `VAULT_TOKEN`, `VHV_KMS_TRANSIT_KEY`); README feature matrix and roadmap updated.
+
 ## [5.4.0] - 2026-08-21
 
 ### ✂️ Cut list — remove scope drift
@@ -56,9 +79,9 @@ but the code did not do. Two are now fixed.
   `on_chain_tx_hash` / "Simulated Anchor" / "On-Chain Verified" wording for honest
   `anchor_signature` / "Local Signed Anchor" labels.
 
-Still open from the same audit (tracked, not yet done): key-destruction erasure,
-an externally-held / HSM signing key, and real out-of-band VIP onboarding. (The
-`wallet_address`, LIS-gateway and IPFS cut-list items are done in 5.4.0.)
+Still open from the same audit (tracked, not yet done): key-destruction erasure
+and real out-of-band VIP onboarding. (The `wallet_address`, LIS-gateway and IPFS
+cut-list items are done in 5.4.0; the externally-held signing key in 5.5.0.)
 
 ## [5.2.0] - 2026-08-21
 

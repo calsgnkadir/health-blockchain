@@ -31,7 +31,12 @@ def get_kms() -> KMSProvider:
 
     if provider_name == "software":
         _active_provider = SoftwareKMSProvider()
-    elif provider_name in ("aws", "vault"):
+    elif provider_name == "vault":
+        # Externally-held signing key: the root key stays in HashiCorp Vault's
+        # Transit engine and never enters this process (see vault_provider).
+        from core.kms.vault_provider import VaultTransitKMSProvider
+        _active_provider = VaultTransitKMSProvider()
+    elif provider_name == "aws":
         from core.kms.cloud_stub import get_cloud_provider
         _active_provider = get_cloud_provider(provider_name)
     else:

@@ -41,7 +41,7 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 | **Hardware Passkey Revocation** | **LIVE / WORKING** | `POST /api/v1/auth/webauthn/revoke` | Revokes stolen hardware credentials with Dual-Control authorization. |
 | **XSS Defence in Depth** | **LIVE / WORKING** | `backend.middleware.xss_protection` / `static.js.modules.actions` | Clinical text is stored verbatim and escaped at render; the CSP then forbids inline script outright (`script-src 'self'`, no `unsafe-inline`, no `unsafe-eval`), so encoding and execution are two independent layers. |
 | **Encrypted File Attachments** | **LIVE / WORKING** | `core.services.attachment_store.AttachmentStore` | Record attachments (e.g. imaging/DICOM) are AES-encrypted, then kept in the same LMDB store as the chain, content-addressed by the SHA-256 of the ciphertext. No external service, no network egress — the blob sits on the same disk as the records it belongs to. |
-| **KMS Envelope Encryption** | **PLUGGABLE ABSTRACTION** | `core.kms.provider.KMSProvider` / `SoftwareKMSProvider` | Software PBKDF2 provider natively working; AWS KMS / HashiCorp Vault drivers scaffolded. |
+| **Externally-Held Signing Key** | **LIVE / WORKING** | `core.kms.vault_provider.VaultTransitKMSProvider` | Every key use is a MAC through `KMSProvider.mac()`, so the signing key can live outside this process. With `KMS_PROVIDER=vault` the MAC is computed by HashiCorp Vault's Transit engine (`/transit/hmac`) — the key never enters the app, closing the "a rogue admin has both the store and the key" gap. Fails closed if Vault is unreachable (never signs locally). The default software provider keeps the key on-host; AWS KMS is stubbed. |
 
 ---
 
@@ -123,4 +123,5 @@ independently shippable with the test suite green.
 | ✅ done | **Medical correction flow** — a record is never overwritten; a correction is appended as a new block. The current and original versions both stay on the chain, the record is flagged with the correction's author and reason, and `?version=original` returns the superseded content | Integrity |
 | ✅ done | **Identity pseudonymization** — the clinical chain store is keyed by a deterministic `anon_id` (HMAC of the patient id), never the raw identifier; the write path persists the mapping so an authorized admin can resolve it | Confidentiality |
 | 📋 planned | Key-destruction erasure (GDPR/KVKK right to be forgotten on an append-only chain) | Confidentiality |
-| 📋 planned | External Merkle-root anchoring (RFC 3161 / signed daily root) and HSM-backed signing key | Integrity |
+| ✅ done | **Externally-held signing key** — with `KMS_PROVIDER=vault` the signing key lives in HashiCorp Vault's Transit engine and never enters the app; all signing/derivation goes through `KMSProvider.mac()` | Integrity |
+| 📋 planned | External Merkle-root anchoring (RFC 3161 / signed daily root) | Integrity |
