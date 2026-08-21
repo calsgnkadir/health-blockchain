@@ -1,5 +1,27 @@
 # Changelog — VIP Health Vault
 
+## [5.7.0] - 2026-08-21
+
+### 🧨 Right to be forgotten — crypto-shredding erasure (GDPR/KVKK Art. 17)
+
+Erasure on an append-only, tamper-evident chain cannot delete blocks without
+breaking the integrity the vault exists to prove. It is done by crypto-shredding
+instead.
+
+- **The at-rest key now depends on a per-patient erasure secret.** It is derived
+  from the KMS root AND a random per-patient secret (`patient_erasure_keys`,
+  created lazily on first write). Both are required to decrypt. *(Breaking: the
+  at-rest derivation changed, so a store written before this must be re-seeded.)*
+- **`POST /api/v1/erasure/{patient_id}` destroys that secret.** Every record
+  encrypted under it becomes permanently undecryptable — read-back returns an
+  `__erased__` marker, never plaintext — while the chain blocks and their
+  signatures remain intact and `is_chain_valid` still passes. The identity↔pseudonym
+  mapping is dropped and a tombstone is written to the tamper-evident access ledger.
+- **Privileged + Dual-Control gated.** Only an admin/security officer with a
+  co-signed Dual-Control token can erase; the operation is irreversible and
+  idempotent. Verified end-to-end: sensitive text is readable before and gone
+  after, with the chain still valid.
+
 ## [5.6.0] - 2026-08-21
 
 ### 🪪 Out-of-band account onboarding (implemented for real)
@@ -103,9 +125,10 @@ but the code did not do. Two are now fixed.
   `on_chain_tx_hash` / "Simulated Anchor" / "On-Chain Verified" wording for honest
   `anchor_signature` / "Local Signed Anchor" labels.
 
-Still open from the same audit (tracked, not yet done): key-destruction erasure.
-(The `wallet_address`, LIS-gateway and IPFS cut-list items are done in 5.4.0; the
-externally-held signing key in 5.5.0; out-of-band onboarding in 5.6.0.)
+Every code-side item from that audit is now shipped: the `wallet_address`,
+LIS-gateway and IPFS cut-list items in 5.4.0; the externally-held signing key in
+5.5.0; out-of-band onboarding in 5.6.0; key-destruction erasure in 5.7.0. What
+remains is non-code (institutional partner, legal counsel).
 
 ## [5.2.0] - 2026-08-21
 

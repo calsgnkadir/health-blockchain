@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 from typing import Any, Optional, Dict, List
 from core.domain.entities import Block
@@ -13,6 +15,7 @@ from core.security import (
 )
 from core.events.event_bus import event_bus, RecordAddedEvent, RecordReadEvent
 from core.pseudonymization.service import project_name_for, get_pseudonymization_service
+from core.services.erasure_service import get_erasure_key_store
 
 # Marks a value that is AES-256 encrypted at rest under the server's KMS key.
 # The marker keeps the reveal path unambiguous and never collides with legacy
@@ -30,6 +33,21 @@ class RecordService:
         return project_name_for(patient_id)
 
     # ── At-rest encryption (server-held KMS key) ────────────────────────
+    def _rest_key(self, patient_id: str, create: bool) -> Optional[str]:
+        """
+        The at-rest secret: the KMS root-derived secret mixed with the patient's
+        erasure secret. Returns None once the patient has been erased (their
+        erasure secret is destroyed), which makes decryption impossible by design.
+        On the write path ``create=True`` mints the erasure secret on first use;
+        the read path never creates one.
+        """
+        store = get_erasure_key_store()
+        erasure = store.get_or_create(patient_id) if create else store.get(patient_id)
+        if erasure is None:
+            return None
+        root = derive_rest_secret(patient_id)
+        return hmac.new(erasure, root.encode("utf-8"), hashlib.sha256).hexdigest()
+
     def _encrypt_at_rest(self, patient_id: str, index: int, payload: Any) -> str:
         """Encrypt a clinical payload for storage; returns a prefixed ciphertext."""
         project_name = self._get_project_name(patient_id)
@@ -38,7 +56,7 @@ class RecordService:
             if isinstance(payload, dict)
             else str(payload)
         )
-        secret = derive_rest_secret(patient_id)
+        secret = self._rest_key(patient_id, create=True)
         patient_salt = self.block_repo.get_patient_salt(project_name)
         ciphertext, salt = self.crypto_strategy.encrypt_data(payload_str, secret, patient_salt)
         self.block_repo.save_block_salt(project_name, index, salt)
@@ -58,7 +76,12 @@ class RecordService:
         salt = self.block_repo.load_block_salt(project_name, index)
         if not salt:
             return value
-        secret = derive_rest_secret(patient_id)
+        secret = self._rest_key(patient_id, create=False)
+        if secret is None:
+            # The patient's erasure key is destroyed — the content is
+            # cryptographically shredded and can never be recovered.
+            return {"__erased__": True,
+                    "reason": "Record cryptographically erased (GDPR/KVKK Art. 17)"}
         try:
             decrypted = self.crypto_strategy.decrypt_data(value[len(_REST_PREFIX):], secret, salt)
         except Exception:

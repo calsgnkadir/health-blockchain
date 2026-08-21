@@ -98,6 +98,10 @@ app.include_router(pseudonym_router)
 from backend.routers.onboarding import router as onboarding_router
 app.include_router(onboarding_router)
 
+# GDPR/KVKK Art. 17 — crypto-shredding erasure
+from backend.routers.erasure import router as erasure_router
+app.include_router(erasure_router)
+
 import logging
 
 logging.basicConfig(

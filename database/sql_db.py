@@ -99,6 +99,18 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Per-patient erasure keys. The at-rest key is derived from the KMS
+            # root AND this per-patient secret, so destroying this row alone
+            # cryptographically shreds one patient's records (GDPR/KVKK Art. 17)
+            # while leaving the append-only chain and its signatures intact.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS patient_erasure_keys (
+                    patient_id VARCHAR(100) PRIMARY KEY,
+                    secret_hex VARCHAR(128) NOT NULL,
+                    created_at {double_type} NOT NULL
+                )
+            """)
+
             # Notifications Table
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS notifications (

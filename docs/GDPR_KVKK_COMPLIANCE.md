@@ -19,8 +19,9 @@
 > ⚠️ **Kritik Mimari Notu:** Ham Kişisel Sağlık Verisi (PHI) **hiçbir zaman kamuya açık ağlara yazılmaz**;
 > izole tek-kiracılı (single-tenant) dağıtımın dışına çıkmaz.
 >
-> 🚧 **Uygulama durumu:** Pseudonymization Engine (`anon_id` ayrıştırma) mevcuttur ancak
-> henüz kayıt yazma yoluna bağlanmamıştır — bkz. aşağıdaki **Bölüm 4 · Yol Haritası**.
+> ✅ **Uygulama durumu:** Pseudonymization yazma yoluna bağlanmıştır — klinik zincir
+> deposu ham `patient_id` ile değil, deterministik `anon_id` ile anahtarlanır. Anahtar
+> imhası ile silme (Art. 17) de canlıdır. Kalan tek madde dış Merkle çıpalamasıdır.
 
 ---
 
@@ -40,9 +41,9 @@
 
 ## 3. Güvenlik ve Uyum Mekanizmaları
 
-1. **Pseudonymization Engine (KVKK M.7 & GDPR Art. 32)** — 🚧 *iskele hazır, yazma yoluna bağlanmadı*:
-   - Kriptografik `anon_id` üreten motor (`core/pseudonymization/`) ve uçları mevcuttur.
-   - **Mevcut durum:** Kayıtlar zincire `patient_id`, `doctor_name` gibi kimlik alanlarını açık metin olarak yazar; ayrıştırma henüz `AddRecordCommand` yolunda uygulanmamaktadır. Planlanan çalışma için bkz. Bölüm 4.
+1. **Pseudonymization (KVKK M.7 & GDPR Art. 32)** — ✅ *canlı, yazma yoluna bağlı*:
+   - Klinik zincir deposu, ham `patient_id` yerine deterministik `anon_id` (HMAC) ile anahtarlanır (`core/pseudonymization/service.py::project_name_for`); diskteki depo yalnızca opak takma kimlikler tutar.
+   - Yetkili yönetici `patient_id ↔ anon_id` eşlemesini çözebilir; yazma yolu bu eşlemeyi kalıcılaştırır.
 2. **Çift Onaylı Yetki İlkesi (Dual-Control)**:
    - Sistem Yöneticisi (Admin) dahi VIP hastanın ham şifreli verisini tek başına çözemez. Güvenlik Görevlisi (`security_officer`) co-signature (çift onay) şarttır.
 3. **Zaman Sınırlı Rıza ve Otomatik Süre Dolumu**:
@@ -55,6 +56,13 @@
 6. **Tamper-Evident Erişim Defteri (ISO 27001 A.12.4 & KVKK M.12)**:
    - Her okuma ve klinisyen görüntülemesi, `seq` + `prev_hash` + `hash` taşıyan hash-bağlı bir kayıttır (`database/audit_storage.py`).
    - Geçmiş bir erişim olayını silmek veya değiştirmek zinciri kırar ve `verify_access_log_integrity` tarafından sıra numarasıyla raporlanır. Hasta, kendi kayıtlarına kimin eriştiğini ve defterin bütünlük durumunu **Who Accessed My Records** ekranından görür.
+7. **Anahtar İmhası ile Silme — Unutulma Hakkı (GDPR Art. 17 & KVKK M.7)** — ✅ *canlı*:
+   - At-rest anahtarı, KMS kökü **ve** hastaya özel bir gizli anahtardan türetilir. `POST /api/v1/erasure/{patient_id}` bu gizli anahtarı imha eder; onun altında şifrelenmiş her kayıt kalıcı olarak çözülemez hale gelir (crypto-shredding).
+   - Append-only zincir ve imzaları **bozulmaz** (bütünlük kanıtı korunur); işlem yetkili rol + Dual-Control ile korunur ve geri döndürülemezdir.
+8. **Dışarıda Tutulan İmza Anahtarı (GDPR Art. 32)** — ✅ *canlı (opsiyonel)*:
+   - `KMS_PROVIDER=vault` ile imza anahtarı HashiCorp Vault Transit içinde yaşar ve uygulamaya hiç girmez; host + `projects/` deposunu ele geçiren bir operatör dahi imza veya at-rest anahtarı üretemez.
+9. **Band-Dışı Hesap Onboarding'i** — ✅ *canlı*:
+   - Hiçbir hesap self-registration ile oluşmaz. Yetkili operatör kimliği doğrulanmış hesabı `PENDING_ONBOARDING` olarak açar; hesap, band-dışı teslim edilen tek-kullanımlık enrollment token redeem edilene kadar giriş yapamaz.
 
 ---
 
@@ -66,9 +74,10 @@ teslim edilebilecek şekilde sıralanmıştır.
 
 | Durum | Mekanizma | Karşılık |
 | :---: | :--- | :--- |
-| 📋 planlandı | **Pseudonymization'ın yazma yoluna bağlanması** — kimlik alanları `anon_id` ile ayrıştırılarak zincire yazılır | KVKK M.7 / GDPR Art. 32 |
-| 📋 planlandı | **Anahtar imhası ile silme (erasure)** — append-only zincirde "unutulma hakkı", kayda özel şifreleme anahtarının imhasıyla sağlanır | GDPR Art. 17 / KVKK M.7 |
 | 📋 planlandı | **Merkle kökünün dış çıpalanması** — RFC 3161 zaman damgası veya imzalı günlük kök ile operatör-değiştiremez bütünlük kanıtı | ISO 27001 A.12.4 |
+
+> Pseudonymization'ın yazma yoluna bağlanması, anahtar imhası ile silme (Art. 17) ve
+> dışarıda tutulan imza anahtarı **tamamlanmış** olup Bölüm 3'e taşınmıştır.
 
 > Bu tablo, güvenlik denetiminde "beyan edilen ≠ uygulanan" boşluğunu ortadan
 > kaldırmak için tutulur. Bir madde uygulandığında Bölüm 3'e taşınır.
