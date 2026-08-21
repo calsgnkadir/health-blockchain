@@ -1,5 +1,34 @@
 # Changelog — VIP Health Vault
 
+## [5.4.0] - 2026-08-21
+
+### ✂️ Cut list — remove scope drift
+
+Three residual features that did not fit a single-tenant, single-subnet vault for
+a few individuals were removed outright.
+
+- **`wallet_address` field deleted.** A dead column carried through the `User`
+  entity, the SQL schema and the repository, never read by any logic — a leftover
+  from an abandoned wallet-identity idea. Removed from the entity, `CREATE TABLE`,
+  the migration, `_USER_COLS`, and every INSERT/UPDATE/SELECT mapping. Because it
+  was the last column, existing rows read back cleanly (the trailing value is
+  simply ignored).
+- **LIS laboratory webhook gateway deleted.** `POST /api/v1/webhooks/lis`, its
+  authentication, the `LisWebhookPayload` schema and `VHV_LIS_API_KEY` are gone;
+  there is no real lab-integration contract, so the endpoint was only attack
+  surface. The genuinely general tests that lived in its test file
+  (path-traversal confinement, at-rest ciphertext, cross-patient metadata) moved
+  to `tests/test_storage_and_metadata_safety.py`, rewritten to use the normal
+  record path.
+- **IPFS attachment storage folded into the encrypted LMDB store.** A distributed
+  content network was never the fit for one private subnet. Attachments (already
+  AES-encrypted) now live in the same LMDB store as the chain, content-addressed
+  by the SHA-256 of the ciphertext (`core.services.attachment_store`). The IPFS
+  client, its simulation-mode fallback, its network egress path and
+  `VHV_IPFS_API_URL` are removed. Verified end-to-end: an imaging file uploads,
+  downloads byte-for-byte, and the plaintext is not recoverable from the blob on
+  disk.
+
 ## [5.3.0] - 2026-08-21
 
 ### 🎯 Scope realignment — closing the gap between claimed and actual behavior
@@ -27,10 +56,9 @@ but the code did not do. Two are now fixed.
   `on_chain_tx_hash` / "Simulated Anchor" / "On-Chain Verified" wording for honest
   `anchor_signature` / "Local Signed Anchor" labels.
 
-Still open from the same audit (tracked, not yet done): remove the dead
-`wallet_address` field, fold IPFS attachments into the encrypted LMDB store,
-decide the LIS webhook gateway's fate, key-destruction erasure, and an
-externally-held/HSM signing key.
+Still open from the same audit (tracked, not yet done): key-destruction erasure,
+an externally-held / HSM signing key, and real out-of-band VIP onboarding. (The
+`wallet_address`, LIS-gateway and IPFS cut-list items are done in 5.4.0.)
 
 ## [5.2.0] - 2026-08-21
 

@@ -21,7 +21,7 @@ from database.connection import LMDBConnectionManager
 from core.ports.repositories import IUserRepository, IBlockRepository, IAuditRepository, INotificationRepository
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository, LMDBBlockRepository, LMDBAuditRepository
 from infrastructure.repositories.sql_repositories import SQLUserRepository, SQLNotificationRepository
-from core.services.ipfs import IPFSClient
+from core.services.attachment_store import AttachmentStore
 from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 from core.services.auth_service import AuthService
 from core.services.record_service import RecordService
@@ -31,10 +31,10 @@ from core.services.notarizer import BlockchainNotarizer
 from core.cqrs.commands import CommandHandler
 from core.cqrs.queries import QueryHandler
 
-_ipfs_client_instance = IPFSClient()
+_attachment_store_instance = AttachmentStore()
 
-def get_ipfs_client() -> IPFSClient:
-    return _ipfs_client_instance
+def get_attachment_store() -> AttachmentStore:
+    return _attachment_store_instance
 
 
 

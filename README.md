@@ -40,7 +40,7 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 | **Immutable Decrypt Access Log** | **LIVE / WORKING** | `backend.routers.records.decrypt_record` | Writes immutable `RECORD_DECRYPTED` log entry to LMDB and SQLite access logs. |
 | **Hardware Passkey Revocation** | **LIVE / WORKING** | `POST /api/v1/auth/webauthn/revoke` | Revokes stolen hardware credentials with Dual-Control authorization. |
 | **XSS Defence in Depth** | **LIVE / WORKING** | `backend.middleware.xss_protection` / `static.js.modules.actions` | Clinical text is stored verbatim and escaped at render; the CSP then forbids inline script outright (`script-src 'self'`, no `unsafe-inline`, no `unsafe-eval`), so encoding and execution are two independent layers. |
-| **Encrypted File Attachments** | **LIVE / WORKING** | `core.services.ipfs.IPFSClient` | Record attachments are AES-encrypted before storage and addressed by content hash. With no IPFS daemon configured (the default) they are kept in a local content-addressed folder — no external network call is made; point `VHV_IPFS_API_URL` at a private node only if you run one. |
+| **Encrypted File Attachments** | **LIVE / WORKING** | `core.services.attachment_store.AttachmentStore` | Record attachments (e.g. imaging/DICOM) are AES-encrypted, then kept in the same LMDB store as the chain, content-addressed by the SHA-256 of the ciphertext. No external service, no network egress — the blob sits on the same disk as the records it belongs to. |
 | **KMS Envelope Encryption** | **PLUGGABLE ABSTRACTION** | `core.kms.provider.KMSProvider` / `SoftwareKMSProvider` | Software PBKDF2 provider natively working; AWS KMS / HashiCorp Vault drivers scaffolded. |
 
 ---
@@ -84,8 +84,7 @@ seeded in any other configuration, and an existing chart is never overwritten.
 
 The encrypted demo record opens with `DemoRecord@2026!`.
 
-Optional environment variables: `VHV_LIS_API_KEY` enables the laboratory result
-gateway (disabled without it), and `VHV_WEBAUTHN_RP_ID` / `VHV_WEBAUTHN_ORIGINS`
+Optional environment variables: `VHV_WEBAUTHN_RP_ID` / `VHV_WEBAUTHN_ORIGINS`
 pin passkey verification to a specific host — see `.env.example`.
 
 ---
@@ -118,7 +117,7 @@ independently shippable with the test suite green.
 | :---: | :--- | :--- |
 | ✅ done | Signed, append-only hash-chain with per-block Merkle inclusion proofs | Integrity |
 | ✅ done | Passkey/FIDO2 auth, patient-owned consent, Dual-Control for operators | Confidentiality |
-| ✅ done | Verified WebAuthn, authenticated LIS gateway, render-time output encoding, strict CSP | Confidentiality |
+| ✅ done | Verified WebAuthn, render-time output encoding, strict CSP | Confidentiality |
 | ✅ done | **Encryption at rest** — every clinical payload AES-256-GCM encrypted on disk with a KMS-derived, patient-scoped key (server decrypts for authorized sessions); optional password layer on top for extra-sensitive records | Confidentiality |
 | ✅ done | **Tamper-evident access trail** — every read is a hash-linked ledger entry (`seq` + `prev_hash` + `hash`); deleting or altering one breaks the chain. The patient sees who accessed their records and a live integrity verdict under *Who Accessed My Records* | Both |
 | ✅ done | **Medical correction flow** — a record is never overwritten; a correction is appended as a new block. The current and original versions both stay on the chain, the record is flagged with the correction's author and reason, and `?version=original` returns the superseded content | Integrity |

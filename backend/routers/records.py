@@ -11,10 +11,10 @@ from pydantic import ValidationError
 
 from backend.dependencies import (
     current_user, get_record_service, get_command_handler, get_query_handler, get_consent_validator, get_db_manager,
-    get_ipfs_client, get_notification_repository
+    get_attachment_store, get_notification_repository
 )
 from core.ports.repositories import INotificationRepository
-from core.services.ipfs import IPFSClient
+from core.services.attachment_store import AttachmentStore
 from backend.schemas.requests import (
     RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES,
     VitalSignsSchema, AllergySchema, PrescriptionSchema, VaccinationSchema,
@@ -97,7 +97,7 @@ def add_record(
     u: dict = Depends(current_user),
     command_handler: CommandHandler = Depends(get_command_handler),
     db_manager: LMDBConnectionManager = Depends(get_db_manager),
-    ipfs_client: IPFSClient = Depends(get_ipfs_client),
+    attachments: AttachmentStore = Depends(get_attachment_store),
     notif_repo: INotificationRepository = Depends(get_notification_repository)
 ):
     if u["role"] == "vip_patient" and u.get("patient_id") != rec.patient_id:
@@ -160,10 +160,10 @@ def add_record(
         file_pwd = secrets.token_hex(16)
         enc_data_b64, file_salt_bytes = encrypt_data(rec.file_data, file_pwd)
 
-        # Upload to IPFS (real or simulated)
-        cid = ipfs_client.upload_to_ipfs(enc_data_b64)
+        # Store the (already-encrypted) blob in the encrypted attachment store.
+        ref = attachments.put(enc_data_b64)
 
-        block_data["file_hash"] = cid
+        block_data["file_hash"] = ref
         block_data["file_salt"] = base64.b64encode(file_salt_bytes).decode("utf-8")
         block_data["file_pwd"] = file_pwd
 
@@ -460,7 +460,7 @@ def download_offchain_file(
     record_service: RecordService = Depends(get_record_service),
     consent_validator: ConsentValidator = Depends(get_consent_validator),
     db_manager: LMDBConnectionManager = Depends(get_db_manager),
-    ipfs_client: IPFSClient = Depends(get_ipfs_client)
+    attachments: AttachmentStore = Depends(get_attachment_store)
 ):
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
@@ -509,9 +509,9 @@ def download_offchain_file(
                 enc_data_b64 = f.read()
         else:
             try:
-                enc_data_b64 = ipfs_client.download_from_ipfs(file_hash)
+                enc_data_b64 = attachments.get(file_hash)
             except Exception as e:
-                raise HTTPException(404, f"Encrypted file not found on IPFS storage: {str(e)}")
+                raise HTTPException(404, f"Encrypted attachment not found: {str(e)}")
 
         decrypted_b64 = decrypt_data(enc_data_b64, file_pwd, file_salt)
         file_bytes = base64.b64decode(decrypted_b64)

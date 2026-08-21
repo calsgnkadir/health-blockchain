@@ -14,8 +14,7 @@ projects/
 *.mdb
 *.lock
 
-# ─── Off-chain blob store (holds encrypted patient attachments) ──
-backend/ipfs_storage/
+# ─── Legacy off-chain blob store (attachments now live in the LMDB store) ──
 backend/offchain_storage/
 
 # ─── Python ──────────────────────────────────────────────────
