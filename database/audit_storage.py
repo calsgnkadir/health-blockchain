@@ -52,7 +52,6 @@ def append_access_log(
         prev_hash = (txn.get(head_key) or b"").decode("utf-8")
         seq = int((txn.get(seq_key) or b"0").decode("utf-8")) + 1
 
-        ts_ns = time.time_ns()
         entry = {
             "seq": seq,
             "timestamp": time.time(),
@@ -65,7 +64,11 @@ def append_access_log(
         }
         entry["hash"] = _access_entry_hash(entry)
 
-        key = f"access_log_{project_name}_{ts_ns:020d}".encode("utf-8")
+        # Key on the monotonic sequence number, not a wall-clock timestamp: two
+        # events in the same clock tick would otherwise share a key and the second
+        # would silently overwrite the first — a lost access-log entry. `seq` is
+        # unique and monotonic, so keys never collide and sort chronologically.
+        key = f"access_log_{project_name}_{seq:020d}".encode("utf-8")
         txn.put(key, json.dumps(entry, ensure_ascii=False).encode("utf-8"))
         txn.put(head_key, entry["hash"].encode("utf-8"))
         txn.put(seq_key, str(seq).encode("utf-8"))
