@@ -40,6 +40,15 @@ def login(
     if not user_entity:
         raise HTTPException(401, "Incorrect username or password")
 
+    # A provisioned account cannot be used until its holder redeems the out-of-band
+    # enrollment token (see backend.routers.onboarding).
+    if getattr(user_entity, "account_status", "ACTIVE_ENROLLED") != "ACTIVE_ENROLLED":
+        raise HTTPException(
+            403,
+            "Account is pending onboarding. Complete enrollment with your "
+            "out-of-band token before signing in.",
+        )
+
     # Mandatory FIDO2 / Hardware Key check if configured
     mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
     if mandatory_fido2 and user_entity.role in ("admin", "vip_patient"):

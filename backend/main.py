@@ -94,6 +94,10 @@ app.include_router(alerts_router)
 from backend.routers.pseudonymization import router as pseudonym_router
 app.include_router(pseudonym_router)
 
+# Out-of-band account provisioning & enrollment
+from backend.routers.onboarding import router as onboarding_router
+app.include_router(onboarding_router)
+
 import logging
 
 logging.basicConfig(

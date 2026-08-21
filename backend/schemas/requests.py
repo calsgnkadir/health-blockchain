@@ -438,3 +438,52 @@ class ImagingSchema(BaseModel):
     @classmethod
     def sanitize_strings(cls, v):
         return sanitize_html(v)
+
+
+# ── Out-of-band onboarding ──────────────────────────────────────────
+_ONBOARDING_ROLES = {"vip_patient", "doctor", "admin", "security_officer", "auditor"}
+
+
+class ProvisionAccountReq(BaseModel):
+    """An operator provisions a vetted account; the holder activates it later."""
+    username: str
+    full_name: str
+    role: str
+    patient_id: Optional[str] = None
+    specialty: Optional[str] = None
+    institution: Optional[str] = None
+    clearance: Optional[str] = None
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        if not re.match(r"^[A-Za-z0-9._-]{3,50}$", v or ""):
+            raise ValueError("Username must be 3-50 chars: letters, digits, . _ -")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v):
+        if v not in _ONBOARDING_ROLES:
+            raise ValueError(f"Role must be one of {sorted(_ONBOARDING_ROLES)}")
+        return v
+
+    @field_validator("patient_id")
+    @classmethod
+    def validate_patient_id(cls, v):
+        if v in (None, ""):
+            return v
+        if not re.match(r"^VIP-[0-9]{3,}$", v):
+            raise ValueError("Patient ID must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
+        return v
+
+    @field_validator("full_name", "specialty", "institution", "clearance")
+    @classmethod
+    def sanitize_strings(cls, v):
+        return sanitize_html(v)
+
+
+class RedeemEnrollmentReq(BaseModel):
+    """The account holder redeems a single-use, out-of-band enrollment token."""
+    enrollment_token: str
+    new_password: str

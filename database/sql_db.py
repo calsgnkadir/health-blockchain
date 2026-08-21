@@ -74,7 +74,28 @@ class SQLDatabaseManager:
                     patient_id VARCHAR(100),
                     clearance VARCHAR(50),
                     totp_secret VARCHAR(100),
-                    totp_enabled {boolean_type} DEFAULT FALSE
+                    totp_enabled {boolean_type} DEFAULT FALSE,
+                    account_status VARCHAR(30) DEFAULT 'ACTIVE_ENROLLED'
+                )
+            """)
+            # Existing databases predate the onboarding lifecycle column.
+            try:
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN account_status VARCHAR(30) DEFAULT 'ACTIVE_ENROLLED'"
+                )
+            except Exception:
+                pass
+
+            # Out-of-band enrollment tokens. A provisioned account stays inactive
+            # until the holder redeems a single-use token delivered out of band.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS enrollment_tokens (
+                    token_hash VARCHAR(128) PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    expires_at {double_type} NOT NULL,
+                    used {boolean_type} DEFAULT FALSE,
+                    created_by VARCHAR(100) NOT NULL,
+                    created_at {double_type} NOT NULL
                 )
             """)
 

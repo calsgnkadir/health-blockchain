@@ -1,5 +1,29 @@
 # Changelog — VIP Health Vault
 
+## [5.6.0] - 2026-08-21
+
+### 🪪 Out-of-band account onboarding (implemented for real)
+
+The README claimed the vault "satisfies out-of-band identity onboarding
+requirements," but nothing enforced it — every account was effectively active the
+moment it existed, and `account_status` was an entity field the database never
+even stored. That claim is now true.
+
+- **`account_status` is a real, persisted column** (`ACTIVE_ENROLLED` /
+  `PENDING_ONBOARDING`), added to the users table and the repository mapping.
+  Existing and seeded accounts default to `ACTIVE_ENROLLED`.
+- **Provisioning is operator-only and out of band.** `POST
+  /api/v1/onboarding/provision` (admin or security officer) creates a vetted
+  account in `PENDING_ONBOARDING` with a locked random password and issues a
+  single-use enrollment token; the operator delivers that token out of band. Only
+  a hash of the token is stored — it cannot be recovered from the system.
+- **Redemption activates the account.** `POST /api/v1/onboarding/redeem` takes the
+  token and a new password (subject to the password policy), sets the credential,
+  flips the account to `ACTIVE_ENROLLED`, and burns the token. Tokens are
+  single-use and expire (72h delivery window).
+- **Login is gated.** A non-`ACTIVE_ENROLLED` account is refused at `/auth/login`
+  with a 403, so a provisioned-but-unredeemed account can never be used.
+
 ## [5.5.0] - 2026-08-21
 
 ### 🔐 Externally-held signing key (HSM / Vault-ready)
@@ -79,9 +103,9 @@ but the code did not do. Two are now fixed.
   `on_chain_tx_hash` / "Simulated Anchor" / "On-Chain Verified" wording for honest
   `anchor_signature` / "Local Signed Anchor" labels.
 
-Still open from the same audit (tracked, not yet done): key-destruction erasure
-and real out-of-band VIP onboarding. (The `wallet_address`, LIS-gateway and IPFS
-cut-list items are done in 5.4.0; the externally-held signing key in 5.5.0.)
+Still open from the same audit (tracked, not yet done): key-destruction erasure.
+(The `wallet_address`, LIS-gateway and IPFS cut-list items are done in 5.4.0; the
+externally-held signing key in 5.5.0; out-of-band onboarding in 5.6.0.)
 
 ## [5.2.0] - 2026-08-21
 
