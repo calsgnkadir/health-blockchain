@@ -6,143 +6,27 @@ Removed: Appointment booking, AI Triage chatbot, and FHIR export bridges.
 """
 
 import os
-import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from backend.dependencies import (
     current_user, require_role, get_record_service, get_audit_service,
-    get_query_handler, get_command_handler, get_db_manager, get_blockchain_notarizer,
+    get_query_handler, get_db_manager, get_blockchain_notarizer,
     get_notification_repository
 )
 from core.ports.repositories import INotificationRepository
 from backend.schemas.requests import (
-    LisWebhookPayload, RECORD_TYPES, ACCESS_LEVELS
+    RECORD_TYPES, ACCESS_LEVELS
 )
-from backend.routers.records import create_notification, check_patient_id
+from backend.routers.records import check_patient_id
 from core.cqrs.queries import GetNotificationsQuery
-from core.cqrs.commands import AddRecordCommand
 from core.security import get_device_id
 from database.connection import LMDBConnectionManager
 from core.services.record_service import RecordService
 from core.services.audit_service import AuditService
-from core.cqrs.commands import CommandHandler
 from core.cqrs.queries import QueryHandler
 
 router = APIRouter(prefix="/api/v1", tags=["misc"])
-
-
-def is_abnormal(value_str: str, range_str: str) -> bool:
-    try:
-        val = float(value_str)
-        if "-" in range_str:
-            parts = range_str.split("-")
-            low = float(parts[0].strip())
-            high = float(parts[1].strip())
-            return val < low or val > high
-    except Exception:
-        pass
-    return False
-
-
-# ── LIS WEBHOOK GATEWAY ────────────────────────────────────────
-def _verify_lis_gateway(request: Request) -> None:
-    """
-    Authenticates the laboratory gateway.
-
-    This endpoint appends blocks to a patient's chain, so it cannot be open: an
-    unauthenticated caller could forge clinical results in a record set the whole
-    system presents as tamper-evident. It fails closed - with no key configured
-    the gateway is disabled rather than public.
-    """
-    from core.services.alert_service import alert_service
-    from backend.dependencies import _get_client_ip
-
-    expected = os.getenv("VHV_LIS_API_KEY", "").strip()
-    presented = (request.headers.get("X-LIS-Api-Key") or "").strip()
-
-    if not expected:
-        raise HTTPException(
-            503,
-            "LIS gateway is disabled: set VHV_LIS_API_KEY to enable laboratory result ingestion."
-        )
-
-    if not presented or not secrets.compare_digest(presented, expected):
-        alert_service.raise_alert(
-            alert_type="LIS_GATEWAY_AUTH_FAILED",
-            severity="HIGH",
-            title="Rejected LIS Gateway Submission",
-            description="A laboratory result submission was rejected: missing or invalid gateway credentials.",
-            client_ip=_get_client_ip(request),
-        )
-        raise HTTPException(401, "Invalid LIS gateway credentials.")
-
-
-@router.post("/webhooks/lis", summary="LIS Hospital Webhook Gateway")
-def lis_webhook(
-    payload: LisWebhookPayload,
-    request: Request,
-    command_handler: CommandHandler = Depends(get_command_handler),
-    db_manager: LMDBConnectionManager = Depends(get_db_manager)
-):
-    _verify_lis_gateway(request)
-    check_patient_id(payload.patient_id)
-    block_data = {
-        "record_type":       "lab_result",
-        "record_type_label": RECORD_TYPES["lab_result"],
-        "title":             payload.title,
-        "doctor_name":       payload.doctor_name,
-        "institution":       payload.institution,
-        "record_date":       datetime.now().strftime("%Y-%m-%d"),
-        "access_level":      "doctor_shared",
-        "is_confidential":   False,
-        "data": {
-            "test_name":       payload.test_name,
-            "result_value":    payload.result_value,
-            "reference_range": payload.reference_range,
-            "unit":            payload.unit
-        },
-        "notes":             f"LIS Webhook Import. {payload.notes or ''}",
-        "created_by":        "LIS_GATEWAY",
-        "created_at":        datetime.now(timezone.utc).isoformat(),
-        "patient_id":        payload.patient_id,
-        "file_name":         None,
-        "file_type":         None,
-        "file_data":         None,
-    }
-
-    try:
-        cmd = AddRecordCommand(
-            patient_id=payload.patient_id,
-            data=block_data,
-            is_protected=False,
-            protection_password=None,
-            username="LIS_GATEWAY"
-        )
-        block = command_handler.handle_add_record(cmd)
-
-        if is_abnormal(payload.result_value, payload.reference_range):
-            create_notification(
-                patient_id=payload.patient_id,
-                title="KRİTİK LABORATUVAR SONUCU",
-                message=f"Yeni gelen tahlil sonucunuzda ({payload.test_name}) referans dışı değer ({payload.result_value} {payload.unit}, Ref: {payload.reference_range}) saptandı. Lütfen hekiminize danışın.",
-                severity="warning"
-            )
-        else:
-            create_notification(
-                patient_id=payload.patient_id,
-                title="YENİ LABORATUVAR SONUCU",
-                message=f"Tahlil sonucunuz ({payload.test_name}: {payload.result_value} {payload.unit}) sisteme yüklendi ve blockchain'e kaydedildi.",
-                severity="info"
-            )
-
-        return {
-            "success": True,
-            "block_index": block.index,
-            "message": "LIS laboratory block appended to blockchain successfully"
-        }
-    except Exception as ex:
-        raise HTTPException(500, f"Failed to save webhook record to blockchain: {str(ex)}")
 
 
 # ── SMART NOTIFICATIONS ───────────────────────────────────────

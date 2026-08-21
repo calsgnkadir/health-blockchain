@@ -438,30 +438,3 @@ class ImagingSchema(BaseModel):
     @classmethod
     def sanitize_strings(cls, v):
         return sanitize_html(v)
-
-
-
-class LisWebhookPayload(BaseModel):
-    patient_id: str
-
-    @field_validator("patient_id")
-    @classmethod
-    def validate_lis_patient_id(cls, v):
-        # Unvalidated, this identifier becomes a directory name for the chain store.
-        if not re.match(r"^VIP-[0-9]{3,}$", v or ""):
-            raise ValueError("Patient ID must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
-        return v
-
-    doctor_name: str
-    institution: str
-    title: str
-    test_name: str
-    result_value: str
-    reference_range: str
-    unit: str
-    notes: Optional[str] = ""
-
-    @field_validator("doctor_name", "institution", "title", "test_name", "result_value", "reference_range", "unit", "notes")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
