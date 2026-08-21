@@ -10,6 +10,8 @@ Supported backends (via concrete subclasses):
   • CloudKMSProvider     — AWS KMS / Azure Key Vault / HashiCorp Vault (production)
 """
 
+import hashlib
+import hmac
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
@@ -85,14 +87,36 @@ class KMSProvider(ABC):
         """
         ...
 
-    @abstractmethod
     def get_signing_key(self) -> bytes:
         """
-        Return the HMAC signing key used for blockchain block signatures.
+        Return the raw HMAC signing key material.
+
+        Only software providers can honour this — a provider that holds its key in
+        an HSM or a remote KMS (Vault, AWS) must never release the key and instead
+        overrides :meth:`mac`. Such providers raise ``NotImplementedError`` here.
         """
-        ...
+        raise NotImplementedError(
+            "This KMS provider does not expose raw key material; use mac() instead."
+        )
 
     # ── convenience helpers (non-abstract) ──────────────────────
+
+    def mac(self, message: bytes) -> bytes:
+        """
+        Compute HMAC-SHA256 of ``message`` under the signing key and return the
+        raw digest.
+
+        This is the single key-using primitive the vault needs: block signatures,
+        the notarizer anchor and the at-rest key derivation are all expressed as a
+        MAC over some context. An HSM- or KMS-backed provider overrides this to
+        perform the MAC *inside* the trust boundary (e.g. Vault Transit ``/hmac``),
+        so the key never reaches this process. The default computes it locally from
+        the raw key, which only a software provider can supply.
+        """
+        key = self.get_signing_key()
+        if isinstance(key, str):
+            key = key.encode("utf-8")
+        return hmac.new(key, message, hashlib.sha256).digest()
 
     def verify_device(self, stored_device_id: str) -> bool:
         """Check whether this environment matches a stored device id."""

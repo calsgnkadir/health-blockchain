@@ -12,7 +12,7 @@ Layers:
   3. PBKDF2 key derivation → KMSProvider.derive_key()
   4. AES-256-GCM encrypt   → KMSProvider.encrypt()
   5. AES-256-GCM decrypt   → KMSProvider.decrypt()
-  6. HMAC-SHA256 signing   → KMSProvider.get_signing_key()
+  6. HMAC-SHA256 signing   → KMSProvider.mac()  (key never leaves the provider)
   7. Password policy       (unchanged)
 """
 
@@ -193,10 +193,9 @@ def derive_rest_secret(context: str) -> str:
     be decrypted. The server holds the key and decrypts for authorized sessions;
     this protects data at rest, not against a fully compromised running server.
     """
-    key = get_kms().get_signing_key()
-    if isinstance(key, str):
-        key = key.encode("utf-8")
-    return hmac.new(key, f"rest-v1:{context}".encode("utf-8"), hashlib.sha256).hexdigest()
+    # A MAC over the context under the signing key. Going through the provider's
+    # mac() means an HSM/Vault-backed key never has to enter this process.
+    return get_kms().mac(f"rest-v1:{context}".encode("utf-8")).hex()
 
 
 # ══════════════════════════════════════════════
@@ -211,12 +210,10 @@ def signaturedata(message: str, device_id: str = None) -> str:
     if device_id is None:
         device_id = get_device_id()
 
-    private_key = get_private_key()
-    combined_key = hmac.new(
-        private_key,
-        device_id.encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
+    # The device-binding step is the only one that touches the signing key, so it
+    # runs inside the provider (mac); the second HMAC uses that derived, scoped key
+    # and can stay local. An HSM/Vault key therefore never leaves its boundary.
+    combined_key = get_kms().mac(device_id.encode("utf-8"))
 
     return hmac.new(
         combined_key,
@@ -230,12 +227,7 @@ def verify_message(message: str, signature: str, device_id: str = None) -> bool:
     if device_id is None:
         device_id = get_device_id()
 
-    private_key = get_private_key()
-    combined_key = hmac.new(
-        private_key,
-        device_id.encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
+    combined_key = get_kms().mac(device_id.encode("utf-8"))
 
     expected = hmac.new(
         combined_key,
