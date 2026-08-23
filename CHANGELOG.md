@@ -1,5 +1,31 @@
 # Changelog — VIP Health Vault
 
+## [5.8.0] - 2026-08-21
+
+### 🔒 Secret-guard hardening & auth-bypass audit
+
+A focused pass for "free login" / default-secret holes. Two real gaps closed; the
+rest of the auth stack was reviewed and confirmed sound.
+
+- **Pseudonymisation secret now fails closed in production.** `anon_id =
+  HMAC(secret, patient_id)`, and the engine silently fell back to the shipped
+  default `VHV_PSEUDONYM_SECRET_CHANGE_IN_PRODUCTION` when `PSEUDONYM_SECRET` was
+  unset — so anyone with the code could recompute a patient's pseudonym, defeating
+  the decoupling and erasure story. Production now refuses to boot on the default
+  (dev/test/demo still use it). Documented in `.env.example`.
+- **Passkey login now honours the onboarding gate.** `/auth/webauthn/login`
+  verified the assertion but did not check `account_status`, so a non-activated
+  account with a passkey could get a session that password login would refuse. It
+  now applies the same `ACTIVE_ENROLLED` gate.
+
+Reviewed and confirmed **not** vulnerable: JWT is RS256 with a locally-generated,
+persisted key (no hardcoded secret, no `alg:none`), and `current_user` re-loads the
+role from the database rather than trusting token claims — so a forged or tampered
+token cannot escalate privilege. Passkey login is cryptographically verified before
+any token is issued (single-use challenge, origin/rpId binding, clone detection).
+Default demo accounts are seeded only in dev/demo, never in production. No `eval` /
+`exec` / `pickle` / shell execution, and all SQL is parameterised.
+
 ## [5.7.0] - 2026-08-21
 
 ### 🧨 Right to be forgotten — crypto-shredding erasure (GDPR/KVKK Art. 17)

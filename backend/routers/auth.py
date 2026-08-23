@@ -271,6 +271,14 @@ def login_webauthn_credential(
     if not user_entity:
         raise HTTPException(404, "User account not found.")
 
+    # Same onboarding gate as password login: a non-activated account gets no
+    # session, even with a valid passkey.
+    if getattr(user_entity, "account_status", "ACTIVE_ENROLLED") != "ACTIVE_ENROLLED":
+        raise HTTPException(
+            403,
+            "Account is pending onboarding. Complete enrollment before signing in.",
+        )
+
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(

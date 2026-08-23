@@ -32,8 +32,18 @@ import secrets
 from typing import Optional, Dict
 
 
-# Default secret — override via PSEUDONYM_SECRET env var in production
+# Development-only default. In production PSEUDONYM_SECRET must be set — otherwise
+# anon_id = HMAC(default, patient_id) would be computable by anyone with the code,
+# defeating the pseudonymisation (and the erasure/decoupling story built on it).
 _DEFAULT_SECRET = "VHV_PSEUDONYM_SECRET_CHANGE_IN_PRODUCTION"
+
+
+def _is_production() -> bool:
+    """Production unless explicitly in development, demo, or a test run."""
+    env = os.getenv("ENVIRONMENT", "production").strip().lower()
+    demo = os.getenv("VHV_DEMO_MODE", "false").strip().lower() == "true"
+    testing = os.getenv("TESTING", "false").strip().lower() == "true"
+    return env != "development" and not demo and not testing
 
 
 class PseudonymizationEngine:
@@ -48,11 +58,16 @@ class PseudonymizationEngine:
     """
 
     def __init__(self, secret: Optional[str] = None):
-        self._secret = (
-            secret
-            or os.environ.get("PSEUDONYM_SECRET")
-            or _DEFAULT_SECRET
-        ).encode("utf-8")
+        resolved = secret or os.environ.get("PSEUDONYM_SECRET")
+        if not resolved:
+            if _is_production():
+                raise RuntimeError(
+                    "PSEUDONYM_SECRET is not set. Refusing to fall back to the built-in "
+                    "default in production: pseudonyms would be derivable by anyone with "
+                    "the code. Set PSEUDONYM_SECRET to a long random value."
+                )
+            resolved = _DEFAULT_SECRET
+        self._secret = resolved.encode("utf-8")
 
     def generate_anon_id(self, patient_id: str) -> str:
         """
