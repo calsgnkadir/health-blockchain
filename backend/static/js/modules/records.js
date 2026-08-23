@@ -177,11 +177,9 @@ export async function downloadOffchainFile(patientIdVal, blockIndexVal, password
     if (passwordVal) {
       url += `?password=${encodeURIComponent(passwordVal)}`;
     }
-    const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('vhv_token')}`
-      }
-    });
+    // Authenticated by the httpOnly access_token cookie (same-origin); a GET
+    // needs no CSRF header.
+    const res = await fetch(url, { credentials: 'same-origin' });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       throw new Error(json.detail || 'Download failed');

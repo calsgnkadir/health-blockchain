@@ -1165,7 +1165,6 @@ registerActions('submit', {
 });
 
 // Auto-run on load
-const token = localStorage.getItem('vhv_token');
 const currentUser = getCurrentUser();
 
 initActionDispatch();
@@ -1173,11 +1172,12 @@ initAuthListeners();
 initRecordsListeners();
 initCommandPaletteListeners();
 
-if (token && currentUser) {
-  // Confirm the stored token is still accepted before showing the vault: a token
-  // left over from an earlier server run is rejected on every call, which used to
-  // leave the UI looking signed in while nothing loaded. This also refreshes the
-  // cached profile (role, 2FA state) from the server.
+if (currentUser) {
+  // The session token is an httpOnly cookie the JS can't see, so we confirm it
+  // with the server before showing the vault: /me succeeds only if the cookie is
+  // still valid (a stale cookie from an earlier server run is rejected on every
+  // call, which used to leave the UI looking signed in while nothing loaded).
+  // This also refreshes the cached profile (role, 2FA state) from the server.
   apiFetch('/api/auth/me')
     .then(user => {
       setCurrentUser(user);

@@ -9,16 +9,12 @@ export function getCookie(name) {
   return null;
 }
 
-export function getToken() {
-  return localStorage.getItem('vhv_token');
-}
-
-export function setToken(token) {
-  if (token) {
-    localStorage.setItem('vhv_token', token);
-  } else {
-    localStorage.removeItem('vhv_token');
-  }
+export function setToken() {
+  // The session token is an httpOnly, SameSite=Strict cookie the server sets and
+  // clears — it is never kept in JS-readable storage, so even an XSS bug that
+  // slips past the CSP cannot read it. This only clears any token left in
+  // localStorage by an older client version.
+  localStorage.removeItem('vhv_token');
 }
 
 export function getCurrentUser() {
@@ -39,11 +35,9 @@ export async function apiFetch(path, opts = {}) {
     fullPath = '/api/v1' + fullPath.substring(4);
   }
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  const token = getToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
+  // Authentication is the httpOnly access_token cookie, sent automatically on
+  // same-origin requests — no bearer token is read from JS storage.
+
   // CSRF protection: append token header for unsafe methods
   const csrfToken = getCookie('csrf_token');
   if (csrfToken) {
@@ -57,7 +51,7 @@ export async function apiFetch(path, opts = {}) {
     headers['X-Dual-Control-Token'] = dualControlToken.token_id;
   }
   
-  const res = await fetch(API + fullPath, { ...opts, headers });
+  const res = await fetch(API + fullPath, { credentials: 'same-origin', ...opts, headers });
   const json = await res.json().catch(() => ({}));
 
   // A 401 on an authenticated call means the stored token is no longer usable
@@ -74,9 +68,15 @@ export async function apiFetch(path, opts = {}) {
 }
 
 /* -- Dual-Control token (co-signed privileged access) ----------------- */
+// The short-lived Dual-Control token must be readable by JS to be sent as the
+// X-Dual-Control-Token header, so it cannot be an httpOnly cookie. It is kept in
+// sessionStorage (not localStorage): never written to disk, and cleared when the
+// tab closes. A stale copy from an older client version is migrated out.
+localStorage.removeItem('vhv_dual_control');
+
 export function getDualControlToken() {
   try {
-    return JSON.parse(localStorage.getItem('vhv_dual_control') || 'null');
+    return JSON.parse(sessionStorage.getItem('vhv_dual_control') || 'null');
   } catch (e) {
     return null;
   }
@@ -84,9 +84,9 @@ export function getDualControlToken() {
 
 export function setDualControlToken(token) {
   if (token) {
-    localStorage.setItem('vhv_dual_control', JSON.stringify(token));
+    sessionStorage.setItem('vhv_dual_control', JSON.stringify(token));
   } else {
-    localStorage.removeItem('vhv_dual_control');
+    sessionStorage.removeItem('vhv_dual_control');
   }
 }
 
@@ -108,7 +108,7 @@ let sessionExpiryPending = false;
 export function handleSessionExpiry(detail) {
   // Nothing to expire when signed out, and a burst of parallel 401s must only
   // bounce the user back to the login screen once.
-  if (sessionExpiryPending || !getToken()) return;
+  if (sessionExpiryPending || !getCurrentUser()) return;
   sessionExpiryPending = true;
 
   setToken(null);

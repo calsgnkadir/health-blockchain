@@ -1,5 +1,42 @@
 # Changelog — VIP Health Vault
 
+## [5.9.0] - 2026-08-23
+
+### 🍪 Session token off JavaScript-readable storage
+
+- **The auth token is now only an httpOnly, SameSite=Strict cookie.** The client
+  used to keep it in `localStorage` (`vhv_token`) and send it as a bearer header,
+  so any script that ran on the page could read it. The server already issued and
+  accepted the cookie, and CSRF is already enforced (double-submit
+  `csrf_token`), so the client now relies on the cookie alone — no token in JS
+  storage, no bearer header. Verified in a browser: after login the session
+  works, `localStorage.vhv_token` is `null`, and `document.cookie` cannot see the
+  session token (only the CSRF token, by design). The short-lived Dual-Control
+  token, which must be JS-readable to be sent as a header, moved from
+  `localStorage` to `sessionStorage` (never written to disk, cleared on tab close).
+
+### 🚫 Demo accounts can never be seeded in production
+
+- Starting with `ENVIRONMENT=production` **and** `VHV_DEMO_MODE=true` now refuses
+  to seed the default demo accounts (whose passwords are in the README) and logs a
+  CRITICAL warning, instead of silently standing up `admin` with a public password.
+
+### 🧹 Repository hygiene
+
+- Deleted **`render.yaml`** — a one-click deploy config for Render's public cloud,
+  which directly contradicts the private-VPC-only mission (and, with the new
+  signing-key / pseudonym-secret guards, could not boot there anyway).
+- Deleted the duplicate **`backend/requirements.txt`** (out of sync with the root
+  file — it was missing `keyring`, the package that stops the signing key falling
+  back to a plaintext file). The root `requirements.txt` is the single source of
+  truth used by the Dockerfile and CI.
+- Deleted **`test_architecture_upgrades.py`** (superseded: it asserted the old
+  "sanitise on input" XSS behaviour that was deliberately replaced with
+  store-verbatim / escape-on-render) and moved **`test_e2e_api.py`** — a live-server
+  smoke script, not a unit test — to `scripts/e2e_smoke.py`, out of the test
+  discovery path. Removed the personal `workspace.code-workspace` and gitignored
+  `*.code-workspace`.
+
 ## [5.8.0] - 2026-08-21
 
 ### 🔒 Secret-guard hardening & auth-bypass audit

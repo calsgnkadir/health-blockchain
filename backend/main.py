@@ -117,6 +117,16 @@ def startup_event():
     from database.sql_db import default_sql_db
     env = os.environ.get("ENVIRONMENT", "production")
     demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
+    if env == "production" and demo_mode:
+        # Demo mode seeds default accounts whose passwords are published in the
+        # README — catastrophic on a production deployment. Refuse to seed and
+        # shout, rather than silently standing up admin/Admin@2026Secure!.
+        logger.critical(
+            "VHV_DEMO_MODE=true with ENVIRONMENT=production — REFUSING to seed the "
+            "default demo accounts (their passwords are public). Unset VHV_DEMO_MODE "
+            "in production."
+        )
+        demo_mode = False
     if env == "development" or demo_mode:
         storage.seed_default_users()
         default_sql_db.seed_default_users()

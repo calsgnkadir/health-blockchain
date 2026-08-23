@@ -46,3 +46,6 @@ project_config.json
 # ─── Database
 database/vault.db
 database/*.db
+
+# IDE workspace files
+*.code-workspace
