@@ -46,6 +46,24 @@ Publishing raw PHI or encrypted payloads to a public blockchain (like Ethereum o
 4. **Tamper Verification:** Any modification to off-chain data invalidates the Merkle Root proof (`GET /api/v1/records/proof/{patient_id}/{block_index}`).
 5. **GDPR / KVKK Erasure:** Destroying the off-chain encryption key or LMDB entry permanently renders the PHI unreadable, leaving only an un-linkable mathematical hash behind.
 
+### Block structure — where the hash chain actually is
+
+Each block carries three distinct digests plus a signature; they are easy to
+confuse, so to be precise (see `core.domain.entities.Block` and
+`RecordService.find_broken_link_index`):
+
+| Field | What it is |
+| :-- | :-- |
+| `merkle_root` | SHA-256 Merkle root over the block's `data` (the AES-encrypted payload) — a **content** digest. |
+| `hash` | SHA-256 over `index \| timestamp \| merkle_root \| previous_hash \| nonce \| metadata` — the block's own **identity** digest. |
+| `previous_hash` | the **previous block's `hash`**. This is the chain link: block N's `previous_hash` must equal block N-1's `hash`. |
+| `signature` | HMAC-SHA256 (KMS-keyed) over `index \| timestamp \| merkle_root \| previous_hash \| nonce` — **authenticity**, independent of `hash`. |
+
+So integrity is a hash chain (`previous_hash` → prior `hash`) and authenticity is a
+separate keyed signature. Verification checks **both** on every block: the own-hash
+recomputes, the `previous_hash` links to the prior block, timestamps are monotonic,
+nonces are unique, and the signature verifies.
+
 ---
 
 ## Consequences

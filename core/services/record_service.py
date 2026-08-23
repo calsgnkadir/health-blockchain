@@ -512,15 +512,28 @@ class RecordService:
         return self.find_broken_link_index(patient_id) == -1
 
     def find_broken_link_index(self, patient_id: str) -> int:
+        """
+        Return the index of the first block that fails verification, or -1 if the
+        whole chain is intact. Each block must satisfy four invariants:
+
+          1. its own ``hash`` recomputes (block-field integrity),
+          2. its ``previous_hash`` equals the prior block's ``hash`` (the chain
+             link — this is where the hash chain actually lives),
+          3. its timestamp does not go backwards and its nonce is unique (replay),
+          4. its ``signature`` verifies as an HMAC over the signed fields
+             (authenticity — only the signing-key holder could have produced it).
+        """
         chain = self._get_or_create_chain(patient_id)
         seen_nonces = set()
         for i in range(1, len(chain)):
             prev = chain[i - 1]
             curr = chain[i]
 
+            # (1) the block's own identity digest must recompute
             if curr.hash != curr.create_hash():
                 return i
 
+            # (2) the chain link: this block points at the previous block's hash
             if curr.previous_hash != prev.hash:
                 return i
 

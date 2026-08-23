@@ -85,17 +85,37 @@ class HealthRecord:
 
 @dataclass
 class Block:
+    """
+    One block on a patient's append-only, tamper-evident chain.
+
+    Three distinct digests, easily confused — this is the exact structure of the
+    hash chain (see ``RecordService.find_broken_link_index`` for the verifier):
+
+      • ``merkle_root`` — SHA-256 Merkle root over this block's ``data`` (the
+        already-AES-encrypted payload). Covers *content*.
+      • ``hash``        — SHA-256 over this block's fields
+        (``index|timestamp|merkle_root|previous_hash|nonce|metadata``). This is
+        the block's own identity digest.
+      • ``previous_hash`` — the **previous block's ``hash``**. This is what links
+        the chain: block N's ``previous_hash`` must equal block N-1's ``hash``.
+      • ``signature``   — HMAC-SHA256 (KMS-keyed) over
+        ``index|timestamp|merkle_root|previous_hash|nonce``. Authenticity: only the
+        signing-key holder could have produced it. Independent of ``hash``.
+
+    So integrity is a hash chain (``previous_hash`` → prior ``hash``) and
+    authenticity is a separate keyed signature; the verifier checks both.
+    """
     index: int
     timestamp: float
     data: Any
-    previous_hash: str
-    signature: str
+    previous_hash: str          # == the previous block's `hash` (chain link)
+    signature: str              # HMAC-SHA256 over the signed fields (authenticity)
     is_protected: bool = False
     protection_hash: Optional[str] = None
     nonce: Optional[str] = None
     device_id: Optional[str] = None
-    hash: Optional[str] = None
-    merkle_root: Optional[str] = None
+    hash: Optional[str] = None          # this block's own SHA-256 identity digest
+    merkle_root: Optional[str] = None   # Merkle root over `data` (content digest)
 
     def __post_init__(self):
         if not self.merkle_root and self.index != 0:
