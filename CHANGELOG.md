@@ -1,5 +1,26 @@
 # Changelog — VIP Health Vault
 
+## [5.10.0] - 2026-08-23
+
+### 🩺 Fixed — clinical detail leaked into a plaintext notification
+
+A general review (buttons, routes, encryption) turned up one real privacy gap.
+
+- **A new-prescription notification embedded the medication name** in its message,
+  and notifications live in the SQL store in plaintext. So a medication the chain
+  had AES-encrypted (e.g. "Ramipril" → hypertension) was readable by anyone with the
+  SQL database but not the chain key — partially defeating encryption at rest for
+  that data point. The notification now points the patient to their records instead
+  of repeating the clinical content; notifications carry no PHI.
+
+Reviewed and confirmed sound in the same pass: every `data-action` button (48)
+maps 1:1 to a registered handler (no dead handlers, no broken buttons across
+click/submit/change/input); every frontend API call resolves to a real route; and
+the block/encryption path is correct — AES-256-GCM with a fresh random 96-bit nonce
+per write (no nonce reuse), the block `data` is always ciphertext (server-key or
+server-blind password), and the chain verifies own-hash, `previous_hash` linkage,
+timestamp/nonce, and the HMAC signature on every block.
+
 ## [5.9.0] - 2026-08-23
 
 ### 🍪 Session token off JavaScript-readable storage

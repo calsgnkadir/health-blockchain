@@ -177,11 +177,14 @@ def add_record(
     block = command_handler.handle_add_record(cmd)
 
     if rec.record_type == "prescription":
-        med_name = rec.data.get("medication", "İlaç")
+        # Notifications live in the SQL store in plaintext, so they must never
+        # carry clinical detail (e.g. the medication name) — that would leak PHI
+        # the chain took care to encrypt. Point the patient at their records
+        # instead of repeating the content.
         create_notification(
             patient_id=rec.patient_id,
             title="YENİ İLAÇ REÇETESİ",
-            message=f"Reçetenize yeni bir ilaç eklendi: {med_name}. Lütfen kullanım talimatlarına uyun.",
+            message="Reçetenize yeni bir kayıt eklendi. Ayrıntılar için kayıtlarınıza bakın.",
             severity="info",
             notif_repo=notif_repo
         )
