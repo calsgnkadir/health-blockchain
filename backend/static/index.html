@@ -20,6 +20,16 @@
 
 <body>
 
+  <!-- Demo mode ribbon — shown only when the server reports demo_mode -->
+  <div id="demo-banner" hidden
+       style="position:fixed; left:0; right:0; bottom:0; z-index:9999; text-align:center;
+              padding:6px 12px; font-size:12px; font-weight:600; color:#111;
+              background:#fcd34d; border-top:1px solid rgba(0,0,0,0.2);
+              box-shadow:0 -2px 8px rgba(0,0,0,0.25);">
+    🔶 DEMO — synthetic data only. Public demo build; not a live health-record system.
+    The production vault is private-VPC only.
+  </div>
+
   <!-- ================= PARTICLE CANVAS ================= -->
   <canvas id="particles-canvas"></canvas>
 

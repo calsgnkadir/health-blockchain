@@ -1167,6 +1167,15 @@ registerActions('submit', {
 // Auto-run on load
 const currentUser = getCurrentUser();
 
+// Show the demo ribbon on every page when the server is in demo mode, so a
+// public viewer always knows the data is synthetic.
+apiFetch('/api/config')
+  .then(cfg => {
+    const banner = document.getElementById('demo-banner');
+    if (banner && cfg && cfg.demo_mode) banner.hidden = false;
+  })
+  .catch(() => {});
+
 initActionDispatch();
 initAuthListeners();
 initRecordsListeners();
