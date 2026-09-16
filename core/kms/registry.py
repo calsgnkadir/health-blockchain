@@ -9,13 +9,23 @@ Configuration:
   • KMS_PROVIDER env var:  "software" (default) | "aws" | "vault"
 """
 
+import logging
 import os
 from typing import Optional
 
 from core.kms.provider import KMSProvider
 from core.kms.software_provider import SoftwareKMSProvider
 
+logger = logging.getLogger("vhv.kms")
+
 _active_provider: Optional[KMSProvider] = None
+
+
+def _is_production() -> bool:
+    env = os.getenv("ENVIRONMENT", "production").strip().lower()
+    demo = os.getenv("VHV_DEMO_MODE", "false").strip().lower() == "true"
+    testing = os.getenv("TESTING", "false").strip().lower() == "true"
+    return env != "development" and not demo and not testing
 
 
 def get_kms() -> KMSProvider:
@@ -31,6 +41,13 @@ def get_kms() -> KMSProvider:
 
     if provider_name == "software":
         _active_provider = SoftwareKMSProvider()
+        if _is_production():
+            logger.warning(
+                "KMS_PROVIDER=software in production: the signing key is host-resident, "
+                "so an operator with the host and the key can forge and re-sign blocks. "
+                "Tamper-evidence then holds only against outsiders, not the key-holder. "
+                "Use KMS_PROVIDER=vault (Transit/HSM) for a real deployment."
+            )
     elif provider_name == "vault":
         # Externally-held signing key: the root key stays in HashiCorp Vault's
         # Transit engine and never enters this process (see vault_provider).

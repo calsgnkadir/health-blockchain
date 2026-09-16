@@ -15,6 +15,8 @@ request payloads. Escaping on the way in corrupts medical records permanently an
 still leaves any unescaped sink exploitable.
 """
 
+import os
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -28,6 +30,27 @@ class XSSProtectionMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+
+        # Deny powerful features the vault never uses; keep WebAuthn (passkeys),
+        # which needs publickey-credentials-get, scoped to same-origin.
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(), payment=(), usb=(), "
+            "publickey-credentials-get=(self)"
+        )
+
+        # HSTS only over TLS: pinning localhost/http would brick local dev, and
+        # browsers honour HSTS on https responses only. Trust the proxy's
+        # X-Forwarded-Proto since TLS is terminated at the reverse proxy.
+        is_https = (
+            request.url.scheme == "https"
+            or request.headers.get("x-forwarded-proto", "").lower() == "https"
+            or os.getenv("ENVIRONMENT", "production").lower() == "production"
+        )
+        if is_https:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             # No inline script anywhere: every handler is declared with a
