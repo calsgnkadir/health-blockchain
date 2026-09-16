@@ -162,9 +162,23 @@ export function emptyState(msg) {
 
 export const ROLE_LABEL = { admin: 'Administrator', doctor: 'Doctor', vip_patient: 'VIP Patient' };
 
+// Privileged operators (admin / doctor / auditor / security officer) are not tied
+// to one patient — they pick whose chart to view. VIP patients are always scoped
+// to their own record and never touch this.
+let _selectedPatient = null;
+
+export function setSelectedPatient(pid) {
+  _selectedPatient = (pid || '').trim() || null;
+}
+
+export function getSelectedPatient() {
+  return _selectedPatient;
+}
+
 export function patientId() {
   const user = getCurrentUser();
-  return user && user.role === 'vip_patient' ? user.patient_id : 'VIP-001';
+  if (user && user.role === 'vip_patient') return user.patient_id;
+  return _selectedPatient;   // null until a privileged operator selects a patient
 }
 
 // Centralized UI State Manager

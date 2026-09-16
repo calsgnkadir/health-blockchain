@@ -1,4 +1,4 @@
-import { API, apiFetch, patientId, formatTs, formatTsFull, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
+import { API, apiFetch, patientId, setSelectedPatient, getSelectedPatient, formatTs, formatTsFull, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
 import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, viewOriginalVersion, renderCorrectionForm, submitCorrection, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
@@ -52,14 +52,23 @@ window.enterApp = function() {
   // Use centralized state manager
   appState.updateUser(currentUser);
 
-  // Pre-fill patient ID for VIP patient
+  const isVip = currentUser.role === 'vip_patient';
+
+  // Privileged operators pick which patient to view; VIP patients are scoped to
+  // their own record and never see the selector.
+  const selector = document.getElementById('patient-selector');
+  if (selector) selector.hidden = isVip;
+  const selInput = document.getElementById('patient-selector-input');
+  if (selInput && !isVip) selInput.value = getSelectedPatient() || '';
+
+  // Pre-fill the "add record" patient field
   const recPatId = document.getElementById('rec-patient-id');
   if (recPatId) {
-    if (currentUser.role === 'vip_patient') {
+    if (isVip) {
       recPatId.value = currentUser.patient_id || '';
       recPatId.readOnly = true;
     } else {
-      recPatId.value = 'VIP-001';
+      recPatId.value = getSelectedPatient() || '';
       recPatId.readOnly = false;
     }
   }
@@ -1162,7 +1171,25 @@ registerActions('submit', {
   'break-glass':          (el, e) => triggerBreakGlass(e),
   'dual-control-request': (el, e) => window.requestDualControl(e),
   'dual-control-cosign':  (el, e) => window.coSignDualControl(e),
+  'select-patient':       (el, e) => window.selectPatient(e),
 });
+
+// Privileged operators choose which patient's chart to load. Validated to the
+// VIP-### shape, then the current page is reloaded under the new patient context.
+window.selectPatient = function(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const input = document.getElementById('patient-selector-input');
+  const val = ((input && input.value) || '').trim().toUpperCase();
+  if (!/^VIP-[0-9]{3,}$/.test(val)) {
+    if (input) input.style.borderColor = '#ef4444';
+    return;
+  }
+  if (input) { input.value = val; input.style.borderColor = 'rgba(255,255,255,0.15)'; }
+  setSelectedPatient(val);
+  const recPatId = document.getElementById('rec-patient-id');
+  if (recPatId) recPatId.value = val;
+  navigate((appState && appState.activePage) || 'dashboard');
+};
 
 // Auto-run on load
 const currentUser = getCurrentUser();

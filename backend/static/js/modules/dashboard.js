@@ -322,6 +322,8 @@ export function renderActivityChart(records) {
 }
 
 export async function loadDashboard() {
+  const pid = patientId();
+
   // Clear first: on a failed or blocked load the panel must not keep showing the
   // previous session's figures as if they belonged to the current user.
   ['stat-total-blocks', 'stat-total-records', 'stat-encrypted'].forEach(id => {
@@ -329,8 +331,15 @@ export async function loadDashboard() {
     if (el) el.textContent = '—';
   });
 
+  // Privileged operators pick a patient before any chart loads (no hardcoded
+  // default), so prompt for a selection instead of firing a forbidden request.
+  if (!pid) {
+    const integ = document.getElementById('stat-integrity');
+    if (integ) integ.textContent = 'SELECT PATIENT';
+    return;
+  }
+
   try {
-    const pid = patientId();
     const [recData, statusData] = await Promise.all([
       apiFetch(`/api/records/${pid}`),
       apiFetch(`/api/blockchain/${pid}/status`)

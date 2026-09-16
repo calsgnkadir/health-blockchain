@@ -129,6 +129,18 @@
           </div>
         </div>
 
+        <!-- Patient context selector — privileged operators pick which patient to view.
+             VIP patients never see this: they are scoped to their own record. -->
+        <div id="patient-selector" hidden style="padding:10px 14px; border-top:1px solid rgba(255,255,255,0.08);">
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; margin-bottom:6px;">Active patient</div>
+          <form data-submit-action="select-patient" style="display:flex; gap:6px;">
+            <input id="patient-selector-input" type="text" placeholder="VIP-001" autocomplete="off"
+                   style="flex:1; min-width:0; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.05); color:#e5e7eb; border:1px solid rgba(255,255,255,0.15); font-size:12px;" />
+            <button type="submit"
+                    style="padding:6px 10px; border-radius:6px; background:#f59e0b; color:#111; border:none; font-weight:600; font-size:12px; cursor:pointer;">Load</button>
+          </form>
+        </div>
+
         <nav class="sidebar-nav">
           <!-- MAIN MENU -->
           <div class="nav-category" id="cat-main">
