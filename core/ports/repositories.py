@@ -158,7 +158,7 @@ class IAuditRepository(ABC):
         pass
 
     @abstractmethod
-    def load_access_logs(self, project_name: str, limit: int = 100) -> List[dict]:
+    def load_access_logs(self, project_name: str, limit: int = 100, offset: int = 0) -> List[dict]:
         """Loads patient-specific access logs."""
         pass
 

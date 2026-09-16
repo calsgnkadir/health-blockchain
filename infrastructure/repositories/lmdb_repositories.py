@@ -188,8 +188,8 @@ class LMDBAuditRepository(IAuditRepository):
     ) -> None:
         storage.append_access_log(project_name, username, action, device_id, extra, self.db_manager)
 
-    def load_access_logs(self, project_name: str, limit: int = 100) -> List[dict]:
-        return storage.load_access_logs(project_name, limit, self.db_manager)
+    def load_access_logs(self, project_name: str, limit: int = 100, offset: int = 0) -> List[dict]:
+        return storage.load_access_logs(project_name, limit, offset, self.db_manager)
 
     def verify_access_log_integrity(self, project_name: str) -> dict:
         return storage.verify_access_log_integrity(project_name, self.db_manager)

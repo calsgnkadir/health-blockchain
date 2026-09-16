@@ -119,7 +119,7 @@ def verify_access_log_integrity(
     return {"valid": True, "count": len(chained), "broken_at": None}
 
 
-def load_access_logs(project_name: str, limit: int = 100, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+def load_access_logs(project_name: str, limit: int = 100, offset: int = 0, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
     from database.storage import default_db_manager
     manager = db_manager or default_db_manager
     if not manager.project_exists(project_name):
@@ -138,7 +138,8 @@ def load_access_logs(project_name: str, limit: int = 100, db_manager: Optional[L
                 except Exception:
                     continue
         logs.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
-        return logs[:limit]
+        offset = max(0, offset)
+        return logs[offset:offset + limit]
 
 
 def append_audit_log(

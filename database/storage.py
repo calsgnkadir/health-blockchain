@@ -252,8 +252,8 @@ def seed_default_users(db_manager: Optional[LMDBConnectionManager] = None) -> No
 def append_access_log(project_name: str, username: str, action: str, device_id: Optional[str] = None, extra: Optional[dict] = None, db_manager: Optional[LMDBConnectionManager] = None) -> None:
     _append_access_log(project_name, username, action, device_id, extra, db_manager or default_db_manager)
 
-def load_access_logs(project_name: str, limit: int = 100, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
-    return _load_access_logs(project_name, limit, db_manager or default_db_manager)
+def load_access_logs(project_name: str, limit: int = 100, offset: int = 0, db_manager: Optional[LMDBConnectionManager] = None) -> List[dict]:
+    return _load_access_logs(project_name, limit, offset, db_manager or default_db_manager)
 
 def verify_access_log_integrity(project_name: str, db_manager: Optional[LMDBConnectionManager] = None) -> dict:
     return _verify_access_log_integrity(project_name, db_manager or default_db_manager)

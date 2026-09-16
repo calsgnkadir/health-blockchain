@@ -29,12 +29,12 @@ class AuditService:
             return self.get_audit_logs(patient_id, limit, source="blockchain")
         return logs
 
-    def get_access_logs(self, patient_id: str, limit: int = 100, source: str = "db") -> List[dict]:
+    def get_access_logs(self, patient_id: str, limit: int = 100, offset: int = 0, source: str = "db") -> List[dict]:
         project_name = self.record_service._get_project_name(patient_id)
         if source == "blockchain":
             return self.get_audit_logs(patient_id, limit, source="blockchain")
 
-        logs = self.audit_repo.load_access_logs(project_name, limit)
+        logs = self.audit_repo.load_access_logs(project_name, limit, offset)
         if not logs:
             return self.get_audit_logs(patient_id, limit, source="blockchain")
         return logs

@@ -118,13 +118,14 @@ def audit_log(
 def get_access_logs(
     patient_id: str,
     limit: int = 100,
+    offset: int = 0,
     source: str = "db",
     u: dict = Depends(require_role("admin", "auditor", "vip_patient")),
     audit_service: AuditService = Depends(get_audit_service)
 ):
     if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-    logs = audit_service.get_access_logs(patient_id, limit, source)
+    logs = audit_service.get_access_logs(patient_id, limit, offset, source)
     integrity = audit_service.verify_access_integrity(patient_id)
     return {"patient_id": patient_id, "logs": logs, "source": source, "integrity": integrity}
 

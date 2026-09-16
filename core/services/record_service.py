@@ -88,7 +88,11 @@ class RecordService:
         try:
             decrypted = self.crypto_strategy.decrypt_data(value[len(_REST_PREFIX):], secret, salt)
         except Exception:
-            return value
+            # Prefixed ciphertext that will not decrypt (wrong key / corruption).
+            # Return an explicit marker rather than the raw ciphertext, so callers
+            # never mistake unreadable bytes for real clinical data.
+            return {"__unreadable__": True,
+                    "reason": "Record could not be decrypted (wrong key or corrupted data)"}
         try:
             return json.loads(decrypted)
         except Exception:

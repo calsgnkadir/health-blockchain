@@ -50,6 +50,50 @@ from backend.routers.records import router as records_router
 from backend.routers.misc import router as misc_router
 from backend.routers.alerts import router as alerts_router
 
+import logging
+from contextlib import asynccontextmanager
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("VIPHealthVault")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown — replaces the deprecated @app.on_event('startup')."""
+    from database.sql_db import default_sql_db
+    env = os.environ.get("ENVIRONMENT", "production")
+    demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
+    if env == "production" and demo_mode:
+        # Demo mode seeds default accounts whose passwords are published in the
+        # README — catastrophic on a production deployment. Refuse to seed and
+        # shout, rather than silently standing up admin/Admin@2026Secure!.
+        logger.critical(
+            "VHV_DEMO_MODE=true with ENVIRONMENT=production — REFUSING to seed the "
+            "default demo accounts (their passwords are public). Unset VHV_DEMO_MODE "
+            "in production."
+        )
+        demo_mode = False
+    if env == "development" or demo_mode:
+        storage.seed_default_users()
+        default_sql_db.seed_default_users()
+        logger.info("Seeding default users (Development/Demo Mode)")
+        # A first run should show the vault working, not eight empty panels.
+        try:
+            from backend.demo_seed import seed_demo_chart_if_enabled
+            if seed_demo_chart_if_enabled():
+                logger.info("Demo patient chart ready (VIP-001)")
+        except Exception as e:
+            logger.warning(f"Demo chart seeding skipped: {e}")
+    else:
+        logger.info("Production Mode — Skipping default user seeding")
+    logger.info(f"VIP Health Vault API v5.0.0 ready - Device: {get_device_id()[:16]}...")
+    yield
+
+
 app = FastAPI(
     title="VIP Health Vault API",
     version="5.0.0",
@@ -57,6 +101,7 @@ app = FastAPI(
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS Middleware
@@ -102,46 +147,6 @@ app.include_router(onboarding_router)
 from backend.routers.erasure import router as erasure_router
 app.include_router(erasure_router)
 
-import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger("VIPHealthVault")
-
-@app.on_event("startup")
-def startup_event():
-    """Initialize user database on startup."""
-    from database.sql_db import default_sql_db
-    env = os.environ.get("ENVIRONMENT", "production")
-    demo_mode = os.getenv("VHV_DEMO_MODE", "false").lower() == "true"
-    if env == "production" and demo_mode:
-        # Demo mode seeds default accounts whose passwords are published in the
-        # README — catastrophic on a production deployment. Refuse to seed and
-        # shout, rather than silently standing up admin/Admin@2026Secure!.
-        logger.critical(
-            "VHV_DEMO_MODE=true with ENVIRONMENT=production — REFUSING to seed the "
-            "default demo accounts (their passwords are public). Unset VHV_DEMO_MODE "
-            "in production."
-        )
-        demo_mode = False
-    if env == "development" or demo_mode:
-        storage.seed_default_users()
-        default_sql_db.seed_default_users()
-        logger.info("Seeding default users (Development/Demo Mode)")
-
-        # A first run should show the vault working, not eight empty panels.
-        try:
-            from backend.demo_seed import seed_demo_chart_if_enabled
-            if seed_demo_chart_if_enabled():
-                logger.info("Demo patient chart ready (VIP-001)")
-        except Exception as e:
-            logger.warning(f"Demo chart seeding skipped: {e}")
-    else:
-        logger.info("Production Mode — Skipping default user seeding")
-    logger.info(f"VIP Health Vault API v5.0.0 ready - Device: {get_device_id()[:16]}...")
 
 @app.get("/api/v1/health", summary="System Health Metrics")
 def health_check():
