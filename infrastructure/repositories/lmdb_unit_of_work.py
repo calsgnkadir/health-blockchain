@@ -1,6 +1,9 @@
+import logging
 from typing import Any, Callable, List
 from core.ports.unit_of_work import IUnitOfWork
 import database.storage as storage
+
+logger = logging.getLogger("vhv.lmdbunitofwork")
 
 class LMDBUnitOfWork(IUnitOfWork):
     def __init__(self, project_name: str):
@@ -38,5 +41,5 @@ class LMDBUnitOfWork(IUnitOfWork):
                 try:
                     hook()
                 except Exception as e:
-                    print(f"[UnitOfWork Warning] after-commit hook failed: {e}")
+                    logger.error(f"[UnitOfWork Warning] after-commit hook failed: {e}")
         self.hooks = []

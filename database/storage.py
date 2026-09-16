@@ -5,6 +5,7 @@ Acts as a backward-compatible facade routing user database and audit
 operations to dedicated split persistence modules.
 """
 
+import logging
 import os
 import json
 import base64
@@ -16,6 +17,8 @@ from database.connection import (  # noqa: F401 - re-exported for callers
     LMDBConnectionManager, active_txn, active_project,
     after_commit_hooks, run_after_commit,
 )
+
+logger = logging.getLogger("vhv.storage")
 
 # This module is the storage facade: the unit of work and the repositories reach
 # the transaction context through `storage.active_txn` and friends rather than
@@ -136,7 +139,7 @@ def reset_db(project_name: str, db_manager: Optional[LMDBConnectionManager] = No
         try:
             shutil.rmtree(path)
         except Exception as e:
-            print(f"DB reset error: {e}")
+            logger.error(f"DB reset error: {e}")
 
 # ──────────────────────────────────────────────
 # PER-PATIENT ENCRYPTION SALT MANAGEMENT

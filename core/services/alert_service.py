@@ -5,11 +5,14 @@ Captures critical security events (Break-Glass triggers, rapid failed auth,
 unauthorized IP attempts) and records them into an immutable alert queue.
 """
 
+import logging
 import time
 import json
 import secrets
 from typing import List, Dict, Optional
 from database.sql_db import get_sql_db
+
+logger = logging.getLogger("vhv.alertservice")
 
 
 class AlertService:
@@ -67,7 +70,7 @@ class AlertService:
             )
             conn.commit()
 
-        print(f"[SECURITY ALERT - {severity}] {title}: {description} (User: {username}, IP: {client_ip})")
+        logger.info(f"[SECURITY ALERT - {severity}] {title}: {description} (User: {username}, IP: {client_ip})")
         return alert_id
 
     def get_recent_alerts(self, limit: int = 50, severity_filter: Optional[str] = None) -> List[Dict]:

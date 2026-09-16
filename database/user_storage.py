@@ -2,9 +2,12 @@
 database/user_storage.py — User management LMDB persistence layer
 """
 
+import logging
 import json
 from typing import Optional, List
 from database.connection import LMDBConnectionManager
+
+logger = logging.getLogger("vhv.userstorage")
 
 USERS_DB_NAME = "__users__"
 
@@ -113,4 +116,4 @@ def seed_default_users(db_manager: LMDBConnectionManager) -> None:
     for user in defaults:
         save_user(user, db_manager)
 
-    print("[OK] Default users seeded into LMDB successfully.")
+    logger.info("[OK] Default users seeded into LMDB successfully.")

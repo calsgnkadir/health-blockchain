@@ -1,3 +1,4 @@
+import logging
 import time
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -5,6 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.dependencies import _get_client_ip
 from database.sql_db import default_sql_db
 from infrastructure.repositories.sql_repositories import _to_placeholder
+
+logger = logging.getLogger("vhv.ratelimiter")
 
 RATE_LIMIT_WINDOW = 60   # seconds
 RATE_LIMIT_MAX = 5       # max 5 login attempts per minute
@@ -38,7 +41,7 @@ def _check_rate_limit(ip: str) -> bool:
     except Exception as e:
         conn.rollback()
         # Fallback to True under failure conditions to avoid system lockouts
-        print(f"[RateLimiter Warning] Database rate limit check failed ({e}). Falling back to permissive mode.")
+        logger.error(f"[RateLimiter Warning] Database rate limit check failed ({e}). Falling back to permissive mode.")
         return True
     finally:
         cursor.close()

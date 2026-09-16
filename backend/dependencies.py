@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import jwt
@@ -30,6 +31,8 @@ from core.services.consent_validator import ConsentValidator
 from core.services.notarizer import BlockchainNotarizer
 from core.cqrs.commands import CommandHandler
 from core.cqrs.queries import QueryHandler
+
+logger = logging.getLogger("vhv.dependencies")
 
 _attachment_store_instance = AttachmentStore()
 
@@ -130,7 +133,7 @@ def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
                 public_pem = f.read()
             return private_pem, public_pem
         except Exception as e:
-            print(f"[WARNING] Failed to load encrypted JWT private key: {e}. Generating new key pair.")
+            logger.error(f"[WARNING] Failed to load encrypted JWT private key: {e}. Generating new key pair.")
 
     # Generate keys
     private_key = rsa.generate_private_key(
@@ -162,7 +165,7 @@ def _load_or_generate_jwt_rsa_keys() -> tuple[str, str]:
     with open(_JWT_PUBLIC_KEY_FILE, "w") as f:
         f.write(public_pem)
 
-    print("[OK] Generated new secure (encrypted) RSA key pair for JWT signing.")
+    logger.info("[OK] Generated new secure (encrypted) RSA key pair for JWT signing.")
     return private_pem_unencrypted, public_pem
 
 JWT_PRIVATE_KEY, JWT_PUBLIC_KEY = _load_or_generate_jwt_rsa_keys()

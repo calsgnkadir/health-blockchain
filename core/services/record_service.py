@@ -1,3 +1,4 @@
+import logging
 import hashlib
 import hmac
 import json
@@ -16,6 +17,8 @@ from core.security import (
 from core.events.event_bus import event_bus, RecordAddedEvent, RecordReadEvent
 from core.pseudonymization.service import project_name_for, get_pseudonymization_service
 from core.services.erasure_service import get_erasure_key_store
+
+logger = logging.getLogger("vhv.recordservice")
 
 # Marks a value that is AES-256 encrypted at rest under the server's KMS key.
 # The marker keeps the reveal path unambiguous and never collides with legacy
@@ -123,7 +126,7 @@ class RecordService:
                 from core.services.notarizer import BlockchainNotarizer
                 BlockchainNotarizer(self.block_repo).notarize_patient_chain(patient_id)
             except Exception as e:
-                print(f"[Notarizer Warning] Notarization trigger failed: {e}")
+                logger.error(f"[Notarizer Warning] Notarization trigger failed: {e}")
 
         import database.storage as storage
         if not storage.run_after_commit(anchor):

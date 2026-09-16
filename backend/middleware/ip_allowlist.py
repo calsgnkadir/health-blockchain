@@ -6,11 +6,14 @@ private VPNs, and loopback addresses. Blocks public internet IP ranges.
 Hardened against X-Forwarded-For header spoofing attacks.
 """
 
+import logging
 import os
 import ipaddress
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+logger = logging.getLogger("vhv.ipallowlist")
 
 
 DEFAULT_ALLOWED_SUBNETS = [
@@ -77,7 +80,7 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
             try:
                 self.allowed_networks.append(ipaddress.ip_network(s, strict=False))
             except ValueError:
-                print(f"[IPAllowlist Warning] Invalid CIDR subnet format ignored: {s}")
+                logger.warning(f"[IPAllowlist Warning] Invalid CIDR subnet format ignored: {s}")
 
     def _get_client_ip(self, request: Request) -> str:
         return resolve_secure_client_ip(request)

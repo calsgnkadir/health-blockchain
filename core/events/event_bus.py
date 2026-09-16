@@ -1,6 +1,9 @@
+import logging
 import threading
 from typing import Dict, List, Type, Callable, Any, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger("vhv.eventbus")
 
 class Event:
     pass
@@ -52,7 +55,7 @@ class EventBus:
             try:
                 listener(event)
             except Exception as e:
-                print(f"[EventBus] Error in event listener {listener.__name__}: {e}")
+                logger.error(f"[EventBus] Error in event listener {listener.__name__}: {e}")
 
 # Create global event bus instance
 event_bus = EventBus()

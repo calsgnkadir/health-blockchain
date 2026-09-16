@@ -1,6 +1,9 @@
+import logging
 import os
 import sqlite3
 import time
+
+logger = logging.getLogger("vhv.sqldb")
 
 # Dynamic PostgreSQL import
 try:
@@ -27,14 +30,14 @@ class SQLDatabaseManager:
                 conn = psycopg2.connect(self.db_url)
                 conn.close()
                 self.is_postgres = True
-                print("[SQL DB] Connected successfully to PostgreSQL database.")
+                logger.info("[SQL DB] Connected successfully to PostgreSQL database.")
             except Exception as e:
-                print(f"[SQL DB Warning] Failed to connect to PostgreSQL ({e}). Falling back to SQLite.")
+                logger.error(f"[SQL DB Warning] Failed to connect to PostgreSQL ({e}). Falling back to SQLite.")
         elif self.db_url and not POSTGRES_AVAILABLE:
-            print("[SQL DB Warning] VHV_DATABASE_URL is set but psycopg2 is not installed. Falling back to SQLite.")
+            logger.warning("[SQL DB Warning] VHV_DATABASE_URL is set but psycopg2 is not installed. Falling back to SQLite.")
 
         if not self.is_postgres:
-            print(f"[SQL DB] Using SQLite database at: {DEFAULT_SQLITE_PATH}")
+            logger.info(f"[SQL DB] Using SQLite database at: {DEFAULT_SQLITE_PATH}")
             # Ensure database directory exists
             os.makedirs(os.path.dirname(DEFAULT_SQLITE_PATH), exist_ok=True)
 
@@ -171,10 +174,10 @@ class SQLDatabaseManager:
             """)
 
             conn.commit()
-            print("[SQL DB] Tables initialized successfully.")
+            logger.info("[SQL DB] Tables initialized successfully.")
         except Exception as e:
             conn.rollback()
-            print(f"[SQL DB Error] Schema initialization failed: {e}")
+            logger.error(f"[SQL DB Error] Schema initialization failed: {e}")
             raise e
         finally:
             cursor.close()
@@ -269,10 +272,10 @@ class SQLDatabaseManager:
                 seeded += 1
             conn.commit()
             if seeded:
-                print(f"[SQL DB] Default users seeded successfully ({seeded} account(s)).")
+                logger.info(f"[SQL DB] Default users seeded successfully ({seeded} account(s)).")
         except Exception as e:
             conn.rollback()
-            print(f"[SQL DB Error] Seeding failed: {e}")
+            logger.error(f"[SQL DB Error] Seeding failed: {e}")
         finally:
             cursor.close()
             conn.close()
