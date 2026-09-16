@@ -49,17 +49,20 @@ def login(
             "out-of-band token before signing in.",
         )
 
-    # Mandatory FIDO2 / Hardware Key check if configured
+    # Mandatory FIDO2 / hardware-key policy. Enforcing "must have a passkey" by
+    # refusing every password login deadlocks a fresh account: you cannot enrol a
+    # passkey (POST /auth/webauthn/register) without first logging in. So an account
+    # with no passkey yet is granted a one-time enrolment grace — it logs in and the
+    # response flags that a passkey must be enrolled now; the UI drives enrolment.
+    passkey_enrollment_required = False
     mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
     if mandatory_fido2 and user_entity.role in ("admin", "vip_patient"):
-        # Verify user has a registered WebAuthn / Passkey credential
         db = get_sql_db()
         with db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM webauthn_credentials WHERE username = ?", (user_entity.username,))
             count = cursor.fetchone()[0]
-            if count == 0:
-                raise HTTPException(403, f"Mandatory Security Policy: User {user_entity.username} must register a FIDO2 hardware security key before logging in.")
+            passkey_enrollment_required = (count == 0)
 
     if user_entity.totp_enabled:
         if not req.code:
@@ -98,6 +101,7 @@ def login(
         "token_type":   "bearer",
         "expires_in":   TOKEN_HOURS * 3600,
         "user":         _public_user(user),
+        "passkey_enrollment_required": passkey_enrollment_required,
     }
 
 @router.get("/me", summary="Current User Info")
