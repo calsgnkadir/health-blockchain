@@ -9,13 +9,13 @@
 Captured from a running instance seeded by demo mode — the chart, the trends and the
 hashes below are what the application actually produces.
 
-| Stealth login | VIP patient dashboard |
+| Stealth login | VIP patient dashboard (vitals, allergy banner, chain integrity) |
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
 
-| Dual-Control access request | Merkle inclusion proof |
+| Medical records (encrypted, access-scoped) | Tamper-evident access ledger |
 | :---: | :---: |
-| ![Dual-Control](docs/screenshots/03_dual_control.png) | ![Merkle proof](docs/screenshots/04_merkle_proof.png) |
+| ![Records](docs/screenshots/03_records.png) | ![Access ledger](docs/screenshots/04_access_ledger.png) |
 
 ---
 
