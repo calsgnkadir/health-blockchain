@@ -1,0 +1,19 @@
+# ============================================================================
+# PUBLIC DEMO / DEV PROFILE — SYNTHETIC DATA ONLY. NEVER for real records.
+# ============================================================================
+# Opt-in only (not auto-applied). Launch with:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up
+#
+# This profile deliberately relaxes the production posture so the vault can be
+# shown publicly: demo mode seeds throwaway accounts (passwords are public in the
+# README), the IP allowlist is off, and a signing key is auto-generated. The real
+# system is private-VPC only (see docs/PRIVATE_VPC_DEPLOYMENT.md) and refuses to
+# boot in production without a configured key/secret — do NOT use this file there.
+services:
+  vip-health-vault:
+    environment:
+      ENVIRONMENT: development
+      VHV_DEMO_MODE: "true"
+      VIP_IP_ALLOWLIST_ENABLED: "false"
+      VHV_ALLOW_GENERATED_KEY: "true"
+      VHV_BIND_HOST: "0.0.0.0"

@@ -49,3 +49,6 @@ database/*.db
 
 # IDE workspace files
 *.code-workspace
+
+# Local docker compose overrides stay local (never auto-applied to others)
+docker-compose.override.yml
