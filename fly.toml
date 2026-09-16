@@ -1,0 +1,39 @@
+# ============================================================================
+# Fly.io config — PUBLIC DEMO ONLY. Synthetic data. Never for real records.
+# ============================================================================
+# The real vault is private-VPC only (docs/PRIVATE_VPC_DEPLOYMENT.md). This file
+# runs the demo profile on Fly: demo mode (throwaway seeded accounts, passwords
+# public in the README), IP allowlist off, an auto-generated signing key, and the
+# on-screen DEMO ribbon. Fly terminates TLS, so the app is reached over https.
+#
+# `app` must be globally unique on Fly — `fly launch` sets it for you, or edit it.
+
+app = "CHANGE-ME-vip-health-vault-demo"
+primary_region = "fra"          # Frankfurt (close to TR); pick any with `fly platform regions`
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Demo posture — matches docker-compose.demo.yml. NOT production.
+  ENVIRONMENT = "development"
+  VHV_DEMO_MODE = "true"
+  VIP_IP_ALLOWLIST_ENABLED = "false"   # allow public reach for the demo
+  VHV_ALLOW_GENERATED_KEY = "true"     # throwaway key; fine because data is fake
+  VHV_BIND_HOST = "0.0.0.0"            # REQUIRED on Fly or the proxy can't connect
+  PORT = "8080"
+
+# Start uvicorn directly (no --reload) so the container runs one clean process.
+[processes]
+  app = "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true                   # redirect http -> https
+  auto_stop_machines = true            # stop when idle -> stays cheap
+  auto_start_machines = true           # wake on the next request
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
