@@ -16,11 +16,20 @@ services:
       - TRUST_PROXIES=true
       - TRUSTED_PROXIES=127.0.0.1,10.0.0.1
       - PORT=8000
+      # Bind 0.0.0.0 INSIDE the container's network namespace so the published
+      # port can reach the app. Host-level exposure is controlled by the `ports`
+      # publish (and, in production, the private subnet + IP allowlist) — not by
+      # binding loopback inside the container, which would make the published
+      # port unreachable.
+      - VHV_BIND_HOST=0.0.0.0
     volumes:
       - vhv_db_data:/app/database
       - vhv_lmdb_data:/app/lmdb_data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      # Use Python (always present in the image) rather than curl, which is NOT
+      # installed in python:3.11-slim — the curl-based probe reported a healthy
+      # container as "unhealthy" simply because the binary was missing.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

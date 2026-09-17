@@ -1,0 +1,44 @@
+# Keep the build context (and the image) lean and free of host/runtime state.
+# The app recreates what it needs at runtime; demo mode seeds fresh data.
+
+# Version control / IDE
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Python caches / local envs
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+
+# Runtime data — must NOT be baked into the image (this is what caused the
+# container to serve stale/polluted patient chains). Chain stores and the SQL/
+# LMDB data live in mounted volumes or are regenerated on demand.
+backend/projects/
+lmdb_data/
+*.db
+*.sqlite3
+*.mdb
+*.lock
+
+# Node (only used for local tooling, never at runtime)
+node_modules/
+
+# Docs, tests and dev assets are not needed to run the service
+docs/
+tests/
+scripts/
+*.md
+!README.md
+
+# OS cruft
+.DS_Store
+Thumbs.db
