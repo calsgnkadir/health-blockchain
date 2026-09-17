@@ -50,6 +50,16 @@ flowchart LR
 Captured from a running instance seeded by demo mode — the chart, the trends and the
 hashes below are what the application actually produces.
 
+### 90-second walkthrough
+
+Sign in → dashboard → AES-encrypted record → access ledger → chain verification →
+and the governance side: even an admin gets no patient data without an M-of-N
+dual-control co-signature. Every frame is self-captioned.
+
+![Security walkthrough](docs/screenshots/walkthrough.gif)
+
+### Detail shots
+
 | Stealth login | VIP patient dashboard (vitals, allergy banner, chain integrity) |
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
