@@ -73,6 +73,6 @@ export async function loadChainStatus() {
         ${i < recs.length-1 ? '<div class="chain-connector"></div>' : ''}`;
     });
   } catch(e) { 
-    box.innerHTML = `<div class="alert alert-error">${e.message}</div>`; 
+    box.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 }

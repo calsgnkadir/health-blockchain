@@ -100,6 +100,7 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 - **PHI leak in a plaintext notification** — a new-prescription notification embedded the medication name, and notifications live in the SQL store in plaintext — leaking a drug the chain had encrypted. Notifications now carry no clinical content.
 - **Silent audit-log overwrite** — the tamper-evident access ledger keyed entries on `time.time_ns()`, whose resolution on Windows is ~15.6 ms; two reads in the same tick overwrote each other. Re-keyed on a monotonic sequence number.
 - **Privileged dashboard hardcoded one patient** — admin/clinician views defaulted to `VIP-001` and hit the Dual-Control gate on login. Replaced with a patient selector.
+- **Reflected DOM XSS in the search box** — a source→sink self-audit of the frontend found the command palette wrote the raw search value into `innerHTML` on its "no results" branch (`<img src=x onerror=…>` typed into search executed in the victim's session; httpOnly cookies narrow but don't remove the impact). Fixed with contextual output encoding, hardened seven more error sinks the same way, and added a static CI guard so it can't regress — see [DOM_XSS_SELF_AUDIT.md](docs/DOM_XSS_SELF_AUDIT.md).
 
 ## ⚡ Quick Start
 

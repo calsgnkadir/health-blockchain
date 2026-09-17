@@ -65,7 +65,7 @@ export async function loadConsents() {
       </div>
     `;
   } catch (e) {
-    container.innerHTML = `<div class="alert alert-error">Failed to load consents: ${e.message}</div>`;
+    container.innerHTML = `<div class="alert alert-error">Failed to load consents: ${escapeHtml(e.message)}</div>`;
   }
 }
 

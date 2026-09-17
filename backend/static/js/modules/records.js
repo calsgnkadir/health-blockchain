@@ -67,7 +67,7 @@ export async function loadRecords() {
     allRecords = d.records;
     renderAllRecords();
   } catch(e) { 
-    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`; 
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 }
 

@@ -139,7 +139,7 @@ window.loadVaccines = async function() {
       </div>
     `;
   } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 };
 
@@ -265,7 +265,7 @@ window.loadMedications = async function() {
 
     container.innerHTML = activeHtml + expiredHtml;
   } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 };
 
@@ -430,7 +430,7 @@ window.loadUsers = async function() {
         <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='doctor'?'doctor':'vip'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
       </div>`
     ).join('');
-  } catch(e) { container.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
+  } catch(e) { container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`; }
 };
 
 window.loadAuditLog = async function() {
@@ -462,7 +462,7 @@ window.loadAuditLog = async function() {
       </div>`;
     }).join('');
   } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 };
 
@@ -521,7 +521,7 @@ window.loadAccessLogs = async function() {
       </div>`;
     }).join('');
   } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
   }
 };
 
@@ -813,7 +813,7 @@ function renderCommandPaletteResults(query = '') {
   });
 
   if (commandPaletteVisibleResults.length === 0) {
-    resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--muted); font-size: 13px;">No results found for "${query}"</div>`;
+    resultsContainer.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--muted); font-size: 13px;">No results found for "${escapeHtml(query)}"</div>`;
     return;
   }
 
@@ -1026,7 +1026,7 @@ window.loadBlockchainExplorerData = async function() {
       `;
     }).join('');
   } catch (err) {
-    listContainer.innerHTML = `<div class="alert alert-error">Error loading explorer: ${err.message}</div>`;
+    listContainer.innerHTML = `<div class="alert alert-error">Error loading explorer: ${escapeHtml(err.message)}</div>`;
   }
 };
 
