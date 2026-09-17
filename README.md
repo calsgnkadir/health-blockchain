@@ -1,6 +1,47 @@
-# VIP Health Vault (v5.0.0) — Stealth VIP Health Privacy Platform
+# VIP Health Vault
 
-> **Isolated, High-Security Medical Privacy Vault for High-Net-Worth Individuals, Executive Cabinets, and Defense Personnel.**
+> A single-tenant **FastAPI health-records vault** built around real security
+> engineering — **FIDO2/WebAuthn passkeys, dual-control (M-of-N) access,
+> AES-256-GCM encryption at rest, a tamper-evident hash-linked audit ledger, and
+> crypto-shredding erasure (GDPR/KVKK Art. 17)** — with **182 passing tests**.
+
+*The scenario — a private, isolated vault for a small number of high-sensitivity
+individuals — is flavor. The security engineering is the point.*
+
+## 🔐 Security engineering at a glance
+
+| Primitive | Implementation (verifiable in code) |
+| :-- | :-- |
+| **Passwordless / MFA** | WebAuthn/FIDO2 assertion verification (ES256 / secp256r1): single-use challenge, origin + rpId binding, User-Present flag, sign-counter clone detection — [`core/webauthn.py`](core/webauthn.py) |
+| **Encryption at rest** | AES-256-GCM, a fresh 96-bit nonce per write, KMS-derived per-patient key — [`core/kms/software_provider.py`](core/kms/software_provider.py) |
+| **Passwords** | Argon2id (bcrypt / PBKDF2 fallback), all salted — [`core/security.py`](core/security.py) |
+| **Integrity** | Per-block HMAC-SHA256 signature + Merkle root, `previous_hash → prior block's hash`, verified on every block — [`core/services/record_service.py`](core/services/record_service.py) |
+| **Access control** | Server-side role checks (role re-loaded from the DB, never trusted from token claims) + patient-owned consent — [`backend/dependencies.py`](backend/dependencies.py) |
+| **Dual-Control** | M-of-N co-signature gates raw record access for non-clinical operators — [`core/services/dual_control.py`](core/services/dual_control.py) |
+| **Audit** | Hash-linked, tamper-evident access ledger — deleting or altering an entry breaks the chain — [`database/audit_storage.py`](database/audit_storage.py) |
+| **Right to erasure** | Crypto-shredding: destroy a per-patient key → records permanently undecryptable, chain intact (GDPR/KVKK Art. 17) — [`core/services/erasure_service.py`](core/services/erasure_service.py) |
+| **Externally-held key** | Optional HashiCorp Vault Transit — the signing key never enters the app — [`core/kms/vault_provider.py`](core/kms/vault_provider.py) |
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    Client["Browser SPA<br/>httpOnly cookie auth<br/>strict CSP + CSRF token"]
+
+    subgraph API["FastAPI"]
+      direction TB
+      MW["Middleware<br/>IP allowlist · CSRF · rate limit · security headers"]
+      R["Routers<br/>auth · records · consent · erasure · dual-control"]
+      S["Services<br/>record · consent · dual-control · notarizer · erasure"]
+      MW --> R --> S
+    end
+
+    Client -->|HTTPS / private VPC| MW
+    S --> LMDB["LMDB<br/>append-only signed hash-chain<br/>(AES-256-GCM ciphertext only)"]
+    S --> SQL["SQLite<br/>users · consent · tokens<br/>pseudonym map · erasure keys"]
+    S --> LEDGER["Access ledger<br/>hash-linked, tamper-evident"]
+    S -->|sign / derive, key never leaves| KMS["KMS<br/>software · or Vault Transit"]
+```
 
 ---
 
@@ -46,6 +87,19 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 | **Externally-Held Signing Key** | **LIVE / WORKING** | `core.kms.vault_provider.VaultTransitKMSProvider` | Every key use is a MAC through `KMSProvider.mac()`, so the signing key can live outside this process. With `KMS_PROVIDER=vault` the MAC is computed by HashiCorp Vault's Transit engine (`/transit/hmac`) — the key never enters the app, closing the "a rogue admin has both the store and the key" gap. Fails closed if Vault is unreachable (never signs locally). The default software provider keeps the key on-host; AWS KMS is stubbed. |
 
 ---
+
+## 🧠 Engineering decisions & bugs I found and fixed
+
+**Why a local HMAC-signed Merkle hash-chain, not a public blockchain** ([ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md)) — one institution, one trust boundary, and confidentiality as the core goal. A public chain has no one to reach consensus with, charges gas, and writes data that is permanent and often publicly readable — the opposite of what health data needs. So tamper-evidence comes from a **local, signed, append-only hash-chain** (each block links `previous_hash → prior hash`, with an HMAC-SHA256 signature and Merkle root) over **AES-256-GCM ciphertext held off-chain** in LMDB. Integrity is a hash chain; authenticity is a keyed signature; both are verified on every block. See also [ADR-0002](docs/adr/0002-single-node-deployment.md) on the deliberate single-node posture.
+
+**Real bugs found and fixed** (each reproduced against a running instance, then covered by a regression test — see the [CHANGELOG](CHANGELOG.md)):
+
+- **FIDO2 enrolment deadlock** — `MANDATORY_FIDO2=true` refused every password login without a passkey, but a passkey can only be enrolled *after* logging in → a fresh account was permanently locked out. Fixed with a one-time enrolment grace.
+- **Passkey login accepted any known credential** — the WebAuthn login endpoint issued a session token without verifying the assertion (challenge, signature, origin, rpId, counter). Now cryptographically verified before any token is issued; the seeded demo credential is deleted on startup.
+- **Fake notarizer anchor** — the "anchor" was `secrets.token_hex(32)` (a random number dressed up as a transaction hash). Replaced with a real HMAC-SHA256 signature of the Merkle root, verified in constant time.
+- **PHI leak in a plaintext notification** — a new-prescription notification embedded the medication name, and notifications live in the SQL store in plaintext — leaking a drug the chain had encrypted. Notifications now carry no clinical content.
+- **Silent audit-log overwrite** — the tamper-evident access ledger keyed entries on `time.time_ns()`, whose resolution on Windows is ~15.6 ms; two reads in the same tick overwrote each other. Re-keyed on a monotonic sequence number.
+- **Privileged dashboard hardcoded one patient** — admin/clinician views defaulted to `VIP-001` and hit the Dual-Control gate on login. Replaced with a patient selector.
 
 ## ⚡ Quick Start
 
