@@ -168,10 +168,16 @@ class TestPseudonymizationService(unittest.TestCase):
         self.assertEqual(len(set(anons)), 4)  # All unique
 
     def test_get_all_mappings(self):
-        self.svc.pseudonymize("VIP-001")
-        self.svc.pseudonymize("VIP-002")
+        # NOTE: the service loads previously-persisted mappings from the shared
+        # patient_pseudonyms table on first use, so get_all_mappings() is not
+        # guaranteed to be empty at the start of the test. Assert the contract we
+        # actually care about — both new mappings are present and correct — rather
+        # than an exact global count that depends on cross-test SQL state.
+        a1 = self.svc.pseudonymize("VIP-001")
+        a2 = self.svc.pseudonymize("VIP-002")
         mappings = self.svc.get_all_mappings()
-        self.assertEqual(len(mappings), 2)
+        self.assertEqual(mappings.get("VIP-001"), a1)
+        self.assertEqual(mappings.get("VIP-002"), a2)
 
 
 class TestPseudonymizationServiceSingleton(unittest.TestCase):
