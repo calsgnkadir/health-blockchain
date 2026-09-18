@@ -112,6 +112,8 @@ To maintain 100% technical honesty during code reviews and security audits, the 
 - **Privileged dashboard hardcoded one patient** — admin/clinician views defaulted to `VIP-001` and hit the Dual-Control gate on login. Replaced with a patient selector.
 - **Reflected DOM XSS in the search box** — a source→sink self-audit of the frontend found the command palette wrote the raw search value into `innerHTML` on its "no results" branch (`<img src=x onerror=…>` typed into search executed in the victim's session; httpOnly cookies narrow but don't remove the impact). Fixed with contextual output encoding, hardened seven more error sinks the same way, and added a static CI guard so it can't regress — see [DOM_XSS_SELF_AUDIT.md](docs/DOM_XSS_SELF_AUDIT.md).
 
+**Security assumptions & residual risk (honest limits).** The design assumes the attacker knows the whole system (the code is public) and can reach the service — security does not rely on staying hidden. Under that assumption, dual-control, at-rest encryption, pseudonymization, the signed hash-chain and crypto-shred still protect the data. The build also has deliberate limits for its tier: keys can live on the app host, tampering is *detected* rather than *blocked*, there is no high-availability/DoS protection, and no external penetration test. These are scope boundaries, not defects — the full list, and what a real production deployment would add, is in [THREAT_MODEL.md](docs/THREAT_MODEL.md#4-trust-assumptions--residual-risk).
+
 ## ⚡ Quick Start
 
 ### Prerequisites

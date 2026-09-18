@@ -52,3 +52,45 @@
 | Rogue Administrator | Unauthorized PHI Query | Dual-Control Co-Signature | `core.services.dual_control.DualControlEngine` |
 | Stolen Hardware Passkey | Stolen YubiKey Credential | Hardware Passkey Revocation API | `POST /api/v1/auth/webauthn/revoke` |
 | Coerced Insider | Unauthorized Record Access | Immutable Access Log | `storage.append_access_log(action="RECORD_DECRYPTED")` |
+
+---
+
+## 4. Trust Assumptions & Residual Risk
+
+### What we assume about the attacker
+
+We do **not** rely on hiding the system. The source code is public, so we assume the
+attacker knows exactly how it works and can reach the service. A private network
+(private VPC) is only one extra layer, not the main defense. Security must come from
+keys and access rules, not from secrecy.
+
+### What still protects data under these assumptions
+
+| Attacker | Control that still works |
+| :--- | :--- |
+| One stolen admin account | Dual-control: reading a record needs a second, different approver. Self-approval is rejected. |
+| Stolen disk or backup | Records are AES-256-GCM ciphertext, stored under HMAC pseudonyms — no real patient ID on disk. |
+| Password guessing or theft | Argon2id hashing, login rate-limiting, and optional mandatory FIDO2 passkeys. |
+| Changing the history | Signed, append-only hash-chain: any edit is detected when the chain is verified. |
+| "Delete my data" / subpoena | Crypto-shred: destroying a per-patient key makes that patient's data unreadable for good. |
+
+### Residual risk (chosen limits for this tier — not defects)
+
+This is a single-institution, single-node build. The items below are **known limits**,
+not bugs. Each one names what a real production system would add.
+
+| Residual risk | Why it is accepted here | What production would add |
+| :--- | :--- | :--- |
+| Encryption/signing keys and `PSEUDONYM_SECRET` can live on the app host, so taking over the host can mean taking the keys. | Keeps the demo self-contained; the KMS layer is abstracted but defaults to software. | Move keys to an HSM / Vault Transit so the host never holds raw key material. |
+| Tampering is **detected, not blocked**. | Tamper-evidence is the design goal; blocking needs more infrastructure. | Real-time monitoring, alerting, and incident response. |
+| No high availability (single node = single point of failure). | This tier optimizes confidentiality and integrity, not uptime. | Replication behind a load balancer; DoS protection at the edge. |
+| No independent penetration test or audit. | Solo portfolio project. | Third-party pentest and code audit before handling real PHI. |
+| If passkeys are not enforced, a stolen patient password exposes that patient's own data. | Passkey enforcement is opt-in (`MANDATORY_FIDO2`). | Enforce hardware passkeys for all roles. |
+
+### Scope
+
+This system is built for a small number of protected people inside one institution's
+private network (see [ADR-0001](adr/0001-offchain-storage-onchain-anchoring.md),
+[ADR-0002](adr/0002-single-node-deployment.md)). It is **not** a multi-tenant hospital
+EHR and does not claim to be. The legal and operational work needed for real use is
+tracked in [GDPR_KVKK_COMPLIANCE.md](GDPR_KVKK_COMPLIANCE.md) and [DPIA.md](DPIA.md).
