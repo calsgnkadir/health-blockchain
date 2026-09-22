@@ -8,20 +8,15 @@ export let recordTypes = [];
 
 /* -- Record type labels (no icons) ------------------- */
 export const TYPE_LABELS = {
-  diagnosis:   'Diagnosis',
-  lab_result:  'Lab Result',
-  prescription:'Prescription',
-  surgery:     'Surgery',
-  vaccination: 'Vaccination',
-  imaging:     'Imaging',
-  vital_signs: 'Vital Signs',
-  allergy:     'Allergy',
-  psychology:  'Psychology',
-  genetic:     'Genetics',
-  emergency:   'Emergency',
-  other:       'Other',
-  correction:  'Correction',
-  unknown:     'Unknown',
+  session_note:   'Session Note',
+  assessment:     'Assessment',
+  treatment_plan: 'Treatment Plan',
+  homework:       'Homework',
+  consent_form:   'Consent Form',
+  document:       'Document',
+  other:          'Other',
+  correction:     'Correction',
+  unknown:        'Unknown',
 };
 
 const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared', emergency:'badge-emergency' };
@@ -558,15 +553,13 @@ export function closeModal() {
 }
 
 /* -- Add Record Dynamic Fields --------------------------------- */
+// Must match the field names of the schemas in backend/schemas/requests.py.
 export const DYNAMIC_FIELDS = {
-  diagnosis:    [{id:'icd_code',label:'ICD Code'},{id:'severity',label:'Severity (Mild/Moderate/Severe)'},{id:'symptoms',label:'Symptoms'}],
-  lab_result:   [{id:'test_name',label:'Test Name'},{id:'result_value',label:'Result Value'},{id:'reference_range',label:'Reference Range'},{id:'unit',label:'Unit'}],
-  prescription: [{id:'medication',label:'Medication Name'},{id:'dose',label:'Dose'},{id:'frequency',label:'Frequency'},{id:'duration',label:'Duration (days)'}],
-  surgery:      [{id:'procedure',label:'Procedure'},{id:'anesthesia',label:'Anesthesia Type'},{id:'duration_min',label:'Duration (min)'},{id:'outcome',label:'Outcome'}],
-  vaccination:  [{id:'vaccine_name',label:'Vaccine Name'},{id:'lot_number',label:'Lot Number'},{id:'dose_number',label:'Dose Number'},{id:'next_dose',label:'Next Dose Date'}],
-  imaging:      [{id:'modality',label:'Modality (MRI/CT/X-Ray)'},{id:'body_part',label:'Body Part'},{id:'findings',label:'Findings'},{id:'radiologist',label:'Radiologist'}],
-  vital_signs:  [{id:'blood_pressure',label:'Blood Pressure (mmHg)'},{id:'heart_rate',label:'Heart Rate (bpm)'},{id:'temperature',label:'Temperature (C)'},{id:'oxygen_sat',label:'SpO2 (%)'}],
-  allergy:      [{id:'allergen',label:'Allergen'},{id:'reaction',label:'Reaction Type'},{id:'severity',label:'Severity'},{id:'onset_date',label:'Onset Date'}],
+  session_note:   [{id:'session_number',label:'Session Number'},{id:'duration_min',label:'Duration (min)'},{id:'session_format',label:'Format (In-person/Online)'},{id:'summary',label:'Summary'}],
+  assessment:     [{id:'instrument',label:'Instrument (e.g. GAD-7, PHQ-9)'},{id:'score',label:'Score'},{id:'max_score',label:'Max Score'},{id:'interpretation',label:'Interpretation'}],
+  treatment_plan: [{id:'goals',label:'Goals'},{id:'approach',label:'Approach (e.g. CBT)'},{id:'planned_sessions',label:'Planned Sessions'}],
+  homework:       [{id:'task',label:'Task'},{id:'due_date',label:'Due Date (YYYY-MM-DD)'}],
+  consent_form:   [{id:'form_type',label:'Form Type'},{id:'signed_date',label:'Signed Date (YYYY-MM-DD)'}],
 };
 
 export function renderDynamicFields() {

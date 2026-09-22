@@ -1,21 +1,18 @@
 import re
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, Dict, Any
 
+# What a psychologist writes about a client. Each type (except document/other)
+# has a validation schema at the bottom of this file.
 RECORD_TYPES = {
-    "diagnosis":     "Diagnosis",
-    "lab_result":    "Lab Result",
-    "prescription":  "Prescription",
-    "surgery":       "Surgery",
-    "vaccination":   "Vaccination",
-    "imaging":       "Imaging (MRI/CT/X-Ray)",
-    "vital_signs":   "Vital Signs",
-    "allergy":       "Allergy",
-    "psychology":    "Psychology",
-    "genetic":       "Genetics",
-    "emergency":     "Emergency",
-    "other":         "Other",
+    "session_note":   "Session Note",
+    "assessment":     "Assessment",
+    "treatment_plan": "Treatment Plan",
+    "homework":       "Homework",
+    "consent_form":   "Consent Form",
+    "document":       "Document",
+    "other":          "Other",
 }
 
 ACCESS_LEVELS = {
@@ -274,170 +271,134 @@ class CorrectionCreate(BaseModel):
 
 
 # ── DATA SCHEMAS FOR RECORD TYPES ───────────────────────────
-class VitalSignsSchema(BaseModel):
-    blood_pressure: str
-    heart_rate: int
-    temperature: float
-    oxygen_sat: int
-
-    @field_validator("blood_pressure")
-    @classmethod
-    def check_bp(cls, v):
-        if not re.match(r"^\d{2,3}/\d{2,3}$", v.strip()):
-            raise ValueError("Blood pressure must be in format SYS/DIA (e.g. 120/80)")
-        return sanitize_html(v)
-
-    @field_validator("heart_rate")
-    @classmethod
-    def check_heart_rate(cls, v):
-        if not (1 <= v <= 300):
-            raise ValueError("Heart rate must be between 1 and 300 bpm")
-        return v
-
-    @field_validator("temperature")
-    @classmethod
-    def check_temp(cls, v):
-        if not (30.0 <= v <= 45.0):
-            raise ValueError("Temperature must be between 30.0°C and 45.0°C")
-        return v
-
-    @field_validator("oxygen_sat")
-    @classmethod
-    def check_spo2(cls, v):
-        if not (0 <= v <= 100):
-            raise ValueError("SpO2 oxygen saturation must be between 0% and 100%")
-        return v
+def validate_date_format(v: str) -> str:
+    """Checks the ISO 8601 format only. Unlike validate_iso_date, a future date
+    is allowed — a homework due date is usually in the future."""
+    try:
+        datetime.strptime(v, "%Y-%m-%d")
+    except ValueError:
+        try:
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("Date must be in ISO 8601 format (e.g., YYYY-MM-DD)")
+    return v
 
 
-class AllergySchema(BaseModel):
-    allergen: str
-    reaction: str
-    severity: str
-    onset_date: str
-
-    @field_validator("allergen", "reaction")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-    @field_validator("onset_date")
-    @classmethod
-    def check_onset_date(cls, v):
-        return validate_iso_date(v)
-
-    @field_validator("severity")
-    @classmethod
-    def check_severity(cls, v):
-        allowed = {"Mild", "Moderate", "Severe"}
-        if v not in allowed:
-            raise ValueError(f"Severity must be one of {allowed}")
-        return v
-
-
-class PrescriptionSchema(BaseModel):
-    medication: str
-    dose: str
-    frequency: str
-    duration: int
-
-    @field_validator("medication", "dose", "frequency")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-    @field_validator("duration")
-    @classmethod
-    def check_duration(cls, v):
-        if v <= 0:
-            raise ValueError("Duration must be a positive number of days")
-        return v
-
-
-class VaccinationSchema(BaseModel):
-    vaccine_name: str
-    lot_number: str
-    dose_number: int
-    next_dose: Optional[str] = None
-
-    @field_validator("vaccine_name", "lot_number")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-    @field_validator("next_dose")
-    @classmethod
-    def check_next_dose(cls, v):
-        if v is not None:
-            # next_dose is a future date, so we only validate format (not past-only)
-            try:
-                datetime.strptime(v, "%Y-%m-%d")
-            except ValueError:
-                try:
-                    datetime.fromisoformat(v.replace("Z", "+00:00"))
-                except ValueError:
-                    raise ValueError("next_dose must be in ISO 8601 format (e.g., YYYY-MM-DD)")
-        return v
-
-    @field_validator("dose_number")
-    @classmethod
-    def check_dose(cls, v):
-        if v <= 0:
-            raise ValueError("Dose number must be a positive integer")
-        return v
-
-
-class LabResultSchema(BaseModel):
-    test_name: str
-    result_value: str
-    reference_range: str
-    unit: str
-
-    @field_validator("test_name", "result_value", "reference_range", "unit")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-
-class DiagnosisSchema(BaseModel):
-    icd_code: str
-    severity: str
-    symptoms: str
-
-    @field_validator("icd_code", "severity", "symptoms")
-    @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
-
-
-class SurgerySchema(BaseModel):
-    procedure: str
-    anesthesia: str
+class SessionNoteSchema(BaseModel):
+    session_number: int
     duration_min: int
-    outcome: str
+    session_format: str
+    summary: str
 
-    @field_validator("procedure", "anesthesia", "outcome")
+    @field_validator("session_number")
     @classmethod
-    def sanitize_strings(cls, v):
-        return sanitize_html(v)
+    def check_session_number(cls, v):
+        if v <= 0:
+            raise ValueError("Session number must be a positive integer")
+        return v
 
     @field_validator("duration_min")
     @classmethod
     def check_duration(cls, v):
-        if v <= 0:
-            raise ValueError("Duration must be a positive number of minutes")
+        if not (1 <= v <= 300):
+            raise ValueError("Session duration must be between 1 and 300 minutes")
         return v
 
+    @field_validator("session_format")
+    @classmethod
+    def check_format(cls, v):
+        allowed = {"In-person", "Online"}
+        if v not in allowed:
+            raise ValueError(f"Session format must be one of {allowed}")
+        return v
 
-class ImagingSchema(BaseModel):
-    modality: str
-    body_part: str
-    findings: str
-    radiologist: str
+    @field_validator("summary")
+    @classmethod
+    def sanitize_summary(cls, v):
+        return sanitize_html(v)
 
-    @field_validator("modality", "body_part", "findings", "radiologist")
+
+class AssessmentSchema(BaseModel):
+    """A scored questionnaire, e.g. GAD-7 (anxiety, max 21) or PHQ-9 (depression,
+    max 27). Scores over time show whether therapy is working."""
+    instrument: str
+    score: int
+    max_score: int
+    interpretation: str
+
+    @field_validator("instrument", "interpretation")
     @classmethod
     def sanitize_strings(cls, v):
         return sanitize_html(v)
+
+    @model_validator(mode="after")
+    def check_score_range(self):
+        # This rule compares two fields, so it runs after all fields are parsed.
+        # A field_validator on `score` would run before `max_score` exists.
+        if self.max_score <= 0:
+            raise ValueError("Max score must be a positive integer")
+        if not (0 <= self.score <= self.max_score):
+            raise ValueError("Score must be between 0 and the max score")
+        return self
+
+
+class TreatmentPlanSchema(BaseModel):
+    goals: str
+    approach: str
+    planned_sessions: int
+
+    @field_validator("goals", "approach")
+    @classmethod
+    def sanitize_strings(cls, v):
+        return sanitize_html(v)
+
+    @field_validator("planned_sessions")
+    @classmethod
+    def check_planned_sessions(cls, v):
+        if not (1 <= v <= 200):
+            raise ValueError("Planned sessions must be between 1 and 200")
+        return v
+
+
+class HomeworkSchema(BaseModel):
+    task: str
+    due_date: str
+
+    @field_validator("task")
+    @classmethod
+    def sanitize_task(cls, v):
+        return sanitize_html(v)
+
+    @field_validator("due_date")
+    @classmethod
+    def check_due_date(cls, v):
+        return validate_date_format(v)
+
+
+class ConsentFormSchema(BaseModel):
+    form_type: str
+    signed_date: str
+
+    @field_validator("form_type")
+    @classmethod
+    def sanitize_form_type(cls, v):
+        return sanitize_html(v)
+
+    @field_validator("signed_date")
+    @classmethod
+    def check_signed_date(cls, v):
+        return validate_iso_date(v)
+
+
+# Which schema checks the `data` of each record type. "document" and "other"
+# are free-form, so they have no entry here.
+DATA_SCHEMAS = {
+    "session_note":   SessionNoteSchema,
+    "assessment":     AssessmentSchema,
+    "treatment_plan": TreatmentPlanSchema,
+    "homework":       HomeworkSchema,
+    "consent_form":   ConsentFormSchema,
+}
 
 
 # ── Out-of-band onboarding ──────────────────────────────────────────

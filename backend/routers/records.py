@@ -16,9 +16,7 @@ from backend.dependencies import (
 from core.ports.repositories import INotificationRepository
 from core.services.attachment_store import AttachmentStore
 from backend.schemas.requests import (
-    RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES,
-    VitalSignsSchema, AllergySchema, PrescriptionSchema, VaccinationSchema,
-    LabResultSchema, DiagnosisSchema, SurgerySchema, ImagingSchema
+    RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES, DATA_SCHEMAS
 )
 from core.security import encrypt_data, decrypt_data, get_device_id
 from core.cqrs.commands import AddRecordCommand, AddCorrectionCommand
@@ -105,33 +103,11 @@ def add_record(
     if u["role"] not in ("doctor", "admin", "vip_patient"):
         raise HTTPException(403, "You do not have permission to add records")
 
+    # Check the type-specific `data` fields. Free-form types have no schema.
+    schema = DATA_SCHEMAS.get(rec.record_type)
     try:
-        if rec.record_type == "vital_signs":
-            VitalSignsSchema(**rec.data)
-        elif rec.record_type == "allergy":
-            AllergySchema(**rec.data)
-        elif rec.record_type == "prescription":
-            PrescriptionSchema(**rec.data)
-        elif rec.record_type == "vaccination":
-            VaccinationSchema(**rec.data)
-        elif rec.record_type == "lab_result":
-            LabResultSchema(**rec.data)
-        elif rec.record_type == "diagnosis":
-            DiagnosisSchema(**rec.data)
-        elif rec.record_type == "surgery":
-            SurgerySchema(**rec.data)
-        elif rec.record_type == "imaging":
-            ImagingSchema(**rec.data)
-            file_b64 = rec.data.get("file_data") or rec.data.get("dicom_data")
-            if file_b64 and isinstance(file_b64, str) and len(file_b64) > 176:
-                try:
-                    clean_b64 = file_b64.split(",", 1)[1] if "," in file_b64 else file_b64
-                    raw_header = base64.b64decode(clean_b64[:176])
-                    if len(raw_header) >= 132 and raw_header[128:132] != b"DICM":
-                        # Validate DICOM magic signature bytes at offset 128 if binary file is uploaded
-                        pass
-                except Exception:
-                    pass
+        if schema:
+            schema(**rec.data)
     except ValidationError as e:
         err_msgs = [".".join(str(x) for x in error["loc"]) + ": " + error["msg"] for error in e.errors()]
         raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
@@ -176,15 +152,15 @@ def add_record(
     )
     block = command_handler.handle_add_record(cmd)
 
-    if rec.record_type == "prescription":
+    if rec.record_type == "homework":
         # Notifications live in the SQL store in plaintext, so they must never
-        # carry clinical detail (e.g. the medication name) — that would leak PHI
-        # the chain took care to encrypt. Point the patient at their records
-        # instead of repeating the content.
+        # carry clinical detail (e.g. what the homework is about) — that would
+        # leak data the chain took care to encrypt. Point the client at their
+        # records instead of repeating the content.
         create_notification(
             patient_id=rec.patient_id,
-            title="YENİ İLAÇ REÇETESİ",
-            message="Reçetenize yeni bir kayıt eklendi. Ayrıntılar için kayıtlarınıza bakın.",
+            title="YENİ ÖDEV",
+            message="Uzmanınız sizinle yeni bir ödev paylaştı. Ayrıntılar için kayıtlarınıza bakın.",
             severity="info",
             notif_repo=notif_repo
         )
@@ -479,10 +455,11 @@ def download_offchain_file(
                     ignore_consent = True
                     break
         if not ignore_consent:
+            # NOTE: this does not check the attachment's own record type yet —
+            # fixed in phase 2 together with the break-glass removal below.
             has_any = (
                 consent_validator.has_consent(patient_id, u["username"], "all")
-                or consent_validator.has_consent(patient_id, u["username"], "imaging")
-                or consent_validator.has_consent(patient_id, u["username"], "lab_result")
+                or consent_validator.has_consent(patient_id, u["username"], "document")
             )
             if not has_any:
                 raise HTTPException(403, "Access denied: Patient consent is required to download this file.")

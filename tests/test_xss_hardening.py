@@ -62,19 +62,18 @@ class TestClinicalTextFidelity(unittest.TestCase):
     def test_special_characters_round_trip_unchanged(self):
         doctor = "Dr. Smith & Co"
         institution = "A<B Kliniği"
-        dose = "<5 mg"
+        task = "Rate anxiety <5 & note triggers"
 
         res = self.client.post("/api/v1/records", headers=self.headers, json={
             "patient_id": "VIP-001",
-            "record_type": "prescription",
+            "record_type": "homework",
             "title": "Fidelity check",
             "doctor_name": doctor,
             "institution": institution,
             "record_date": "2026-08-18",
             "access_level": "doctor_shared",
             "is_confidential": False,
-            "data": {"medication": "Paracetamol & caffeine", "dose": dose,
-                     "frequency": "2x1", "duration": "5"},
+            "data": {"task": task, "due_date": "2026-08-25"},
             "notes": "",
         })
         self.assertEqual(res.status_code, 200, res.text)
@@ -83,8 +82,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
         stored = next(r for r in records if r["title"] == "Fidelity check")
         self.assertEqual(stored["doctor_name"], doctor)
         self.assertEqual(stored["institution"], institution)
-        self.assertEqual(stored["data"]["dose"], dose)
-        self.assertEqual(stored["data"]["medication"], "Paracetamol & caffeine")
+        self.assertEqual(stored["data"]["task"], task)
 
     def test_new_records_carry_no_entity_encoding(self):
         """
@@ -95,14 +93,14 @@ class TestClinicalTextFidelity(unittest.TestCase):
         title = "Entity check"
         self.client.post("/api/v1/records", headers=self.headers, json={
             "patient_id": "VIP-001",
-            "record_type": "diagnosis",
+            "record_type": "treatment_plan",
             "title": title,
             "doctor_name": "Prof. Müller & Sons",
             "institution": "Ünite <A>",
             "record_date": "2026-08-18",
             "access_level": "doctor_shared",
             "is_confidential": False,
-            "data": {"icd_code": "I10", "severity": "Moderate", "symptoms": "Headache & nausea"},
+            "data": {"goals": "Sleep & mood", "approach": "CBT", "planned_sessions": 10},
             "notes": "",
         })
 
