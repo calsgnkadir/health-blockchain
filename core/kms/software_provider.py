@@ -35,9 +35,12 @@ from core.kms.provider import KMSProvider
 
 # ── constants ───────────────────────────────────────────────
 PBKDF2_ITERATIONS = 600_000          # OWASP 2024 recommendation
-_DEVICE_FINGERPRINT_FILE = ".device_fingerprint"
+# Both files default to the working directory. A container sets these to a
+# volume path, otherwise a rebuilt container mints a new key (orphaning every
+# stored record) and a new device id (breaking notarization anchor checks).
+_DEVICE_FINGERPRINT_FILE = os.getenv("VHV_DEVICE_FINGERPRINT_FILE", ".device_fingerprint")
 _PRIVATE_KEY_ENV = "HEALTH_BLOCKCHAIN_KEY"
-_PRIVATE_KEY_FILE = ".private_key"
+_PRIVATE_KEY_FILE = os.getenv("VHV_KEY_FILE", ".private_key")
 _KEYRING_SERVICE = "VIPHealthVault"
 _KEYRING_KEY_NAME = "private_key"
 # Opt-in that lets a production boot mint a brand-new signing key on first run.

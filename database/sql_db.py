@@ -16,7 +16,11 @@ except ImportError:
     POSTGRES_AVAILABLE = False
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_SQLITE_PATH = os.path.join(_PROJECT_ROOT, "database", "vault.db")
+# Overridable so a container can keep the database in a data volume instead of
+# next to the code in database/ (a volume mounted there would freeze the code).
+DEFAULT_SQLITE_PATH = os.getenv(
+    "VHV_SQLITE_PATH", os.path.join(_PROJECT_ROOT, "database", "vault.db")
+)
 
 class SQLDatabaseManager:
     def __init__(self):
