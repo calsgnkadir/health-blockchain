@@ -33,7 +33,7 @@ class TestAuthService(unittest.TestCase):
             id="USR-001",
             username="test_doc",
             password_hash=hash_password("DocSecurePassword123!"),
-            role="doctor",
+            role="practitioner",
             full_name="Dr. Test Case",
         )
         self.user_repo.save_user(user)
@@ -46,7 +46,7 @@ class TestAuthService(unittest.TestCase):
             id="USR-002",
             username="test_vip",
             password_hash=hash_password("PatientSecurePassword123!"),
-            role="vip_patient",
+            role="client",
             full_name="VIP Test Patient",
             patient_id="VIP-002"
         )
@@ -93,7 +93,7 @@ class TestAuthService(unittest.TestCase):
         user_dict = {
             "id": "USR-002",
             "username": "test_vip",
-            "role": "vip_patient",
+            "role": "client",
             "full_name": "VIP Test Patient"
         }
         token = create_token(user_dict)
@@ -118,7 +118,7 @@ class TestAuthService(unittest.TestCase):
             id="USR-002",
             username="test_vip",
             password_hash=hash_password("PatientSecurePassword123!"),
-            role="vip_patient",
+            role="client",
             full_name="VIP Test Patient",
             patient_id="VIP-002"
         )

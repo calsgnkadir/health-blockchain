@@ -98,9 +98,9 @@ def add_record(
     attachments: AttachmentStore = Depends(get_attachment_store),
     notif_repo: INotificationRepository = Depends(get_notification_repository)
 ):
-    if u["role"] == "vip_patient" and u.get("patient_id") != rec.patient_id:
+    if u["role"] == "client" and u.get("patient_id") != rec.patient_id:
         raise HTTPException(403, "You can only access your own records")
-    if u["role"] not in ("doctor", "admin", "vip_patient"):
+    if u["role"] not in ("practitioner", "admin", "client"):
         raise HTTPException(403, "You do not have permission to add records")
 
     # Check the type-specific `data` fields. Free-form types have no schema.
@@ -184,11 +184,11 @@ def get_records(
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
     role = u["role"]
-    if role == "vip_patient" and u.get("patient_id") != patient_id:
+    if role == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     ignore_consent = False
-    if role == "doctor":
+    if role == "practitioner":
         proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
@@ -219,7 +219,7 @@ def get_records(
     # A patient viewing their own chart is not "access" worth surfacing to them;
     # a clinician or operator reading it is exactly what the transparency ledger
     # exists to record, so that lands in the tamper-evident access log.
-    if not (u["role"] == "vip_patient" and u.get("patient_id") == patient_id):
+    if not (u["role"] == "client" and u.get("patient_id") == patient_id):
         storage.append_access_log(
             project_name=proj_name,
             username=u["username"],
@@ -249,7 +249,7 @@ def get_single_record(
 ):
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     chain = record_service.get_chain(patient_id)
@@ -284,14 +284,14 @@ def decrypt_record(
 ):
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     if not req or not req.password:
         raise HTTPException(400, "Password is required to decrypt this record")
 
     ignore_consent = False
-    if u["role"] == "doctor":
+    if u["role"] == "practitioner":
         proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
@@ -359,9 +359,9 @@ def correct_record(
     """
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
-    if u["role"] not in ("doctor", "admin", "vip_patient"):
+    if u["role"] not in ("practitioner", "admin", "client"):
         raise HTTPException(403, "You do not have permission to correct records")
     if not req or not isinstance(req.corrected_data, dict) or not req.corrected_data:
         raise HTTPException(400, "corrected_data (the superseding record) is required")
@@ -379,7 +379,7 @@ def correct_record(
     rec_type = original.get("record_type", "other")
 
     # A doctor must hold consent (or an active break-glass) to touch the record.
-    if u["role"] == "doctor":
+    if u["role"] == "practitioner":
         proj_name = project_name_for(patient_id)
         ignore_consent = False
         for log in storage.load_access_logs(proj_name, limit=5, db_manager=db_manager):
@@ -446,7 +446,7 @@ def download_offchain_file(
     role = u["role"]
     ignore_consent = False
 
-    if role == "doctor":
+    if role == "practitioner":
         proj_name = project_name_for(patient_id)
         access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
         for log in access_logs:
@@ -464,7 +464,7 @@ def download_offchain_file(
             if not has_any:
                 raise HTTPException(403, "Access denied: Patient consent is required to download this file.")
 
-    if role == "vip_patient" and u.get("patient_id") != patient_id:
+    if role == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     try:
@@ -515,7 +515,7 @@ def get_merkle_proof_endpoint(
     record_service: RecordService = Depends(get_record_service)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied: You can only view proofs for your own records")
 
     project_name = record_service._get_project_name(patient_id)

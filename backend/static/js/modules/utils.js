@@ -160,7 +160,10 @@ export function emptyState(msg) {
   </div><p>${msg}</p></div>`;
 }
 
-export const ROLE_LABEL = { admin: 'Administrator', doctor: 'Doctor', vip_patient: 'VIP Patient' };
+export const ROLE_LABEL = {
+  admin: 'Administrator', practitioner: 'Practitioner', client: 'Client',
+  security_officer: 'KVKK Officer', auditor: 'Auditor',
+};
 
 // Privileged operators (admin / doctor / auditor / security officer) are not tied
 // to one patient — they pick whose chart to view. VIP patients are always scoped
@@ -177,7 +180,7 @@ export function getSelectedPatient() {
 
 export function patientId() {
   const user = getCurrentUser();
-  if (user && user.role === 'vip_patient') return user.patient_id;
+  if (user && user.role === 'client') return user.patient_id;
   return _selectedPatient;   // null until a privileged operator selects a patient
 }
 
@@ -215,7 +218,7 @@ export const appState = {
       if (sbName) sbName.textContent = this.currentUser.full_name;
       const sbRole = document.getElementById('sidebar-role');
       if (sbRole) {
-        if (this.currentUser.role === 'vip_patient') {
+        if (this.currentUser.role === 'client') {
           sbRole.textContent = this.currentUser.patient_id === 'VIP-001' ? 'PAT-2024-0047' : this.currentUser.patient_id;
         } else {
           sbRole.textContent = ROLE_LABEL[this.currentUser.role] || this.currentUser.role;
@@ -237,24 +240,24 @@ export const appState = {
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       const navAdd = document.getElementById('nav-add');
-      if (navAdd) navAdd.style.display = (this.currentUser.role === 'vip_patient') ? 'none' : 'flex';
+      if (navAdd) navAdd.style.display = (this.currentUser.role === 'client') ? 'none' : 'flex';
 
       // Only the patient who owns the chart may grant or revoke clinical access.
       const consentGrantCard = document.getElementById('consent-grant-card');
       if (consentGrantCard) {
-        consentGrantCard.style.display = (this.currentUser.role === 'vip_patient') ? 'block' : 'none';
+        consentGrantCard.style.display = (this.currentUser.role === 'client') ? 'block' : 'none';
       }
 
       // The patient can see who read their records; it is their transparency view.
       const navMyAccess = document.getElementById('nav-my-access');
       if (navMyAccess) {
-        navMyAccess.style.display = (this.currentUser.role === 'vip_patient') ? 'flex' : 'none';
+        navMyAccess.style.display = (this.currentUser.role === 'client') ? 'flex' : 'none';
       }
 
       // Break-Glass is the practitioner's audited path to records without consent.
       const breakGlassPanel = document.getElementById('break-glass-panel');
       if (breakGlassPanel) {
-        breakGlassPanel.style.display = (this.currentUser.role === 'doctor') ? 'block' : 'none';
+        breakGlassPanel.style.display = (this.currentUser.role === 'practitioner') ? 'block' : 'none';
       }
     }
 

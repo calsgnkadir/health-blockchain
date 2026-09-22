@@ -37,7 +37,7 @@ def get_notifications(
     query_handler: QueryHandler = Depends(get_query_handler)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     query = GetNotificationsQuery(patient_id=patient_id, username=u["username"])
@@ -53,7 +53,7 @@ def mark_notification_read(
     notif_repo: INotificationRepository = Depends(get_notification_repository)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     success = notif_repo.mark_as_read(patient_id, notif_id)
@@ -71,7 +71,7 @@ def chain_status(
     notarizer = Depends(get_blockchain_notarizer)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         # Chain length and Merkle root disclose that a person is a patient here and
         # how much of a record they have - metadata this vault exists to conceal.
         raise HTTPException(403, "Access denied")
@@ -120,10 +120,10 @@ def get_access_logs(
     limit: int = 100,
     offset: int = 0,
     source: str = "db",
-    u: dict = Depends(require_role("admin", "auditor", "vip_patient")),
+    u: dict = Depends(require_role("admin", "auditor", "client")),
     audit_service: AuditService = Depends(get_audit_service)
 ):
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
     logs = audit_service.get_access_logs(patient_id, limit, offset, source)
     integrity = audit_service.verify_access_integrity(patient_id)

@@ -73,7 +73,7 @@ class QueryHandler:
                 continue
 
             # Consent checks for Doctors
-            if role == "doctor" and not query.ignore_consent:
+            if role == "practitioner" and not query.ignore_consent:
                 rec_type = "other"
                 if isinstance(data, dict):
                     rec_type = data.get("record_type", "other")
@@ -86,7 +86,7 @@ class QueryHandler:
                     continue
 
             # Doctors cannot see private access level records unless override
-            if role == "doctor" and isinstance(data, dict) and data.get("access_level") == "private":
+            if role == "practitioner" and isinstance(data, dict) and data.get("access_level") == "private":
                 if not query.ignore_consent:
                     continue
 
@@ -134,7 +134,7 @@ class QueryHandler:
 
     def handle_decrypt_record(self, query: DecryptRecordQuery) -> Any:
         # Check consent for doctor
-        if query.requester_role == "doctor" and not query.ignore_consent:
+        if query.requester_role == "practitioner" and not query.ignore_consent:
             # First, fetch record metadata to get record type
             chain = self.record_service.get_chain(query.patient_id)
             block = next((b for b in chain if b.index == query.block_index), None)

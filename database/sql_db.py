@@ -177,6 +177,12 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Mahrem renamed two role ids (doctor -> practitioner,
+            # vip_patient -> client). Rewrite existing rows in place so an old
+            # database keeps working. Safe to run on every start.
+            cursor.execute("UPDATE users SET role = 'practitioner' WHERE role = 'doctor'")
+            cursor.execute("UPDATE users SET role = 'client' WHERE role = 'vip_patient'")
+
             conn.commit()
             logger.info("[SQL DB] Tables initialized successfully.")
         except Exception as e:
@@ -212,7 +218,7 @@ class SQLDatabaseManager:
                     "USR-DOC-001",
                     "dr.smith",
                     hash_password("Doctor@2026Secure!"),
-                    "doctor",
+                    "practitioner",
                     "Prof. Dr. James Smith",
                     "Cardiology",
                     "VIP Medical Center",
@@ -225,7 +231,7 @@ class SQLDatabaseManager:
                     "USR-VIP-001",
                     "vip001",
                     hash_password("VIPPatient@2026!"),
-                    "vip_patient",
+                    "client",
                     "Ahmet Karataş",
                     None,
                     None,

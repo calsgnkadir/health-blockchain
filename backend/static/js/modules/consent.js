@@ -19,15 +19,16 @@ export async function loadConsents() {
 
     // Revocation is a patient-only action; the server enforces the same rule.
     const currentUser = getCurrentUser();
-    const canRevoke = !!currentUser && currentUser.role === 'vip_patient' && currentUser.patient_id === pid;
+    const canRevoke = !!currentUser && currentUser.role === 'client' && currentUser.patient_id === pid;
 
     const typeLabels = {
       all: 'All Records',
-      diagnosis: 'Diagnosis',
-      lab_result: 'Lab Result',
-      prescription: 'Prescription',
-      imaging: 'Imaging (MRI/CT/X-Ray)',
-      vital_signs: 'Vital Signs',
+      session_note: 'Session Notes',
+      assessment: 'Assessments',
+      treatment_plan: 'Treatment Plans',
+      homework: 'Homework',
+      consent_form: 'Consent Forms',
+      document: 'Documents',
       other: 'Other'
     };
 

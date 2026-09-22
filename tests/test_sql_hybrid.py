@@ -57,7 +57,7 @@ class TestSQLHybrid(unittest.TestCase):
             id="USR-TEST-99",
             username="dr.sqltest",
             password_hash="hashed_password",
-            role="doctor",
+            role="practitioner",
             full_name="Dr. SQL Test",
             specialty="Pediatrics",
             institution="SQL Medical Center",

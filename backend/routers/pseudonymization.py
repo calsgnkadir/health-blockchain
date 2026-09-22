@@ -59,10 +59,10 @@ def generate_pseudonym(
     Generate or retrieve the anonymous identifier for a patient.
     Only admins and the patient themselves can access this endpoint.
     """
-    if u["role"] not in ("admin", "vip_patient"):
+    if u["role"] not in ("admin", "client"):
         raise HTTPException(403, "Only admins and VIP patients can manage pseudonyms")
 
-    if u["role"] == "vip_patient" and u.get("patient_id") != req.patient_id:
+    if u["role"] == "client" and u.get("patient_id") != req.patient_id:
         raise HTTPException(403, "You can only access your own pseudonym")
 
     svc = get_pseudonymization_service()

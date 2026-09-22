@@ -335,7 +335,7 @@ export async function openRecord(idx) {
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
     <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-ghost btn-sm" data-action="verify-proof" data-arg="${r.block_index}">Verify Merkle Inclusion Proof</button>
-      ${['doctor','vip_patient','admin'].includes((getCurrentUser()||{}).role) ? `<button class="btn btn-ghost btn-sm" data-action="correct-record" data-arg="${r.block_index}">Correct this record</button>` : ''}
+      ${['practitioner','client','admin'].includes((getCurrentUser()||{}).role) ? `<button class="btn btn-ghost btn-sm" data-action="correct-record" data-arg="${r.block_index}">Correct this record</button>` : ''}
       <div id="merkle-proof-result" style="width:100%;margin-top:12px"></div>
     </div>
   `;
@@ -1192,7 +1192,7 @@ export function initRecordsListeners() {
         document.getElementById('confidential-password-group').style.display = 'none';
         
         const user = JSON.parse(localStorage.getItem('vhv_user') || '{}');
-        if (user.role === 'vip_patient') {
+        if (user.role === 'client') {
           document.getElementById('rec-patient-id').value = user.patient_id || '';
         }
         document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];

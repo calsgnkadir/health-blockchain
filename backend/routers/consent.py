@@ -30,7 +30,7 @@ def _require_consent_owner(u: dict, patient_id: str) -> None:
     Dual-Control policy that keeps them out of raw records. Practitioners needing
     access without a standing consent must use the audited Break-Glass override.
     """
-    if u.get("role") != "vip_patient" or u.get("patient_id") != patient_id:
+    if u.get("role") != "client" or u.get("patient_id") != patient_id:
         raise HTTPException(
             403,
             "Consent Policy Violation: only the patient who owns these records may "
@@ -45,7 +45,7 @@ def get_consents(
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
-    if u["role"] == "vip_patient" and u.get("patient_id") != patient_id:
+    if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
     project_name = project_name_for(patient_id)
@@ -66,7 +66,7 @@ def get_consents(
 
     # A practitioner may see the permissions granted to them, not the patient's
     # full roster of who else can read the chart.
-    if u["role"] == "doctor":
+    if u["role"] == "practitioner":
         consents = [c for c in consents if c.get("doctor_username") == u["username"]]
 
     return {"consents": consents}
@@ -82,7 +82,7 @@ def grant_consent(
     _require_consent_owner(u, data.patient_id)
 
     doc = user_repository.load_user(data.doctor_username)
-    if not doc or doc.role != "doctor":
+    if not doc or doc.role != "practitioner":
         raise HTTPException(404, "Doctor not found")
 
     cmd = GrantConsentCommand(
@@ -124,7 +124,7 @@ def break_glass(
     consent_validator: ConsentValidator = Depends(get_consent_validator)
 ):
     check_patient_id(patient_id)
-    if u["role"] != "doctor":
+    if u["role"] != "practitioner":
         raise HTTPException(403, "Only doctors can invoke emergency override")
 
     consent_validator.break_glass_override(

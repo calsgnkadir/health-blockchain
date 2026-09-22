@@ -146,7 +146,7 @@ class TestTimeBoundConsent(unittest.TestCase):
         query = GetPatientRecordsQuery(
             patient_id=self.patient_id,
             requester_username=self.doctor,
-            requester_role="doctor",
+            requester_role="practitioner",
             ignore_consent=False
         )
         records = self.query_handler.handle_get_patient_records(query)

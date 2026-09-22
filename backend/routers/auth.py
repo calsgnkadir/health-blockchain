@@ -56,7 +56,7 @@ def login(
     # response flags that a passkey must be enrolled now; the UI drives enrolment.
     passkey_enrollment_required = False
     mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
-    if mandatory_fido2 and user_entity.role in ("admin", "vip_patient"):
+    if mandatory_fido2 and user_entity.role in ("admin", "client"):
         db = get_sql_db()
         with db.get_connection() as conn:
             cursor = conn.cursor()

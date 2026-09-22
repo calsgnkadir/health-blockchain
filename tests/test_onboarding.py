@@ -58,7 +58,7 @@ class TestOnboarding(unittest.TestCase):
 
     def _provision(self, token=None, **overrides):
         body = {"username": self.username, "full_name": "New VIP",
-                "role": "vip_patient", "patient_id": "VIP-777"}
+                "role": "client", "patient_id": "VIP-777"}
         body.update(overrides)
         return self.client.post("/api/v1/onboarding/provision",
                                 headers=self._auth(token or self.admin.json()["access_token"]),

@@ -52,7 +52,7 @@ window.enterApp = function() {
   // Use centralized state manager
   appState.updateUser(currentUser);
 
-  const isVip = currentUser.role === 'vip_patient';
+  const isVip = currentUser.role === 'client';
 
   // Privileged operators pick which patient to view; VIP patients are scoped to
   // their own record and never see the selector.
@@ -427,7 +427,7 @@ window.loadUsers = async function() {
           <div style="font-weight:600">${escapeHtml(u.full_name)}</div>
           <div style="font-size:12px;color:var(--muted)">@${escapeHtml(u.username)} · ${escapeHtml(u.patient_id||'no patient ID')}</div>
         </div>
-        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='doctor'?'doctor':'vip'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
+        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='practitioner'?'doctor':'vip'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
       </div>`
     ).join('');
   } catch(e) { container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`; }
@@ -766,7 +766,7 @@ function renderCommandPaletteResults(query = '') {
     { type: 'action', action: 'refresh_chain', title: 'Refresh Chain Status', desc: 'Query and update cryptographic statuses', shortcut: '⌥ R' }
   ];
 
-  if (currentUser && currentUser.role === 'doctor') {
+  if (currentUser && currentUser.role === 'practitioner') {
     actions.push({ type: 'action', action: 'break_glass', title: 'Trigger Break Glass (Emergency)', desc: 'Emergency override access to patient data', shortcut: '⌥ B' });
   }
 

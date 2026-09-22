@@ -122,7 +122,7 @@ class UserCreate(BaseModel):
     @field_validator("role")
     @classmethod
     def valid_role(cls, v):
-        allowed = {"admin", "doctor", "vip_patient", "nurse", "auditor", "security_officer"}
+        allowed = {"admin", "practitioner", "client", "nurse", "auditor", "security_officer"}
         if v not in allowed:
             raise ValueError(f"Invalid role. Allowed roles: {allowed}")
         return v
@@ -402,7 +402,7 @@ DATA_SCHEMAS = {
 
 
 # ── Out-of-band onboarding ──────────────────────────────────────────
-_ONBOARDING_ROLES = {"vip_patient", "doctor", "admin", "security_officer", "auditor"}
+_ONBOARDING_ROLES = {"client", "practitioner", "admin", "security_officer", "auditor"}
 
 
 class ProvisionAccountReq(BaseModel):
