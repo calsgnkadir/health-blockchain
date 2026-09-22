@@ -23,3 +23,7 @@ services:
       VIP_IP_ALLOWLIST_ENABLED: "false"
       VHV_ALLOW_GENERATED_KEY: "true"
       VHV_BIND_HOST: "0.0.0.0"
+      # Demo only: keep the generated signing key in the data volume, so records
+      # stay readable after the container is rebuilt. Never do this in
+      # production — a key stored next to the data defeats encryption at rest.
+      VHV_KEY_FILE: /app/data/.private_key
