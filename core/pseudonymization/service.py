@@ -11,12 +11,12 @@ Usage:
     svc = get_pseudonymization_service()
 
     # When storing a record:
-    anon_id = svc.pseudonymize(patient_id="VIP-001")
-    # → store record under anon_id, never under "VIP-001"
+    anon_id = svc.pseudonymize(patient_id="CL-001")
+    # → store record under anon_id, never under "CL-001"
 
     # When retrieving for an authorized user:
     real_id = svc.depseudonymize(anon_id)
-    # → "VIP-001" (only works with access to the mapping table)
+    # → "CL-001" (only works with access to the mapping table)
 """
 
 import time
@@ -55,7 +55,7 @@ class PseudonymizationService:
         Creates and persists the mapping if it doesn't exist.
 
         Args:
-            patient_id: Real identifier (e.g. "VIP-001")
+            patient_id: Real identifier (e.g. "CL-001")
 
         Returns:
             Anonymous identifier (64-char hex string)

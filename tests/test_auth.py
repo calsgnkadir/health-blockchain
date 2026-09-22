@@ -48,7 +48,7 @@ class TestAuthService(unittest.TestCase):
             password_hash=hash_password("PatientSecurePassword123!"),
             role="client",
             full_name="VIP Test Patient",
-            patient_id="VIP-002"
+            patient_id="CL-002"
         )
         self.user_repo.save_user(user)
         authenticated = self.auth_service.authenticate("test_vip", "PatientSecurePassword123!", "127.0.0.1")
@@ -120,7 +120,7 @@ class TestAuthService(unittest.TestCase):
             password_hash=hash_password("PatientSecurePassword123!"),
             role="client",
             full_name="VIP Test Patient",
-            patient_id="VIP-002"
+            patient_id="CL-002"
         )
         self.user_repo.save_user(user)
 

@@ -100,7 +100,7 @@ class TestSQLHybrid(unittest.TestCase):
     def test_notification_repository(self):
         notif = {
             "id": "notif-test-222",
-            "patient_id": "VIP-888",
+            "patient_id": "CL-888",
             "title": "Alert Title",
             "message": "Detailed alert message",
             "severity": "warning",
@@ -112,16 +112,16 @@ class TestSQLHybrid(unittest.TestCase):
         self.notif_repo.save_notification(notif)
 
         # 2. Load by Patient
-        list_notifs = self.notif_repo.load_notifications_by_patient("VIP-888")
+        list_notifs = self.notif_repo.load_notifications_by_patient("CL-888")
         self.assertEqual(len(list_notifs), 1)
         self.assertEqual(list_notifs[0]["id"], "notif-test-222")
         self.assertFalse(list_notifs[0]["read"])
 
         # 3. Mark as read
-        marked = self.notif_repo.mark_as_read("VIP-888", "notif-test-222")
+        marked = self.notif_repo.mark_as_read("CL-888", "notif-test-222")
         self.assertTrue(marked)
 
-        updated_notifs = self.notif_repo.load_notifications_by_patient("VIP-888")
+        updated_notifs = self.notif_repo.load_notifications_by_patient("CL-888")
         self.assertTrue(updated_notifs[0]["read"])
 
 if __name__ == '__main__':

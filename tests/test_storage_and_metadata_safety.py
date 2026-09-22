@@ -62,7 +62,7 @@ class TestAtRestStorage(unittest.TestCase):
         os.environ["TESTING"] = "true"
         self.client = TestClient(app)
         res = self.client.post("/api/v1/auth/login",
-                               json={"username": "vip001", "password": "VIPPatient@2026!"})
+                               json={"username": "client001", "password": "Client@2026Secure!"})
         self.assertEqual(res.status_code, 200, res.text)
         self.token = res.json()["access_token"]
 
@@ -70,7 +70,7 @@ class TestAtRestStorage(unittest.TestCase):
         return self.client.post("/api/v1/records",
             headers={"Authorization": f"Bearer {self.token}"},
             json={
-                "patient_id": "VIP-001", "record_type": "session_note",
+                "patient_id": "CL-001", "record_type": "session_note",
                 "title": "Session note", "doctor_name": "Dr A",
                 "institution": "Practice", "record_date": "2026-08-01",
                 "access_level": "doctor_shared", "is_confidential": False,
@@ -89,7 +89,7 @@ class TestAtRestStorage(unittest.TestCase):
         from core.services.record_service import RecordService
 
         service = RecordService(LMDBBlockRepository(), AESGCMStrategy())
-        revealed = " ".join(str(v) for v in service.get_final_data("VIP-001").values())
+        revealed = " ".join(str(v) for v in service.get_final_data("CL-001").values())
         self.assertIn("<5 & sleep", revealed)
         self.assertNotIn("&lt;5", revealed)
 
@@ -99,7 +99,7 @@ class TestAtRestStorage(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
 
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
-        blocks = LMDBBlockRepository().load_all_blocks(project_name_for("VIP-001"))
+        blocks = LMDBBlockRepository().load_all_blocks(project_name_for("CL-001"))
         on_disk = " ".join(str(b.data) for b in blocks)
         self.assertNotIn("SECRET-MARKER-XYZ", on_disk)
 
@@ -123,14 +123,14 @@ class TestMetadataDisclosure(unittest.TestCase):
         return res.json()["access_token"]
 
     def test_patient_cannot_read_another_chain_status(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-999/status",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-999/status",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 403)
 
     def test_patient_can_read_their_own_chain_status(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-001/status",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-001/status",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200)
 

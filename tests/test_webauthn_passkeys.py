@@ -68,7 +68,7 @@ class TestWebAuthnPasskeys(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         return res.json()["challenge"]
 
-    def _auth_headers(self, username="vip001", password="VIPPatient@2026!"):
+    def _auth_headers(self, username="client001", password="Client@2026Secure!"):
         res = self.client.post(
             "/api/v1/auth/login", json={"username": username, "password": password}
         )
@@ -140,7 +140,7 @@ class TestWebAuthnPasskeys(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         body = res.json()
         self.assertIn("access_token", body)
-        self.assertEqual(body["user"]["username"], "vip001")
+        self.assertEqual(body["user"]["username"], "client001")
 
     def test_response_never_leaks_credential_material(self):
         self._enroll()

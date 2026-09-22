@@ -20,7 +20,7 @@ from core.services.record_service import RecordService
 from core.services.notarizer import BlockchainNotarizer
 from core.cqrs.commands import AddRecordCommand, CommandHandler
 
-PATIENT_ID = "VIP-ANCHOR-1"
+PATIENT_ID = "CL-ANCHOR-1"
 
 
 class TestNotarizationAnchor(unittest.TestCase):
@@ -90,7 +90,7 @@ if __name__ == "__main__":
 class TestNewChainBootstrap(unittest.TestCase):
     """The first record written to a patient chain must not fail."""
 
-    NEW_PATIENT = "VIP-BOOTSTRAP-1"
+    NEW_PATIENT = "CL-BOOTSTRAP-1"
 
     def setUp(self):
         self.block_repo = LMDBBlockRepository()

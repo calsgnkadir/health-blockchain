@@ -21,12 +21,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.main import app
 from database.sql_db import default_sql_db
 
-PATIENT_ID = "VIP-001"
-DOCTOR = "dr.smith"
+PATIENT_ID = "CL-001"
+DOCTOR = "psk.elif"
 
 ACCOUNTS = {
-    "patient": ("vip001", "VIPPatient@2026!"),
-    "doctor": (DOCTOR, "Doctor@2026Secure!"),
+    "patient": ("client001", "Client@2026Secure!"),
+    "doctor": (DOCTOR, "Practitioner@2026!"),
     "admin": ("admin", "Admin@2026Secure!"),
 }
 

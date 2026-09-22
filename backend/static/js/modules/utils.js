@@ -219,7 +219,7 @@ export const appState = {
       const sbRole = document.getElementById('sidebar-role');
       if (sbRole) {
         if (this.currentUser.role === 'client') {
-          sbRole.textContent = this.currentUser.patient_id === 'VIP-001' ? 'PAT-2024-0047' : this.currentUser.patient_id;
+          sbRole.textContent = this.currentUser.patient_id;
         } else {
           sbRole.textContent = ROLE_LABEL[this.currentUser.role] || this.currentUser.role;
         }

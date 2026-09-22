@@ -33,7 +33,7 @@ class TestFido2EnrollmentGrace(unittest.TestCase):
         cur = conn.cursor()
         ph = "%s" if default_sql_db.is_postgres else "?"
         try:
-            cur.execute(f"DELETE FROM webauthn_credentials WHERE username = {ph}", ("vip001",))
+            cur.execute(f"DELETE FROM webauthn_credentials WHERE username = {ph}", ("client001",))
             conn.commit()
         finally:
             cur.close()
@@ -47,7 +47,7 @@ class TestFido2EnrollmentGrace(unittest.TestCase):
 
     def _login(self):
         return self.client.post("/api/v1/auth/login",
-                                json={"username": "vip001", "password": "VIPPatient@2026!"})
+                                json={"username": "client001", "password": "Client@2026Secure!"})
 
     def test_fresh_account_can_log_in_and_is_told_to_enrol(self):
         os.environ["MANDATORY_FIDO2"] = "true"

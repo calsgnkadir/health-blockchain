@@ -427,7 +427,7 @@ window.loadUsers = async function() {
           <div style="font-weight:600">${escapeHtml(u.full_name)}</div>
           <div style="font-size:12px;color:var(--muted)">@${escapeHtml(u.username)} · ${escapeHtml(u.patient_id||'no patient ID')}</div>
         </div>
-        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='practitioner'?'doctor':'vip'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
+        <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='practitioner'?'practitioner':'client'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
       </div>`
     ).join('');
   } catch(e) { container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`; }
@@ -598,8 +598,8 @@ async function checkEnvironment() {
         if (demoList && config.demo_accounts) {
           demoList.innerHTML = config.demo_accounts.map(acc => `
             <div class="demo-item" data-action="fill-credentials" data-arg="${escapeHtml(acc.username)}" data-arg2="${escapeHtml(acc.password)}">
-              <span class="role-badge badge-${acc.role.toLowerCase()}">${acc.role}</span>
-              <span>${acc.username} / ${acc.password}</span>
+              <span class="role-badge badge-${escapeHtml(acc.role.toLowerCase())}">${escapeHtml(acc.role)}</span>
+              <span>${escapeHtml(acc.username)} / ${escapeHtml(acc.password)}</span>
             </div>
           `).join('');
         }
@@ -1175,12 +1175,12 @@ registerActions('submit', {
 });
 
 // Privileged operators choose which patient's chart to load. Validated to the
-// VIP-### shape, then the current page is reloaded under the new patient context.
+// CL-### shape, then the current page is reloaded under the new patient context.
 window.selectPatient = function(e) {
   if (e && e.preventDefault) e.preventDefault();
   const input = document.getElementById('patient-selector-input');
   const val = ((input && input.value) || '').trim().toUpperCase();
-  if (!/^VIP-[0-9]{3,}$/.test(val)) {
+  if (!/^CL-[0-9]{3,}$/.test(val)) {
     if (input) input.style.borderColor = '#ef4444';
     return;
   }

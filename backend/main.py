@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
         try:
             from backend.demo_seed import seed_demo_chart_if_enabled
             if seed_demo_chart_if_enabled():
-                logger.info("Demo patient chart ready (VIP-001)")
+                logger.info("Demo patient chart ready (CL-001)")
         except Exception as e:
             logger.warning(f"Demo chart seeding skipped: {e}")
     else:

@@ -29,7 +29,7 @@ class TestRecordService(unittest.TestCase):
                 pass
 
     def test_add_record_and_chain_validation(self):
-        patient_id = "VIP-007"
+        patient_id = "CL-007"
 
         # Initial chain validation (empty/Genesis auto-creation)
         self.assertTrue(self.record_service.is_chain_valid(patient_id))

@@ -27,6 +27,21 @@ def _public_user(user: dict) -> dict:
         "totp_enabled": bool(user.get("totp_enabled")),
     }
 
+def _require_active(user_entity) -> None:
+    """Only an active, enrolled account gets a session (password or passkey)."""
+    status = getattr(user_entity, "account_status", "ACTIVE_ENROLLED")
+    if status == "DISABLED":
+        raise HTTPException(403, "This account has been disabled.")
+    if status != "ACTIVE_ENROLLED":
+        # A provisioned account cannot be used until its holder redeems the
+        # out-of-band enrollment token (see backend.routers.onboarding).
+        raise HTTPException(
+            403,
+            "Account is pending onboarding. Complete enrollment with your "
+            "out-of-band token before signing in.",
+        )
+
+
 @router.post("/login", summary="User Login")
 def login(
     req: LoginReq,
@@ -40,14 +55,7 @@ def login(
     if not user_entity:
         raise HTTPException(401, "Incorrect username or password")
 
-    # A provisioned account cannot be used until its holder redeems the out-of-band
-    # enrollment token (see backend.routers.onboarding).
-    if getattr(user_entity, "account_status", "ACTIVE_ENROLLED") != "ACTIVE_ENROLLED":
-        raise HTTPException(
-            403,
-            "Account is pending onboarding. Complete enrollment with your "
-            "out-of-band token before signing in.",
-        )
+    _require_active(user_entity)
 
     # Mandatory FIDO2 / hardware-key policy. Enforcing "must have a passkey" by
     # refusing every password login deadlocks a fresh account: you cannot enrol a
@@ -275,13 +283,9 @@ def login_webauthn_credential(
     if not user_entity:
         raise HTTPException(404, "User account not found.")
 
-    # Same onboarding gate as password login: a non-activated account gets no
-    # session, even with a valid passkey.
-    if getattr(user_entity, "account_status", "ACTIVE_ENROLLED") != "ACTIVE_ENROLLED":
-        raise HTTPException(
-            403,
-            "Account is pending onboarding. Complete enrollment before signing in.",
-        )
+    # Same gate as password login: no session for an inactive account, even
+    # with a valid passkey.
+    _require_active(user_entity)
 
     with db.get_connection() as conn:
         cursor = conn.cursor()

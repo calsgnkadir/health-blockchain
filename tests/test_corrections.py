@@ -27,7 +27,7 @@ class TestCorrectionFlow(unittest.TestCase):
     def setUp(self):
         os.environ["TESTING"] = "true"
         self.client = TestClient(app)
-        self.token = self._login("vip001", "VIPPatient@2026!")
+        self.token = self._login("client001", "Client@2026Secure!")
 
     def _login(self, username, password):
         res = self.client.post("/api/v1/auth/login",
@@ -40,7 +40,7 @@ class TestCorrectionFlow(unittest.TestCase):
 
     def _add_assessment(self):
         res = self.client.post("/api/v1/records", headers=self._auth(), json={
-            "patient_id": "VIP-001", "record_type": "assessment",
+            "patient_id": "CL-001", "record_type": "assessment",
             "title": "Original assessment", "doctor_name": "Dr A",
             "institution": "Clinic", "record_date": "2026-08-01",
             "access_level": "doctor_shared", "is_confidential": False,
@@ -53,7 +53,7 @@ class TestCorrectionFlow(unittest.TestCase):
 
     def _correct(self, idx, interpretation="Severe anxiety", reason="Re-evaluated", token=None):
         return self.client.post(
-            f"/api/v1/records/VIP-001/{idx}/correct", headers=self._auth(token),
+            f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(token),
             json={"reason": reason, "corrected_data": {
                 "title": "Corrected assessment", "record_type": "assessment",
                 "doctor_name": "Dr A", "institution": "Clinic",
@@ -69,9 +69,9 @@ class TestCorrectionFlow(unittest.TestCase):
         res = self._correct(idx)
         self.assertEqual(res.status_code, 200, res.text)
 
-        current = self.client.get(f"/api/v1/records/VIP-001/{idx}?version=current",
+        current = self.client.get(f"/api/v1/records/CL-001/{idx}?version=current",
                                   headers=self._auth()).json()["data"]
-        original = self.client.get(f"/api/v1/records/VIP-001/{idx}?version=original",
+        original = self.client.get(f"/api/v1/records/CL-001/{idx}?version=original",
                                    headers=self._auth()).json()["data"]
         self.assertEqual(current["data"]["interpretation"], "Severe anxiety")
         self.assertEqual(current["title"], "Corrected assessment")
@@ -82,22 +82,22 @@ class TestCorrectionFlow(unittest.TestCase):
     def test_corrected_record_is_flagged_with_provenance(self):
         idx = self._add_assessment()
         self._correct(idx, reason="Score mis-recorded")
-        records = self.client.get("/api/v1/records/VIP-001", headers=self._auth()).json()["records"]
+        records = self.client.get("/api/v1/records/CL-001", headers=self._auth()).json()["records"]
         rec = next(r for r in records if r["block_index"] == idx)
         self.assertTrue(rec["is_corrected"])
         self.assertEqual(rec["correction"]["reason"], "Score mis-recorded")
-        self.assertEqual(rec["correction"]["corrected_by"], "vip001")
+        self.assertEqual(rec["correction"]["corrected_by"], "client001")
 
     def test_correction_requires_a_reason(self):
         idx = self._add_assessment()
         res = self.client.post(
-            f"/api/v1/records/VIP-001/{idx}/correct", headers=self._auth(),
+            f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
             json={"reason": "  ", "corrected_data": {"title": "x", "data": {}}},
         )
         self.assertEqual(res.status_code, 422)
 
     def test_chain_stays_valid_after_correction(self):
-        # Verified on an isolated chain: the shared VIP-001 store is mutated by
+        # Verified on an isolated chain: the shared CL-001 store is mutated by
         # many other test classes, so its overall validity is not a clean signal.
         import database.storage as storage
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
@@ -105,7 +105,7 @@ class TestCorrectionFlow(unittest.TestCase):
         from core.services.record_service import RecordService
         from core.cqrs.commands import AddRecordCommand, AddCorrectionCommand, CommandHandler
 
-        patient = "VIP-CORRECT-ISO"
+        patient = "CL-CORRECT-ISO"
         block_repo = LMDBBlockRepository()
         service = RecordService(block_repo, AESGCMStrategy())
         handler = CommandHandler(service, None, block_repo)
@@ -133,8 +133,8 @@ class TestCorrectionFlow(unittest.TestCase):
         # Clear any consent leftover from other tests in the shared default store
         # so this exercises the genuine no-consent case (CSRF is off under TESTING).
         for rt in ("all", "diagnosis"):
-            self.client.delete(f"/api/v1/consent/VIP-001/dr.smith/{rt}", headers=self._auth())
-        doctor = self._login("dr.smith", "Doctor@2026Secure!")
+            self.client.delete(f"/api/v1/consent/CL-001/psk.elif/{rt}", headers=self._auth())
+        doctor = self._login("psk.elif", "Practitioner@2026!")
         res = self._correct(idx, token=doctor)
         self.assertEqual(res.status_code, 403)
 

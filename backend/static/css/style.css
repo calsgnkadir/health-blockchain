@@ -739,8 +739,8 @@ body {
 }
 .role-badge { padding: 4px 12px; font-size: 10px; font-weight: 700; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge-admin  { background: rgba(255, 23, 68, 0.1); color: var(--danger); border: 1px solid rgba(255, 23, 68, 0.25); }
-.badge-doctor { background: rgba(0, 229, 255, 0.1); color: var(--info); border: 1px solid rgba(0, 229, 255, 0.25); }
-.badge-vip    { background: rgba(255, 179, 0, 0.1); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.25); }
+.badge-practitioner { background: rgba(0, 229, 255, 0.1); color: var(--info); border: 1px solid rgba(0, 229, 255, 0.25); }
+.badge-client       { background: rgba(255, 179, 0, 0.1); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.25); }
 .badge-private   { background: rgba(255, 179, 0, 0.08); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.15); }
 .badge-shared    { background: rgba(0, 230, 118, 0.08); color: var(--success); border: 1px solid rgba(0, 230, 118, 0.15); }
 .badge-emergency { background: rgba(255, 23, 68, 0.08); color: var(--danger); border: 1px solid rgba(255, 23, 68, 0.15); }

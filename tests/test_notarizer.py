@@ -54,7 +54,7 @@ class TestBlockchainNotarizer(unittest.TestCase):
     def test_notarization_anchor_is_a_real_signature(self):
         from core.security import signaturedata
 
-        patient_id = "VIP-TEST-100"
+        patient_id = "CL-TEST-100"
         project_name = self.record_service._get_project_name(patient_id)
 
         # Add a block to the patient's chain
@@ -80,7 +80,7 @@ class TestBlockchainNotarizer(unittest.TestCase):
         self.assertEqual(verification["reason"], "Match")
 
     def test_verify_on_chain_unanchored(self):
-        patient_id = "VIP-UNANCHORED-999"
+        patient_id = "CL-UNANCHORED-999"
 
         # Querying verification for non-existent chain
         verification = self.notarizer.verify_on_chain(patient_id)

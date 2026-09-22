@@ -58,7 +58,7 @@ class TestOnboarding(unittest.TestCase):
 
     def _provision(self, token=None, **overrides):
         body = {"username": self.username, "full_name": "New VIP",
-                "role": "client", "patient_id": "VIP-777"}
+                "role": "client", "patient_id": "CL-777"}
         body.update(overrides)
         return self.client.post("/api/v1/onboarding/provision",
                                 headers=self._auth(token or self.admin.json()["access_token"]),
@@ -70,7 +70,7 @@ class TestOnboarding(unittest.TestCase):
                                       "new_password": new_password})
 
     def test_provision_requires_a_privileged_role(self):
-        doctor = self._login("dr.smith", "Doctor@2026Secure!").json()["access_token"]
+        doctor = self._login("psk.elif", "Practitioner@2026!").json()["access_token"]
         res = self._provision(token=doctor)
         self.assertEqual(res.status_code, 403, res.text)
 

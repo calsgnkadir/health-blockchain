@@ -215,27 +215,29 @@ class SQLDatabaseManager:
                     False
                 ),
                 (
-                    "USR-DOC-001",
-                    "dr.smith",
-                    hash_password("Doctor@2026Secure!"),
+                    # New id: an old database still holds "USR-DOC-001" for the
+                    # pre-Mahrem demo doctor, and reusing it breaks the insert.
+                    "USR-PRAC-001",
+                    "psk.elif",
+                    hash_password("Practitioner@2026!"),
                     "practitioner",
-                    "Prof. Dr. James Smith",
-                    "Cardiology",
-                    "VIP Medical Center",
+                    "Uzm. Psk. Elif Yılmaz",
+                    "Clinical Psychology",
+                    "Mahrem Psychology Practice",
                     None,
                     None,
                     None,
                     False
                 ),
                 (
-                    "USR-VIP-001",
-                    "vip001",
-                    hash_password("VIPPatient@2026!"),
+                    "USR-CL-001",
+                    "client001",
+                    hash_password("Client@2026Secure!"),
                     "client",
                     "Ahmet Karataş",
                     None,
                     None,
-                    "VIP-001",
+                    "CL-001",
                     "TOP_SECRET",
                     None,
                     False
@@ -280,6 +282,16 @@ class SQLDatabaseManager:
                     continue
                 cursor.execute(insert_sql, account)
                 seeded += 1
+
+            # Demo accounts from before the Mahrem rename. Their passwords are
+            # published in old READMEs, so an old database must not keep them
+            # usable. Disabled, not deleted: their audit history stays intact.
+            cursor.execute(
+                "UPDATE users SET account_status = 'DISABLED' WHERE username IN (%s, %s)"
+                if self.is_postgres else
+                "UPDATE users SET account_status = 'DISABLED' WHERE username IN (?, ?)",
+                LEGACY_DEMO_USERNAMES,
+            )
             conn.commit()
             if seeded:
                 logger.info(f"[SQL DB] Default users seeded successfully ({seeded} account(s)).")
@@ -289,6 +301,9 @@ class SQLDatabaseManager:
         finally:
             cursor.close()
             conn.close()
+
+# Pre-Mahrem demo accounts, switched off by seed_default_users().
+LEGACY_DEMO_USERNAMES = ("dr.smith", "vip001")
 
 # Singleton instance
 default_sql_db = SQLDatabaseManager()

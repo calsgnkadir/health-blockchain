@@ -15,8 +15,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-DEMO_PATIENT_ID = "VIP-001"
-DEMO_DOCTOR = "dr.smith"
+DEMO_PATIENT_ID = "CL-001"
+DEMO_DOCTOR = "psk.elif"
 
 # Documented in the README and shown on the login screen's demo panel.
 DEMO_RECORD_PASSWORD = "DemoRecord@2026!"
@@ -151,7 +151,7 @@ def seed_demo_chart() -> bool:
     handler.handle_grant_consent(GrantConsentCommand(
         patient_id=DEMO_PATIENT_ID, doctor_username=DEMO_DOCTOR,
         record_type="all", duration_days=90, duration_hours=None,
-        username="vip001",
+        username="client001",
     ))
     return True
 

@@ -43,8 +43,8 @@ class TestTimeBoundConsent(unittest.TestCase):
         self.command_handler = CommandHandler(self.record_service, self.auth_service, self.block_repo)
         self.query_handler = QueryHandler(self.record_service, self.block_repo, self.consent_validator, self.notif_repo)
 
-        self.patient_id = f"VIP-TEST-{self._testMethodName.upper()}"
-        self.doctor = "dr.smith"
+        self.patient_id = f"CL-TEST-{self._testMethodName.upper()}"
+        self.doctor = "psk.elif"
         proj_name = self.record_service._get_project_name(self.patient_id)
         try:
             self.block_repo.reset_db(proj_name)

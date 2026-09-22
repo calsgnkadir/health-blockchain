@@ -56,7 +56,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
         os.environ["TESTING"] = "true"
         self.client = TestClient(app)
         res = self.client.post("/api/v1/auth/login",
-                               json={"username": "vip001", "password": "VIPPatient@2026!"})
+                               json={"username": "client001", "password": "Client@2026Secure!"})
         self.headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
 
     def test_special_characters_round_trip_unchanged(self):
@@ -65,7 +65,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
         task = "Rate anxiety <5 & note triggers"
 
         res = self.client.post("/api/v1/records", headers=self.headers, json={
-            "patient_id": "VIP-001",
+            "patient_id": "CL-001",
             "record_type": "homework",
             "title": "Fidelity check",
             "doctor_name": doctor,
@@ -78,7 +78,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
         })
         self.assertEqual(res.status_code, 200, res.text)
 
-        records = self.client.get("/api/v1/records/VIP-001", headers=self.headers).json()["records"]
+        records = self.client.get("/api/v1/records/CL-001", headers=self.headers).json()["records"]
         stored = next(r for r in records if r["title"] == "Fidelity check")
         self.assertEqual(stored["doctor_name"], doctor)
         self.assertEqual(stored["institution"], institution)
@@ -92,7 +92,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
         """
         title = "Entity check"
         self.client.post("/api/v1/records", headers=self.headers, json={
-            "patient_id": "VIP-001",
+            "patient_id": "CL-001",
             "record_type": "treatment_plan",
             "title": title,
             "doctor_name": "Prof. Müller & Sons",
@@ -104,7 +104,7 @@ class TestClinicalTextFidelity(unittest.TestCase):
             "notes": "",
         })
 
-        records = self.client.get("/api/v1/records/VIP-001", headers=self.headers).json()["records"]
+        records = self.client.get("/api/v1/records/CL-001", headers=self.headers).json()["records"]
         stored = str(next(r for r in records if r["title"] == title))
         self.assertNotIn("&amp;", stored)
         self.assertNotIn("&lt;", stored)

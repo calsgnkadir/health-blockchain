@@ -27,7 +27,7 @@ from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 class TestConcurrentWrites(unittest.TestCase):
     def setUp(self):
         os.environ["TESTING"] = "true"
-        self.patient = "VIP-CONCUR-777"
+        self.patient = "CL-CONCUR-777"
         self.repo = LMDBBlockRepository()
         self.service = RecordService(self.repo, AESGCMStrategy())
         self.handler = CommandHandler(self.service, None, self.repo)

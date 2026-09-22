@@ -138,8 +138,8 @@ class UserCreate(BaseModel):
     @classmethod
     def validate_patient_id(cls, v):
         if v is not None:
-            if not re.match(r"^VIP-[0-9]{3,}$", v):
-                raise ValueError("Patient ID must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
+            if not re.match(r"^CL-[0-9]{3,}$", v):
+                raise ValueError("Patient ID must follow format CL-[0-9]{3,} (e.g., CL-001)")
         return v
 
 
@@ -159,8 +159,8 @@ class ConsentReq(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def validate_patient_id(cls, v):
-        if not re.match(r"^VIP-[0-9]{3,}$", v):
-            raise ValueError("patient_id must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
+        if not re.match(r"^CL-[0-9]{3,}$", v):
+            raise ValueError("patient_id must follow format CL-[0-9]{3,} (e.g., CL-001)")
         return v
 
     @field_validator("doctor_username")
@@ -224,8 +224,8 @@ class RecordCreate(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def validate_patient_id(cls, v):
-        if not re.match(r"^VIP-[0-9]{3,}$", v):
-            raise ValueError("patient_id must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
+        if not re.match(r"^CL-[0-9]{3,}$", v):
+            raise ValueError("patient_id must follow format CL-[0-9]{3,} (e.g., CL-001)")
         return v
 
     @field_validator("record_type")
@@ -434,8 +434,8 @@ class ProvisionAccountReq(BaseModel):
     def validate_patient_id(cls, v):
         if v in (None, ""):
             return v
-        if not re.match(r"^VIP-[0-9]{3,}$", v):
-            raise ValueError("Patient ID must follow format VIP-[0-9]{3,} (e.g., VIP-001)")
+        if not re.match(r"^CL-[0-9]{3,}$", v):
+            raise ValueError("Patient ID must follow format CL-[0-9]{3,} (e.g., CL-001)")
         return v
 
     @field_validator("full_name", "specialty", "institution", "clearance")

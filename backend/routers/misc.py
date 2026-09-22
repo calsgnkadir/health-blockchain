@@ -173,8 +173,8 @@ def get_config():
     if demo_mode:
         accounts = [
             {"role": "ADMIN", "username": "admin", "password": "Admin@2026Secure!"},
-            {"role": "DOCTOR", "username": "dr.smith", "password": "Doctor@2026Secure!"},
-            {"role": "VIP", "username": "vip001", "password": "VIPPatient@2026!"},
+            {"role": "PRACTITIONER", "username": "psk.elif", "password": "Practitioner@2026!"},
+            {"role": "CLIENT", "username": "client001", "password": "Client@2026Secure!"},
             {"role": "SECOFF", "username": "sec.officer", "password": "SecOfficer@2026!"}
         ]
     return {
