@@ -21,7 +21,9 @@
 - **Vector:** Attempts network scanning, credential brute-forcing, IP header spoofing (`X-Forwarded-For`), and API exploitation over public networks.
 - **Countermeasures:**
   - `IPAllowlistMiddleware` & `resolve_secure_client_ip`: Blocks untrusted socket IPs attempting header spoofing.
-  - Rate Limiting (`RateLimiterMiddleware`): Prevents brute-force credential stuffing.
+  - Rate Limiting (`RateLimiterMiddleware`): 5 sign-in attempts per IP per minute on password login, passkey
+    login and invitation-code redemption. It used to match `/api/auth/login`, a path that does not exist (the
+    API is under `/api/v1`), so it never applied; `tests/test_rate_limit.py` now pins it.
   - XSS Protection & Strict Security Headers (`XSSProtectionMiddleware`).
 
 ### Threat Actor 2: Compromised Administrator (Rogue Insider)
