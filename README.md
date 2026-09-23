@@ -152,7 +152,7 @@ seeded in any other configuration, and an existing chart is never overwritten.
 | `admin` | `Admin@2026Secure!` | records locked by Dual-Control until a second principal co-signs |
 | `sec.officer` | `SecOfficer@2026!` | the co-signing side of Dual-Control |
 
-The encrypted demo record opens with `DemoRecord@2026!`.
+The client's encrypted journal entry opens with `DemoRecord@2026!`.
 
 Optional environment variables: `VHV_WEBAUTHN_RP_ID` / `VHV_WEBAUTHN_ORIGINS`
 pin passkey verification to a specific host — see `.env.example`.

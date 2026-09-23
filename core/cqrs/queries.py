@@ -4,6 +4,7 @@ from typing import Any, Optional, List
 from core.ports.repositories import IBlockRepository, INotificationRepository
 from core.services.record_service import RecordService
 from core.services.consent_validator import ConsentValidator
+from core.services import access_policy
 import database.storage as storage
 
 class GetPatientRecordsQuery:
@@ -52,6 +53,7 @@ class QueryHandler:
         chain = self.record_service.get_chain(patient_id)
         final_data = self.record_service.get_final_data(patient_id)
         corrections = self.record_service.get_corrections_index(patient_id)
+        has_consent = lambda record_type: self.consent_validator.has_consent(patient_id, username, record_type)
         records = []
 
         for block in chain:
@@ -70,16 +72,10 @@ class QueryHandler:
             if isinstance(data, dict) and data.get("type") == "audit":
                 continue
 
-            # A practitioner sees a record only with the client's consent for its
-            # type (or for all records). Records without consent are left out of
-            # the list entirely rather than shown as locked entries.
-            if role == "practitioner":
-                rec_type = data.get("record_type", "other") if isinstance(data, dict) else "other"
-                if not self.consent_validator.has_consent(patient_id, username, rec_type):
-                    continue
-
-            # Client-only ("private") records are never shown to a practitioner.
-            if role == "practitioner" and isinstance(data, dict) and data.get("access_level") == "private":
+            # The shared access policy decides (core/services/access_policy.py).
+            # Records the user may not see are left out of the list entirely
+            # rather than shown as locked entries.
+            if not access_policy.can_view_stored(role, username, data, has_consent):
                 continue
 
             entry = {
@@ -141,10 +137,15 @@ class QueryHandler:
             password=query.password,
             username=query.requester_username
         )
-        # Same rule as the record list: a client-only record stays hidden from a
-        # practitioner, even one holding its password.
-        if is_practitioner and isinstance(data, dict) and data.get("access_level") == "private":
-            return "SECURE — this record is visible to the client only."
+        # Same rule as the record list, applied now that the real access level is
+        # known: a client-only record stays hidden from a practitioner, and a
+        # practitioner's own note from the client, even for someone holding the
+        # password.
+        if isinstance(data, dict) and not access_policy.can_view(
+                query.requester_role, query.requester_username, data,
+                lambda record_type: self.consent_validator.has_consent(
+                    query.patient_id, query.requester_username, record_type)):
+            return "SECURE — you do not have access to this record."
         return data
 
     def handle_get_notifications(self, query: GetNotificationsQuery) -> List[dict]:

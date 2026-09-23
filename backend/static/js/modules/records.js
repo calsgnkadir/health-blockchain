@@ -19,13 +19,34 @@ export const TYPE_LABELS = {
   unknown:        'Unknown',
 };
 
-const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared' };
-const ACCESS_LABELS = { private:'Client Only', doctor_shared:'Client + Practitioner' };
+const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared', practitioner_only:'badge-practitioner-only' };
+const ACCESS_LABELS = { private:'Client Only', doctor_shared:'Client + Practitioner', practitioner_only:'Practitioner Only' };
+// The levels each role may give a new record. Mirrors CREATABLE_LEVELS in
+// core/services/access_policy.py; the server checks it again.
+const CREATABLE_LEVELS = {
+  client:       ['doctor_shared', 'private'],
+  practitioner: ['doctor_shared', 'practitioner_only'],
+};
+
+function fillAccessSelect(levels) {
+  const sel = document.getElementById('rec-access');
+  if (!sel) return;
+  const role = (getCurrentUser() || {}).role;
+  const allowed = CREATABLE_LEVELS[role] || levels.map(l => l.value);
+  sel.innerHTML = '';
+  levels.filter(l => allowed.includes(l.value)).forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.value;
+    o.textContent = l.label;
+    sel.appendChild(o);
+  });
+}
 
 export async function loadRecordTypes() {
   try {
     const d = await apiFetch('/api/record-types');
     recordTypes = d.types;
+    fillAccessSelect(d.access_levels || []);
     
     const sel = document.getElementById('rec-type');
     if (sel) {

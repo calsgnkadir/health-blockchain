@@ -41,10 +41,15 @@
 - **Vector:** A practitioner with consent for *some* of a client's records tries to reach more: other record
   types, client-only notes, attachments, or a correction that widens who may see a record.
 - **Countermeasures:**
-  - **One consent rule on every record endpoint** (`_practitioner_may_access`): consent for the record's own
-    type (or all records) on the list, decryption, corrections and attachment downloads. Attachments used to
-    accept consent for *any* type; an encrypted record needs consent for all records before it is decrypted, so
-    the endpoint cannot be used to test passwords.
+  - **One access policy for every record endpoint** (`core/services/access_policy.py`, ADR-0003): consent for
+    the record's own type (or all records) on the list, single record, decryption, corrections, attachment
+    downloads and Merkle proofs. The single-record endpoint used to check nothing for a practitioner — any
+    practitioner could read any client's unprotected records by walking block numbers (an IDOR). An encrypted
+    record needs consent for all records before it is decrypted, so no endpoint can be used to test passwords.
+  - **No consent, no file:** without an active consent a practitioner gets the same `403` for a client's records,
+    chain status and proofs as for a client who does not exist, so client IDs cannot be probed. Writing into a
+    file needs consent too, and notifications are readable by the client only.
+  - **Practitioner-only notes** (process notes) are visible to their author only, never to the client.
   - **Client-only records stay hidden** from practitioners, even one holding the record's password.
   - **Corrections cannot change the access level** — who may see a record is not content.
   - **No emergency override.** Break-glass was removed: a private practice has no emergency-access need that
@@ -59,7 +64,7 @@
 | External Attacker | `X-Forwarded-For` IP Spoofing | IP Peer Host Verification | `backend.middleware.ip_allowlist.resolve_secure_client_ip` |
 | Rogue Administrator | Unauthorized PHI Query | Dual-Control Co-Signature | `core.services.dual_control.DualControlEngine` |
 | Stolen Hardware Passkey | Stolen YubiKey Credential | Hardware Passkey Revocation API | `POST /api/v1/auth/webauthn/revoke` |
-| Curious Practitioner | Reading beyond consent | Per-type consent rule on every record endpoint | `backend.routers.records._practitioner_may_access` |
+| Curious Practitioner | Reading beyond consent | One access policy (file + record level) on every record endpoint | `core.services.access_policy` |
 
 ---
 

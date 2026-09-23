@@ -19,5 +19,7 @@ The VIP Health Vault Consent Engine enforces time-bound, fine-grained access del
      consent for that record type, and client-only (`private`) records are never shown to a practitioner.
    - A hospital needs emergency access; a private psychology practice does not — and an override that
      bypasses consent is exactly the path an insider would abuse. It was removed rather than kept "just in case".
-   - One rule enforces this on every record endpoint: the list, decryption, corrections and attachment
-     downloads (`_practitioner_may_access` in `backend/routers/records.py`, mirroring `core/cqrs/queries.py`).
+   - One policy enforces this on every record endpoint: the list, single record, decryption, corrections,
+     attachment downloads and proofs (`core/services/access_policy.py`, see ADR-0003).
+   - Without any active consent the whole file is closed to the practitioner, and writing a record needs
+     the same consent as reading one.

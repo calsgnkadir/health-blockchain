@@ -17,6 +17,7 @@ from typing import List
 
 DEMO_PATIENT_ID = "CL-001"
 DEMO_DOCTOR = "psk.elif"
+DEMO_CLIENT = "client001"
 
 # Documented in the README and shown on the login screen's demo panel.
 DEMO_RECORD_PASSWORD = "DemoRecord@2026!"
@@ -104,14 +105,23 @@ def _demo_chart() -> List[dict]:
     ]
 
 
-def _confidential_record() -> dict:
-    # A process note: the therapist's own reflections, encrypted with an extra
-    # password on top of the at-rest encryption.
-    record = _record("session_note", "Confidential process note", {
+def _process_note() -> dict:
+    # A process note: the therapist's own reflections. Only the practitioner who
+    # wrote it can see it — the client's view of their file leaves it out.
+    return _record("session_note", "Process note — session 3", {
         "session_number": "3", "duration_min": "50", "session_format": "Online",
-        "summary": "Therapist reflections on transference; not for the client file.",
-    }, days_ago=14, access_level="private")
-    record["is_confidential"] = True
+        "summary": "Own reflections on transference; not for the client file.",
+    }, days_ago=14, access_level="practitioner_only")
+
+
+def _client_journal() -> dict:
+    # The client's own journal entry: client-only, and locked with an extra
+    # password on top of the at-rest encryption. The practitioner never sees it.
+    record = _record("other", "My journal — after the first exposure step", {},
+                     days_ago=10, access_level="private",
+                     notes="Took the bus two stops. Heart racing, but I stayed on.")
+    record.update({"doctor_name": "", "institution": "",
+                   "created_by": DEMO_CLIENT, "is_confidential": True})
     return record
 
 
@@ -142,8 +152,12 @@ def seed_demo_chart() -> bool:
         ))
 
     handler.handle_add_record(AddRecordCommand(
-        patient_id=DEMO_PATIENT_ID, data=_confidential_record(),
-        is_protected=True, protection_password=DEMO_RECORD_PASSWORD, username=DEMO_DOCTOR,
+        patient_id=DEMO_PATIENT_ID, data=_process_note(),
+        is_protected=False, protection_password=None, username=DEMO_DOCTOR,
+    ))
+    handler.handle_add_record(AddRecordCommand(
+        patient_id=DEMO_PATIENT_ID, data=_client_journal(),
+        is_protected=True, protection_password=DEMO_RECORD_PASSWORD, username=DEMO_CLIENT,
     ))
 
     # Without a consent grant the demo doctor signs in to an empty chart, which
@@ -151,7 +165,7 @@ def seed_demo_chart() -> bool:
     handler.handle_grant_consent(GrantConsentCommand(
         patient_id=DEMO_PATIENT_ID, doctor_username=DEMO_DOCTOR,
         record_type="all", duration_days=90, duration_hours=None,
-        username="client001",
+        username=DEMO_CLIENT,
     ))
     return True
 

@@ -15,10 +15,12 @@ RECORD_TYPES = {
     "other":          "Other",
 }
 
+# Who may see a record; the rules are in core/services/access_policy.py.
+# The stored values are kept from the old vault so existing records still load.
 ACCESS_LEVELS = {
-    "private":        "Patient Only",
-    "doctor_shared":  "Patient + Doctor",
-    "admin_only":     "Administrator Only",
+    "doctor_shared":     "Client + Practitioner",
+    "private":           "Client Only",
+    "practitioner_only": "Practitioner Only",
 }
 
 def sanitize_html(v: str) -> str:

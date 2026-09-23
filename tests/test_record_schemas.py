@@ -19,7 +19,8 @@ from backend.schemas.requests import (
     DATA_SCHEMAS, RECORD_TYPES, AssessmentSchema, SessionNoteSchema, HomeworkSchema,
     RecordCreate,
 )
-from backend.demo_seed import _demo_chart, _confidential_record
+from backend.demo_seed import _demo_chart, _process_note, _client_journal, DEMO_CLIENT
+from core.services.access_policy import CREATABLE_LEVELS
 
 
 class TestRecordSchemas(unittest.TestCase):
@@ -28,10 +29,13 @@ class TestRecordSchemas(unittest.TestCase):
             self.assertIn(record_type, RECORD_TYPES)
 
     def test_demo_file_passes_the_api_schemas(self):
-        for record in _demo_chart() + [_confidential_record()]:
+        for record in _demo_chart() + [_process_note(), _client_journal()]:
             schema = DATA_SCHEMAS.get(record["record_type"])
             if schema:
                 schema(**record["data"])  # raises if the demo drifts from the rules
+            # ...and each record's access level is one its author could choose.
+            role = "client" if record["created_by"] == DEMO_CLIENT else "practitioner"
+            self.assertIn(record["access_level"], CREATABLE_LEVELS[role])
 
     def test_score_above_max_is_rejected(self):
         with self.assertRaises(ValidationError):

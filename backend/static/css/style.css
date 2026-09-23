@@ -743,6 +743,7 @@ body {
 .badge-client       { background: rgba(255, 179, 0, 0.1); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.25); }
 .badge-private   { background: rgba(255, 179, 0, 0.08); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.15); }
 .badge-shared    { background: rgba(0, 230, 118, 0.08); color: var(--success); border: 1px solid rgba(0, 230, 118, 0.15); }
+.badge-practitioner-only { background: rgba(129, 140, 248, 0.1); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.25); }
 .badge-encrypted { background: rgba(255, 179, 0, 0.1); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.25); }
 
 /* ── Form ───────────────────────────────────────── */
