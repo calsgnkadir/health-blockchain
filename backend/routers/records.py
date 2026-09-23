@@ -16,7 +16,7 @@ from backend.dependencies import (
 from core.ports.repositories import INotificationRepository
 from core.services.attachment_store import AttachmentStore
 from backend.schemas.requests import (
-    RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES,
+    RecordCreate, DecryptRequest, CorrectionCreate, RECORD_TYPES, DATA_SCHEMAS,
     VitalSignsSchema, AllergySchema, PrescriptionSchema, VaccinationSchema,
     LabResultSchema, DiagnosisSchema, SurgerySchema, ImagingSchema
 )
@@ -42,6 +42,12 @@ from core.pseudonymization.service import project_name_for
 def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
+
+# The fields a correction may supersede — the same ones the record form sends.
+CORRECTABLE_FIELDS = (
+    "record_type", "title", "doctor_name", "institution",
+    "record_date", "access_level", "data", "notes",
+)
 
 # Operator roles that administer the vault but have no clinical relationship with
 # the patient. None of them may read raw records on their own authority.
@@ -417,11 +423,24 @@ def correct_record(
             if not has_access:
                 raise HTTPException(403, "Patient consent is required to correct this record")
 
-    # Build the superseding record from the submitted content, keeping identity
-    # and provenance fields consistent with the original.
-    corrected = dict(req.corrected_data)
-    corrected["record_type"] = corrected.get("record_type", rec_type)
-    corrected["record_type_label"] = RECORD_TYPES.get(corrected["record_type"], corrected.get("record_type_label", ""))
+    # A correction must pass the same checks as a new record: this endpoint used
+    # to store corrected_data as-is, so any record_type, any data shape and any
+    # extra key went straight onto the chain. Fields the client leaves out are
+    # taken from the original; keys outside CORRECTABLE_FIELDS are dropped.
+    merged = {k: original[k] for k in CORRECTABLE_FIELDS if original.get(k) is not None}
+    merged.update({k: v for k, v in req.corrected_data.items() if k in CORRECTABLE_FIELDS})
+    merged.setdefault("record_type", rec_type)
+    try:
+        checked = RecordCreate(patient_id=patient_id, **merged)
+        schema = DATA_SCHEMAS.get(checked.record_type)
+        if schema:
+            schema(**checked.data)
+    except ValidationError as e:
+        err_msgs = [".".join(str(x) for x in err["loc"]) + ": " + err["msg"] for err in e.errors()]
+        raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
+
+    corrected = checked.model_dump(include=set(CORRECTABLE_FIELDS))
+    corrected["record_type_label"] = RECORD_TYPES[checked.record_type]
     corrected["patient_id"] = patient_id
     corrected["created_by"] = u["username"]
     corrected["created_at"] = datetime.now(timezone.utc).isoformat()

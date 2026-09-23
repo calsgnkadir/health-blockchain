@@ -65,17 +65,50 @@ field) would be reflected into the DOM. Lower likelihood than #1, but the same
 class, and inconsistent with the rest of the file. All now go through
 `escapeHtml()`.
 
+## Round 2: what round 1 missed
+
+Round 1 was not complete. Reading every template in the web UI line by line —
+not only the ones reached from the obvious sources — turned up more sinks that
+round 1 had passed over:
+
+| Sink | What reached `innerHTML` raw | Impact |
+|---|---|---|
+| Decrypted-record view (`decryptRecord`) | title, notes, doctor, institution, date, created-by of a **confidential** record | Stored XSS in whoever decrypts the record — the plain record view escaped these fields, the confidential one did not |
+| Attachment view (`renderAttachmentHtml`) | file **name**, **type** and **data** | Stored XSS through a crafted file name; the type and data sat inside `<img src="data:TYPE;base64,DATA">`, where a `"` breaks out of the attribute |
+| Dashboard vital-signs fallback table | temperature, heart rate, SpO2, blood pressure | New records are schema-checked, but corrections were not (see below), so a correction could plant markup that this table rendered |
+| Dashboard error panel | `${e.message \|\| 'Unknown error'}` | The same error text round 1 fixed, written slightly differently — so the round-1 guard never matched it |
+| `emptyState(msg)` helper | `msg` | Only called with constants today; escaped anyway so a future dynamic caller is safe |
+
+Why round 1 missed them: the manual pass started from the obvious sources (the
+search box, error handlers) instead of enumerating **every** template sink, and
+the regression guard was a denylist of three exact strings — it could only catch
+the bugs already known, and a trivial variation slipped past it.
+
+Fixes: every value above is escaped at the point it is built. The server now
+refuses what the client used to trust: `file_type` must be a plain MIME type,
+`file_data` must be real base64, `file_name` must be printable. And the
+correction endpoint — which stored `corrected_data` as-is, so any record type,
+data shape or extra key went onto the chain — now runs a correction through the
+same validation as a new record and drops unknown fields.
+
 ## Regression guard
 
-`tests/test_frontend_xss.py` is a static (no browser, no server) CI check that:
+`tests/test_frontend_xss.py` is a static (no browser, no server) CI check. After
+round 2 it is a **rule, not a list of known bugs**:
 
-- fails if a bare `${query}`, `${e.message}` or `${err.message}` ever reappears in
-  the shipped JS (i.e. an interpolation that skips `escapeHtml()`);
-- asserts the specific command-palette branch stays encoded;
-- asserts `escapeHtml()` still encodes all five HTML-significant characters
-  (`& < > " '`).
+- any `${...}` that reads from an untrusted source — error text, a record / user /
+  log field, a file name, user input — must be wrapped in `escapeHtml()`;
+- the few expressions that touch such a source but are provably safe (numbers,
+  ternaries that only yield constants, a localStorage key) are listed by hand in
+  `REVIEWED_SAFE`, each with a reason;
+- a self-check asserts the rule flags every sink from rounds 1 and 2, including
+  the `|| 'Unknown error'` variant, so the rule cannot quietly be loosened;
+- `escapeHtml()` must still encode all five HTML-significant characters.
 
-If someone later "simplifies" a sink back to a raw interpolation, the build breaks.
+A new raw interpolation of untrusted data fails CI until it is escaped or
+explicitly reviewed. The check is regex-level — it cannot follow data through
+variables — which is why values are escaped where they are built
+(`const name = escapeHtml(fileName)`), leaving only safe variables to interpolate.
 
 ## Cross-check with a static analyzer (and its blind spot)
 
@@ -92,8 +125,9 @@ finding on its own. Its taint seeds are URL/storage/message sources; it does not
 treat a DOM input's `.value` as a source, because same-page input reflection is a
 weaker (often self-XSS) class. The command-palette bug was exactly in that blind
 spot, and the **manual** source→sink pass is what found it. A heuristic tool is a
-net over the common cases, not a proof of absence — which is why the regression
-guard above pins the specific sinks rather than trusting a scan to stay clean.
+net over the common cases, not a proof of absence — round 2 proved the same about
+a hand audit that starts from the obvious sources. That is why the regression
+guard above is a rule applied to every template, not a trust in any one scan.
 
 ## Note on scope
 

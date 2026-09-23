@@ -598,8 +598,8 @@ async function checkEnvironment() {
         if (demoList && config.demo_accounts) {
           demoList.innerHTML = config.demo_accounts.map(acc => `
             <div class="demo-item" data-action="fill-credentials" data-arg="${escapeHtml(acc.username)}" data-arg2="${escapeHtml(acc.password)}">
-              <span class="role-badge badge-${acc.role.toLowerCase()}">${acc.role}</span>
-              <span>${acc.username} / ${acc.password}</span>
+              <span class="role-badge badge-${escapeHtml(acc.role.toLowerCase())}">${escapeHtml(acc.role)}</span>
+              <span>${escapeHtml(acc.username)} / ${escapeHtml(acc.password)}</span>
             </div>
           `).join('');
         }

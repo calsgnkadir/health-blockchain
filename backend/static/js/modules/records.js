@@ -127,6 +127,13 @@ export function renderRecordCard(r) {
 export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal, blockIndexVal, passwordVal = null) {
   if (!fileData && !fileName) return '';
 
+  // The file name, type and data all come from whoever uploaded the record, so
+  // each is escaped before it reaches innerHTML — including inside the img
+  // src, where a quote in the type or data would break out of the attribute.
+  const name = escapeHtml(fileName || '');
+  const type = escapeHtml(fileType || 'Unknown');
+  const data = escapeHtml(fileData || '');
+
   let previewHtml = '';
   // Check if we have off-chain hash instead of inline base64 data
   const hasOffchain = !fileData && fileName;
@@ -135,8 +142,8 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
     previewHtml = `
       <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: rgba(255,255,255,0.02); display:flex; justify-content:space-between; align-items:center;">
         <div style="text-align:left">
-          <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${fileName} [Off-chain Blockchain Locked]</div>
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${fileType || 'Unknown'}</div>
+          <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${name} [Off-chain Blockchain Locked]</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${type}</div>
         </div>
         <button class="btn btn-gold btn-sm" data-action="download-offchain" data-arg="${stashPayload({ patientId: patientIdVal, blockIndex: blockIndexVal, password: passwordVal || '', fileName })}">Download Secure File</button>
       </div>
@@ -144,8 +151,8 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
   } else if (fileType && fileType.startsWith('image/')) {
     previewHtml = `
       <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; background: rgba(255,255,255,0.02);">
-        <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">IMAGE ATTACHMENT: ${fileName}</div>
-        <img src="data:${fileType};base64,${fileData}" style="max-width:100%; max-height:240px; border-radius:4px; display:block; margin:0 auto;" />
+        <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">IMAGE ATTACHMENT: ${name}</div>
+        <img src="data:${type};base64,${data}" style="max-width:100%; max-height:240px; border-radius:4px; display:block; margin:0 auto;" />
         <button class="btn btn-gold btn-sm" style="margin-top:10px; width:100%" data-action="download-attachment" data-arg="${stashPayload({ fileName, fileType, fileData })}">Download Image</button>
       </div>
     `;
@@ -153,8 +160,8 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
     previewHtml = `
       <div style="margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: rgba(255,255,255,0.02); display:flex; justify-content:space-between; align-items:center;">
         <div style="text-align:left">
-          <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${fileName}</div>
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${fileType || 'Unknown'}</div>
+          <div style="font-weight:600; font-size:13px; color:#fff;">📄 ${name}</div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Type: ${type}</div>
         </div>
         <button class="btn btn-gold btn-sm" data-action="download-attachment" data-arg="${stashPayload({ fileName, fileType, fileData })}">Download File</button>
       </div>
@@ -164,7 +171,7 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
 }
 
 export function downloadBase64File(fileName, fileType, fileData) {
-  const linkSource = `data:${fileType};base64,${fileData}`;
+  const linkSource = `data:${fileType};base64,${fileData}`; // xss-reviewed: set as an <a> href through the DOM, never parsed as HTML
   const downloadLink = document.createElement("a");
   downloadLink.href = linkSource;
   downloadLink.download = fileName;
@@ -225,7 +232,7 @@ export function parseFhirData(data) {
     if (data.component && data.component.length > 0) {
       data.component.forEach(c => {
         const compLabel = (c.code && c.code.coding && c.code.coding[0] && c.code.coding[0].display) || (c.code && c.code.text) || 'Component';
-        const compVal = c.valueQuantity ? `${c.valueQuantity.value} ${c.valueQuantity.unit || ''}` : (c.valueString || '—');
+        const compVal = c.valueQuantity ? `${c.valueQuantity.value} ${c.valueQuantity.unit || ''}` : (c.valueString || '—'); // xss-reviewed: escaped with escapeHtml(compVal) below
         fields += `<div class="modal-field"><div class="modal-field-label">${escapeHtml(compLabel)}</div><div class="modal-field-value">${escapeHtml(compVal)}</div></div>`;
       });
     }
@@ -244,7 +251,7 @@ export function parseFhirData(data) {
     }
     
     if (data.code) {
-      const codeVal = data.code.coding && data.code.coding[0] ? `${data.code.coding[0].code} - ${data.code.coding[0].display}` : (data.code.text || 'Unknown');
+      const codeVal = data.code.coding && data.code.coding[0] ? `${data.code.coding[0].code} - ${data.code.coding[0].display}` : (data.code.text || 'Unknown'); // xss-reviewed: escaped with escapeHtml(codeVal) below
       fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Diagnosis</div><div class="modal-field-value">${escapeHtml(codeVal)}</div></div>`;
     }
     
@@ -389,23 +396,26 @@ export async function decryptRecord(idx) {
     const isImaging = d.record_type === 'imaging';
     const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
+    // Every value is escaped, as in openRecord(). This view used to interpolate
+    // the decrypted fields raw — a stored XSS: a payload in a confidential
+    // record's title or notes ran in the browser of whoever decrypted it.
     document.getElementById('modal-content').innerHTML = `
-      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${d.title || (r ? r.title : '')}</h2>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${escapeHtml(d.title || (r ? r.title : ''))}</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${idx}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${typLabel}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${d.doctor_name||'—'}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${d.institution||'—'}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${d.record_date||'—'}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${ACCESS_LABELS[d.access_level]||d.access_level||'—'}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${escapeHtml(String(idx))}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(d.institution||'—')}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(d.record_date||'—')}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[d.access_level]||d.access_level||'—')}</div></div>
       </div>
       ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
-      ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${d.notes}</div></div>` : ''}
+      ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(d.notes)}</div></div>` : ''}
       ${dicomViewerHtml}
       ${attachmentHtml}
       <hr style="border-color:var(--border);margin:16px 0">
-      <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${r ? r.hash_preview : '—'}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${d.created_by||'—'}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r ? r.hash_preview : '—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(d.created_by||'—')}</div></div>
     `;
 
     if (isImaging) {

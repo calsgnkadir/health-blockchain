@@ -120,11 +120,11 @@ export function renderVitalsChart(records) {
     vitalsRecords.forEach(r => {
       html += `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-          <td style="padding:8px; font-family:var(--font-mono);">${r.date}</td>
-          <td style="padding:8px;">${r.v.temperature || '—'} °C</td>
-          <td style="padding:8px;">${r.v.heart_rate || '—'} bpm</td>
-          <td style="padding:8px;">${r.v.oxygen_sat || '—'} %</td>
-          <td style="padding:8px;">${r.v.blood_pressure || '—'}</td>
+          <td style="padding:8px; font-family:var(--font-mono);">${escapeHtml(r.date)}</td>
+          <td style="padding:8px;">${escapeHtml(String(r.v.temperature || '—'))} °C</td>
+          <td style="padding:8px;">${escapeHtml(String(r.v.heart_rate || '—'))} bpm</td>
+          <td style="padding:8px;">${escapeHtml(String(r.v.oxygen_sat || '—'))} %</td>
+          <td style="padding:8px;">${escapeHtml(String(r.v.blood_pressure || '—'))}</td>
         </tr>
       `;
     });
@@ -400,7 +400,7 @@ export async function loadDashboard() {
       recent.innerHTML = `
         <div class="alert alert-error" style="line-height:1.5">
           <strong>${isPolicyBlock ? 'Patient records are locked by policy' : 'Could not load dashboard data'}</strong><br>
-          ${e.message || 'Unknown error'}
+          ${escapeHtml(e.message || 'Unknown error')}
           ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' data-action=\"navigate\" data-arg=\"dual-control\">Open Dual-Control Access</button>" : ''}
         </div>`;
     }

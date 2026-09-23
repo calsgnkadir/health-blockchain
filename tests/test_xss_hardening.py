@@ -34,6 +34,31 @@ class TestXSSHardening(unittest.TestCase):
         res = self.client.get("/api/v1/health", headers=headers)
         self.assertEqual(res.status_code, 200)
 
+class TestAttachmentFieldValidation(unittest.TestCase):
+    """The attachment fields end up inside <img src="data:TYPE;base64,DATA"> on the
+    client, so the server refuses anything that could break out of that attribute."""
+
+    def _record(self, **overrides):
+        from backend.schemas.requests import RecordCreate
+        record = dict(patient_id="VIP-001", record_type="other", title="t",
+                      doctor_name="d", institution="i", record_date="2026-01-01", data={})
+        record.update(overrides)
+        return RecordCreate(**record)
+
+    def test_file_type_must_be_a_mime_type(self):
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            self._record(file_type='image/png" onerror="alert(1)')
+
+    def test_file_data_must_be_base64(self):
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            self._record(file_data='AAAA" onerror="alert(1)')
+
+    def test_valid_attachment_fields_pass(self):
+        self._record(file_name="scan.png", file_type="image/png", file_data="iVBORw0KGgo=")
+
+
 if __name__ == "__main__":
     unittest.main()
 

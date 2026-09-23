@@ -252,6 +252,29 @@ class RecordCreate(BaseModel):
             max_len = int(2 * 1024 * 1024 * 4 / 3)
             if len(v) > max_len:
                 raise ValueError("Attachment size exceeds the 2MB limit")
+            # The web client puts this inside <img src="data:...;base64,HERE">.
+            # Real base64 has no quotes or angle brackets to break out with.
+            if not re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", v):
+                raise ValueError("file_data must be base64-encoded")
+        return v
+
+    @field_validator("file_type")
+    @classmethod
+    def file_type_is_a_mime_type(cls, v):
+        # Also rendered into that data: URL, so only a plain MIME type is allowed.
+        if v is not None:
+            v = v.strip().lower()
+            if not re.fullmatch(r"[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*", v):
+                raise ValueError("file_type must be a MIME type such as image/png")
+        return v
+
+    @field_validator("file_name")
+    @classmethod
+    def file_name_is_printable(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not v or len(v) > 255 or any(ord(ch) < 32 for ch in v):
+                raise ValueError("file_name must be 1-255 printable characters")
         return v
 
 
@@ -438,6 +461,20 @@ class ImagingSchema(BaseModel):
     @classmethod
     def sanitize_strings(cls, v):
         return sanitize_html(v)
+
+
+# Which schema checks the `data` of each record type (used to validate
+# corrections the same way as new records). Unlisted types are free-form.
+DATA_SCHEMAS = {
+    "vital_signs":  VitalSignsSchema,
+    "allergy":      AllergySchema,
+    "prescription": PrescriptionSchema,
+    "vaccination":  VaccinationSchema,
+    "lab_result":   LabResultSchema,
+    "diagnosis":    DiagnosisSchema,
+    "surgery":      SurgerySchema,
+    "imaging":      ImagingSchema,
+}
 
 
 # ── Out-of-band onboarding ──────────────────────────────────────────
