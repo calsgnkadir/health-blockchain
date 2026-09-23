@@ -110,13 +110,13 @@ export function copyField(id) {
   if (el && el.value) navigator.clipboard?.writeText(el.value);
 }
 
-export function openClient(patientId) {
+export function openClient(patientId, page = 'records') {
   setSelectedPatient(patientId);
   const selector = document.getElementById('patient-selector-input');
   if (selector) selector.value = patientId;
   const recPatId = document.getElementById('rec-patient-id');
   if (recPatId) recPatId.value = patientId;
-  navigate('records');
+  navigate(page);
 }
 
 /* -- Client: redeem an invitation on the login screen ---------------- */

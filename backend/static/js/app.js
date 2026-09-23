@@ -456,6 +456,7 @@ window.loadConsents = loadConsents;
 window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
 window.loadClients = loadClients;
+window.openClientInPlace = (pid) => openClient(pid, 'dashboard');
 window.renderRecordCard = renderRecordCard;
 
 /* -- Security Settings Page Loader -------------------------------- */
@@ -887,7 +888,7 @@ registerActions('click', {
   'show-login':            (el, e) => { e.preventDefault(); showLogin(); },
 
   // clients (practitioner invitations)
-  'open-client':           (el) => openClient(arg(el)),
+  'open-client':           (el) => openClient(arg(el), arg2(el) || 'records'),
   'renew-invite':          (el) => renewInvite(arg(el)),
   'copy-field':            (el) => copyField(arg(el)),
 

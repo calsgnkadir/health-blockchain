@@ -223,10 +223,9 @@ def invite_client(
     }
 
 
-@router.get("/invitations", summary="My client invitations (practitioner)")
-def list_invitations(u: dict = Depends(require_role("practitioner"))):
-    """The clients this practitioner has invited, newest first. Only their own:
-    a practitioner learns nothing here about anyone else's clients."""
+def invitations_by(practitioner: str) -> list:
+    """The clients this practitioner has invited, newest first, with the
+    invitation's status: pending, expired, or active (the client joined)."""
     db = get_sql_db()
     conn = db.get_connection()
     cur = conn.cursor()
@@ -240,7 +239,7 @@ def list_invitations(u: dict = Depends(require_role("practitioner"))):
                 "GROUP BY u.patient_id, u.full_name, u.account_status "
                 "ORDER BY MAX(t.created_at) DESC"
             ),
-            (u["username"], "client"),
+            (practitioner, "client"),
         )
         rows = cur.fetchall()
     finally:
@@ -264,7 +263,14 @@ def list_invitations(u: dict = Depends(require_role("practitioner"))):
             "expires_at": expires_at,
             "invited_at": float(row[4]),
         })
-    return {"invitations": invitations}
+    return invitations
+
+
+@router.get("/invitations", summary="My client invitations (practitioner)")
+def list_invitations(u: dict = Depends(require_role("practitioner"))):
+    """Only their own: a practitioner learns nothing here about anyone else's
+    clients."""
+    return {"invitations": invitations_by(u["username"])}
 
 
 @router.post("/invitations/{patient_id}/renew", summary="Issue a new invitation code (practitioner)")

@@ -69,10 +69,11 @@ class ConsentValidator:
 
         return False
 
-    def has_any_consent(self, patient_id: str, doctor_username: str) -> bool:
+    def active_consents(self, patient_id: str, doctor_username: str) -> list:
         """
-        Does the practitioner hold ANY unexpired consent from this client? Without
-        one, the client's file is treated as if it did not exist for them.
+        The practitioner's unexpired consents from this client, as stored
+        ({doctor_username, record_type, expiry_timestamp, ...}). Empty if the
+        client has none for them — or does not exist.
 
         Matches the stored `doctor_username` exactly rather than the key prefix,
         because "consent_psk.elif_" is also a prefix of "consent_psk.elif_x_all".
@@ -80,14 +81,15 @@ class ConsentValidator:
         """
         project_name = self._get_project_name(patient_id)
         if not storage.project_exists(project_name):
-            return False
+            return []
 
         now = time.time()
+        found = []
         env = storage.open_db(project_name)
         with env.begin(write=False) as txn:
             cursor = txn.cursor()
             if not cursor.set_range(b"consent_"):
-                return False
+                return []
             for key, value in cursor:
                 if not key.startswith(b"consent_"):
                     break
@@ -96,5 +98,12 @@ class ConsentValidator:
                 except Exception:
                     continue
                 if data.get("doctor_username") == doctor_username and now < data.get("expiry_timestamp", 0):
-                    return True
-        return False
+                    found.append(data)
+        return found
+
+    def has_any_consent(self, patient_id: str, doctor_username: str) -> bool:
+        """
+        Does the practitioner hold ANY unexpired consent from this client? Without
+        one, the client's file is treated as if it did not exist for them.
+        """
+        return bool(self.active_consents(patient_id, doctor_username))

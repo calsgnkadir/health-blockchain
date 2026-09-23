@@ -77,9 +77,16 @@ export async function loadRecordTypes() {
 export async function loadRecords() {
   const container = document.getElementById('all-records');
   if (!container) return;
+  const pid = patientId();
+  if (!pid) {
+    // Asking for /records/null would only return a confusing 403.
+    allRecords = [];
+    container.innerHTML = emptyState('No client selected. Choose one on the Dashboard.');
+    return;
+  }
   container.innerHTML = '<div class="loading-spinner">Loading...</div>';
   try {
-    const d = await apiFetch(`/api/records/${patientId()}`);
+    const d = await apiFetch(`/api/records/${pid}`);
     allRecords = d.records;
     renderAllRecords();
   } catch(e) { 
