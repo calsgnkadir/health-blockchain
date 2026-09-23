@@ -18,7 +18,6 @@ RECORD_TYPES = {
 ACCESS_LEVELS = {
     "private":        "Patient Only",
     "doctor_shared":  "Patient + Doctor",
-    "emergency":      "Emergency Access",
     "admin_only":     "Administrator Only",
 }
 
@@ -183,15 +182,6 @@ class ConsentReq(BaseModel):
         if v is not None and v <= 0:
             raise ValueError("duration_hours must be positive")
         return v
-
-
-class BreakGlassReq(BaseModel):
-    reason: str
-
-    @field_validator("reason")
-    @classmethod
-    def sanitize_reason(cls, v):
-        return sanitize_html(v)
 
 
 # ── HEALTH RECORD SCHEMAS ───────────────────────────────────

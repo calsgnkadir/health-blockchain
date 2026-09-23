@@ -147,45 +147,10 @@ class TestTimeBoundConsent(unittest.TestCase):
             patient_id=self.patient_id,
             requester_username=self.doctor,
             requester_role="practitioner",
-            ignore_consent=False
         )
         records = self.query_handler.handle_get_patient_records(query)
         self.assertEqual(len(records), 1, f"Expected 1 record, got {len(records)}: {[r.get('title') for r in records]}")
         self.assertEqual(records[0]["title"], "BP Reading")
-
-    def test_break_glass_emergency_override_logs_audit(self):
-        """Break-glass emergency override logs critical audit events and notifies patient."""
-        self.consent_validator.break_glass_override(
-            patient_id=self.patient_id,
-            doctor_username=self.doctor,
-            reason="Patient in ER with acute chest pain",
-            device_id="emergency-device-01"
-        )
-
-        proj_name = self.record_service._get_project_name(self.patient_id)
-        access_logs = storage.load_access_logs(proj_name)
-        self.assertTrue(any(entry.get("action") == "BREAK_GLASS_ACCESS" for entry in access_logs))
-
-        audit_logs = storage.load_audit_logs(proj_name)
-        self.assertTrue(any(entry.get("action") == "BREAK_GLASS_BYPASS" for entry in audit_logs))
-
-    def test_repeated_break_glass_triggers_critical_alert(self):
-        """Repeated break-glass overrides within 15 mins trigger REPEATED_BREAK_GLASS_ABUSE alert."""
-        from core.services.alert_service import alert_service
-        doc_user = "dr.repeated_test"
-
-        for i in range(3):
-            self.consent_validator.break_glass_override(
-                patient_id=self.patient_id,
-                doctor_username=doc_user,
-                reason=f"Emergency override #{i+1}",
-                device_id="er-terminal-01"
-            )
-
-        alerts = alert_service.get_recent_alerts(limit=10)
-        repeated_alerts = [a for a in alerts if a.get("alert_type") == "REPEATED_BREAK_GLASS_ABUSE"]
-        self.assertTrue(len(repeated_alerts) >= 1)
-        self.assertEqual(repeated_alerts[0]["severity"], "CRITICAL")
 
 
 if __name__ == "__main__":

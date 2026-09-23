@@ -351,7 +351,6 @@
                   <select id="rec-access">
                     <option value="doctor_shared">Patient + Doctor</option>
                     <option value="private">Patient Only</option>
-                    <option value="emergency">Emergency Access</option>
                   </select>
                 </div>
                 <div class="field-group span-2">
@@ -601,7 +600,7 @@
         <section id="view-consent" class="view">
           <div class="view-header">
             <h2>Consent Management</h2>
-            <p class="view-sub">Manage clinical access permissions for healthcare practitioners, or initiate emergency override access (Break Glass).</p>
+            <p class="view-sub">Decide which practitioners may see which of your records, and for how long.</p>
           </div>
 
           <div class="stats-grid"
@@ -614,7 +613,7 @@
               </div>
             </div>
 
-            <!-- Right: Grant Consent Form & Break Glass Panel -->
+            <!-- Right: Grant Consent Form -->
             <div style="display:flex; flex-direction:column; gap:20px;">
               <!-- Grant Consent Form (patients only — consent is the patient's decision) -->
               <div class="glass" id="consent-grant-card" style="padding: 20px; border-radius: var(--radius); display:none;">
@@ -646,30 +645,6 @@
                     <input type="number" id="consent-duration" min="1" max="365" value="30" required />
                   </div>
                   <button type="submit" class="btn btn-gold btn-full">Save Permission</button>
-                </form>
-              </div>
-
-              <!-- Break Glass Panel (For Doctors only) -->
-              <div class="glass" id="break-glass-panel"
-                style="padding: 20px; border-radius: var(--radius); border: 1px solid rgba(229,115,115,0.3); display:none;">
-                <h3
-                  style="color: #ff8a80; font-size: 15px; margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
-                  <span>🚨 Emergency Override (Break Glass)</span>
-                </h3>
-                <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height:1.4;">
-                  In severe medical emergencies, use this button to temporarily access all patient data for 15 minutes without pre-existing consent. All overrides are permanently recorded in the audit logs.
-                </p>
-                <div id="break-glass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
-                <div id="break-glass-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
-                </div>
-                <form id="break-glass-form" data-submit-action="break-glass">
-                  <div class="field-group" style="margin-bottom:14px;">
-                    <label>Override Justification (Notes)</label>
-                    <textarea id="break-glass-reason"
-                      placeholder="Please specify the medical emergency reasoning (e.g. Acute loss of consciousness, urgent surgery required)..."
-                      rows="3" required></textarea>
-                  </div>
-                  <button type="submit" class="btn btn-error btn-full">Trigger Break Glass (Grant Access)</button>
                 </form>
               </div>
             </div>

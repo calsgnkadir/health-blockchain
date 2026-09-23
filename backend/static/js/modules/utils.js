@@ -253,12 +253,6 @@ export const appState = {
       if (navMyAccess) {
         navMyAccess.style.display = (this.currentUser.role === 'client') ? 'flex' : 'none';
       }
-
-      // Break-Glass is the practitioner's audited path to records without consent.
-      const breakGlassPanel = document.getElementById('break-glass-panel');
-      if (breakGlassPanel) {
-        breakGlassPanel.style.display = (this.currentUser.role === 'practitioner') ? 'block' : 'none';
-      }
     }
 
     // 2. Render Chain Pill

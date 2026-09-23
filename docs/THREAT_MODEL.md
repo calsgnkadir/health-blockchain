@@ -37,10 +37,18 @@
   - **Passkey Revocation API (`POST /api/v1/auth/webauthn/revoke`):** Hardware credentials can be revoked out-of-band by Security Officers.
   - **Time-Bound Consent & 2FA/TOTP Verification.**
 
-### Threat Actor 4: Coerced Insider / Break-Glass Emergency Abuse
-- **Vector:** Unauthorized staff attempt to invoke emergency access (`break-glass`) under false pretexts.
+### Threat Actor 4: Curious Practitioner (reading beyond consent)
+- **Vector:** A practitioner with consent for *some* of a client's records tries to reach more: other record
+  types, client-only notes, attachments, or a correction that widens who may see a record.
 - **Countermeasures:**
-  - **Dual-Control Co-Signature & Audit Alerts:** Emergency overrides trigger high-priority security alerts (`alert_service.raise_alert`) and require Dual-Control authorization.
+  - **One consent rule on every record endpoint** (`_practitioner_may_access`): consent for the record's own
+    type (or all records) on the list, decryption, corrections and attachment downloads. Attachments used to
+    accept consent for *any* type; an encrypted record needs consent for all records before it is decrypted, so
+    the endpoint cannot be used to test passwords.
+  - **Client-only records stay hidden** from practitioners, even one holding the record's password.
+  - **Corrections cannot change the access level** — who may see a record is not content.
+  - **No emergency override.** Break-glass was removed: a private practice has no emergency-access need that
+    would justify a path around consent.
 
 ---
 
@@ -51,7 +59,7 @@
 | External Attacker | `X-Forwarded-For` IP Spoofing | IP Peer Host Verification | `backend.middleware.ip_allowlist.resolve_secure_client_ip` |
 | Rogue Administrator | Unauthorized PHI Query | Dual-Control Co-Signature | `core.services.dual_control.DualControlEngine` |
 | Stolen Hardware Passkey | Stolen YubiKey Credential | Hardware Passkey Revocation API | `POST /api/v1/auth/webauthn/revoke` |
-| Coerced Insider | Unauthorized Record Access | Immutable Access Log | `storage.append_access_log(action="RECORD_DECRYPTED")` |
+| Curious Practitioner | Reading beyond consent | Per-type consent rule on every record endpoint | `backend.routers.records._practitioner_may_access` |
 
 ---
 

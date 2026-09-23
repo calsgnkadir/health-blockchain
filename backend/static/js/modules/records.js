@@ -19,8 +19,8 @@ export const TYPE_LABELS = {
   unknown:        'Unknown',
 };
 
-const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared', emergency:'badge-emergency' };
-const ACCESS_LABELS = { private:'Patient Only', doctor_shared:'Patient + Doctor', emergency:'Emergency Access' };
+const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared' };
+const ACCESS_LABELS = { private:'Patient Only', doctor_shared:'Patient + Doctor' };
 
 export async function loadRecordTypes() {
   try {

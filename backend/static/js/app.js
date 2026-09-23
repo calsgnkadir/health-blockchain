@@ -3,7 +3,7 @@ import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLogi
 import { updateChainPill, loadDashboard, navigate } from './modules/dashboard.js';
 import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, viewOriginalVersion, renderCorrectionForm, submitCorrection, closeModal, DYNAMIC_FIELDS, renderDynamicFields, initRecordsListeners } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
-import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
+import { loadConsents, grantConsent, revokeConsent } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
 import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
 
@@ -260,7 +260,7 @@ window.loadAuditLog = async function() {
       return;
     }
     container.innerHTML = d.logs.map(log => {
-      const isAlert = log.action.includes('FAILED') || log.action.includes('REVOKE') || log.action.includes('BREAK_GLASS');
+      const isAlert = log.action.includes('FAILED') || log.action.includes('REVOKE');
       const statusLabel = isAlert ? 'ALERT' : 'OK';
       return `
       <div class="record-card ${isAlert ? 'is-encrypted' : ''}" style="cursor:default">
@@ -319,7 +319,7 @@ window.loadAccessLogs = async function() {
       return;
     }
     container.innerHTML = d.logs.map(log => {
-      const isAlert = log.action.includes('FAILED') || log.action.includes('REVOKE') || log.action.includes('BREAK_GLASS');
+      const isAlert = log.action.includes('FAILED') || log.action.includes('REVOKE');
       const statusLabel = isAlert ? 'ALERT' : 'ACCESS';
       return `
       <div class="record-card ${isAlert ? 'is-encrypted' : ''}" style="cursor:default">
@@ -377,7 +377,7 @@ window.loadMyAccessLog = async function() {
 
     container.innerHTML = d.logs.map(log => {
       const action = log.action || '';
-      const isAlert = action.includes('FAILED') || action.includes('BREAK_GLASS') || action.includes('REVOKE');
+      const isAlert = action.includes('FAILED') || action.includes('REVOKE');
       const isRead = action.includes('READ') || action.includes('DECRYPTED') || action.includes('VIEWED');
       const label = isAlert ? 'ALERT' : (isRead ? 'READ' : 'EVENT');
       return `
@@ -451,7 +451,6 @@ window.markAsRead = markAsRead;
 window.markAllAsRead = markAllAsRead;
 window.grantConsent = grantConsent;
 window.revokeConsent = revokeConsent;
-window.triggerBreakGlass = triggerBreakGlass;
 window.loadConsents = loadConsents;
 window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
@@ -555,7 +554,7 @@ function renderCommandPaletteResults(query = '') {
     { type: 'nav', page: 'records', title: 'Medical Records', desc: 'Browse and decrypt blockchain health blocks', shortcut: 'G R' },
     { type: 'nav', page: 'add-record', title: 'Add Health Record', desc: 'Commit clinical observations and files to chain', shortcut: 'G N' },
     { type: 'nav', page: 'chain-status', title: 'Chain Status Verification', desc: 'Verify cryptographic block structures', shortcut: 'G C' },
-    { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Doctor permissions and Break Glass', shortcut: 'G S' },
+    { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Practitioner access permissions', shortcut: 'G S' },
     { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }
   ];
 
@@ -571,10 +570,6 @@ function renderCommandPaletteResults(query = '') {
     { type: 'action', action: 'logout', title: 'Sign Out / Logout', desc: 'Terminate session and clear token', shortcut: '⌥ L' },
     { type: 'action', action: 'refresh_chain', title: 'Refresh Chain Status', desc: 'Query and update cryptographic statuses', shortcut: '⌥ R' }
   ];
-
-  if (currentUser && currentUser.role === 'practitioner') {
-    actions.push({ type: 'action', action: 'break_glass', title: 'Trigger Break Glass (Emergency)', desc: 'Emergency override access to patient data', shortcut: '⌥ B' });
-  }
 
   let filteredItems = [];
 
@@ -666,16 +661,6 @@ window.triggerCommandPaletteItem = function(index) {
       logout();
     } else if (item.action === 'refresh_chain') {
       loadChainStatus();
-    } else if (item.action === 'break_glass') {
-      navigate('consent');
-      setTimeout(() => {
-        const bgPanel = document.getElementById('break-glass-panel');
-        if (bgPanel) {
-          bgPanel.scrollIntoView({ behavior: 'smooth' });
-          const text = document.getElementById('break-glass-reason');
-          if (text) text.focus();
-        }
-      }, 300);
     }
   } else if (item.type === 'record') {
     window.openRecord(item.block_index);
@@ -965,7 +950,6 @@ registerActions('input', {
 
 registerActions('submit', {
   'grant-consent':        (el, e) => grantConsent(e),
-  'break-glass':          (el, e) => triggerBreakGlass(e),
   'dual-control-request': (el, e) => window.requestDualControl(e),
   'dual-control-cosign':  (el, e) => window.coSignDualControl(e),
   'select-patient':       (el, e) => window.selectPatient(e),

@@ -2,15 +2,13 @@ import json
 import re
 from fastapi import APIRouter, HTTPException, Depends
 from backend.dependencies import (
-    get_user_repository, get_command_handler, get_consent_validator, current_user, get_db_manager
+    get_user_repository, get_command_handler, current_user, get_db_manager
 )
-from backend.schemas.requests import ConsentReq, BreakGlassReq
+from backend.schemas.requests import ConsentReq
 from core.cqrs.commands import GrantConsentCommand, RevokeConsentCommand
-from core.security import get_device_id
 from database.connection import LMDBConnectionManager
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository
 from core.cqrs.commands import CommandHandler
-from core.services.consent_validator import ConsentValidator
 from core.pseudonymization.service import project_name_for
 
 router = APIRouter(prefix="/api/v1/consent", tags=["consent"])
@@ -22,20 +20,18 @@ def check_patient_id(patient_id: str):
 
 def _require_consent_owner(u: dict, patient_id: str) -> None:
     """
-    Consent is the patient's decision alone.
+    Consent is the client's decision alone.
 
     Only the account that owns the record chain may grant or revoke access to it.
     A practitioner who could grant themselves consent would make the whole consent
     model decorative, and an administrator who could do so would bypass the
-    Dual-Control policy that keeps them out of raw records. Practitioners needing
-    access without a standing consent must use the audited Break-Glass override.
+    Dual-Control policy that keeps them out of raw records.
     """
     if u.get("role") != "client" or u.get("patient_id") != patient_id:
         raise HTTPException(
             403,
-            "Consent Policy Violation: only the patient who owns these records may "
-            "grant or revoke clinical access. Practitioners must use the audited "
-            "Break-Glass emergency override instead."
+            "Consent Policy Violation: only the client who owns these records may "
+            "grant or revoke access to them."
         )
 
 @router.get("/{patient_id}", summary="Get Patient Consent Rules")
@@ -115,22 +111,3 @@ def revoke_consent(
     )
     command_handler.handle_revoke_consent(cmd)
     return {"success": True, "message": "Consent revoked successfully"}
-
-@router.post("/{patient_id}/break-glass", summary="Break Glass Emergency Override")
-def break_glass(
-    patient_id: str,
-    data: BreakGlassReq,
-    u: dict = Depends(current_user),
-    consent_validator: ConsentValidator = Depends(get_consent_validator)
-):
-    check_patient_id(patient_id)
-    if u["role"] != "practitioner":
-        raise HTTPException(403, "Only doctors can invoke emergency override")
-
-    consent_validator.break_glass_override(
-        patient_id=patient_id,
-        doctor_username=u["username"],
-        reason=data.reason,
-        device_id=get_device_id()
-    )
-    return {"success": True, "message": "Emergency access granted. Audit entry logged."}

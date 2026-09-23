@@ -41,11 +41,24 @@ def check_patient_id(patient_id: str):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", patient_id):
         raise HTTPException(400, "Invalid patient_id format")
 
-# The fields a correction may supersede — the same ones the record form sends.
+# The content a correction may change — the fields the record form sends.
 CORRECTABLE_FIELDS = (
     "record_type", "title", "doctor_name", "institution",
-    "record_date", "access_level", "data", "notes",
+    "record_date", "data", "notes",
 )
+# Who may see a record is not content: a correction always carries the original
+# access level over, so it cannot widen (or narrow) a record's audience.
+CARRIED_OVER_FIELDS = CORRECTABLE_FIELDS + ("access_level",)
+
+
+def _practitioner_may_access(consent_validator: ConsentValidator, patient_id: str,
+                             username: str, record) -> bool:
+    """The rule the record list applies (core/cqrs/queries.py), for endpoints that
+    touch a single record: a practitioner never sees a client-only ("private")
+    record, and otherwise needs consent for its type (or for all records)."""
+    if not isinstance(record, dict) or record.get("access_level") == "private":
+        return False
+    return consent_validator.has_consent(patient_id, username, record.get("record_type", "other"))
 
 # Operator roles that administer the vault but have no clinical relationship with
 # the patient. None of them may read raw records on their own authority.
@@ -193,21 +206,10 @@ def get_records(
     if role == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 
-    ignore_consent = False
-    if role == "practitioner":
-        proj_name = project_name_for(patient_id)
-        access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
-        for log in access_logs:
-            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
-                if time.time() - log.get("timestamp", 0) < 900:  # 15 mins window
-                    ignore_consent = True
-                    break
-
     query = GetPatientRecordsQuery(
         patient_id=patient_id,
         requester_username=u["username"],
         requester_role=role,
-        ignore_consent=ignore_consent
     )
     records = query_handler.handle_get_patient_records(query)
     records.sort(key=lambda x: x["timestamp"], reverse=True)
@@ -296,23 +298,12 @@ def decrypt_record(
     if not req or not req.password:
         raise HTTPException(400, "Password is required to decrypt this record")
 
-    ignore_consent = False
-    if u["role"] == "practitioner":
-        proj_name = project_name_for(patient_id)
-        access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
-        for log in access_logs:
-            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
-                if time.time() - log.get("timestamp", 0) < 900:  # 15 mins window
-                    ignore_consent = True
-                    break
-
     query = DecryptRecordQuery(
         patient_id=patient_id,
         block_index=block_index,
         password=req.password,
         requester_username=u["username"],
         requester_role=u["role"],
-        ignore_consent=ignore_consent
     )
     data = query_handler.handle_decrypt_record(query)
 
@@ -384,26 +375,16 @@ def correct_record(
 
     rec_type = original.get("record_type", "other")
 
-    # A doctor must hold consent (or an active break-glass) to touch the record.
-    if u["role"] == "practitioner":
-        proj_name = project_name_for(patient_id)
-        ignore_consent = False
-        for log in storage.load_access_logs(proj_name, limit=5, db_manager=db_manager):
-            if (log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]
-                    and time.time() - log.get("timestamp", 0) < 900):
-                ignore_consent = True
-                break
-        if not ignore_consent:
-            has_access = (consent_validator.has_consent(patient_id, u["username"], "all")
-                          or consent_validator.has_consent(patient_id, u["username"], rec_type))
-            if not has_access:
-                raise HTTPException(403, "Patient consent is required to correct this record")
+    # Correcting requires the same access as reading the record.
+    if u["role"] == "practitioner" and not _practitioner_may_access(
+            consent_validator, patient_id, u["username"], original):
+        raise HTTPException(403, "Client consent is required to correct this record")
 
     # A correction must pass the same checks as a new record: this endpoint used
     # to store corrected_data as-is, so any record_type, any data shape and any
     # extra key went straight onto the chain. Fields the client leaves out are
     # taken from the original; keys outside CORRECTABLE_FIELDS are dropped.
-    merged = {k: original[k] for k in CORRECTABLE_FIELDS if original.get(k) is not None}
+    merged = {k: original[k] for k in CARRIED_OVER_FIELDS if original.get(k) is not None}
     merged.update({k: v for k, v in req.corrected_data.items() if k in CORRECTABLE_FIELDS})
     merged.setdefault("record_type", rec_type)
     try:
@@ -415,7 +396,7 @@ def correct_record(
         err_msgs = [".".join(str(x) for x in err["loc"]) + ": " + err["msg"] for err in e.errors()]
         raise HTTPException(status_code=422, detail=f"Validation failed: {', '.join(err_msgs)}")
 
-    corrected = checked.model_dump(include=set(CORRECTABLE_FIELDS))
+    corrected = checked.model_dump(include=set(CARRIED_OVER_FIELDS))
     corrected["record_type_label"] = RECORD_TYPES[checked.record_type]
     corrected["patient_id"] = patient_id
     corrected["created_by"] = u["username"]
@@ -463,25 +444,23 @@ def download_offchain_file(
     check_patient_id(patient_id)
     _enforce_privileged_dual_control(request, u, patient_id)
     role = u["role"]
-    ignore_consent = False
+    denied = HTTPException(403, "Access denied: client consent is required to download this file.")
 
+    # Checked BEFORE decrypting. This used to accept consent for *any* type, so
+    # consent for one kind of record opened the attachments of every other kind.
+    # An encrypted record's type is unknown until it is decrypted, so it needs
+    # consent for all records — otherwise a practitioner without consent could
+    # still use this endpoint to test passwords ("wrong password" vs "denied").
     if role == "practitioner":
-        proj_name = project_name_for(patient_id)
-        access_logs = storage.load_access_logs(proj_name, limit=5, db_manager=db_manager)
-        for log in access_logs:
-            if log.get("action") == "BREAK_GLASS_ACCESS" and log.get("username") == u["username"]:
-                if time.time() - log.get("timestamp", 0) < 900:
-                    ignore_consent = True
-                    break
-        if not ignore_consent:
-            # NOTE: this does not check the attachment's own record type yet —
-            # fixed in phase 2 together with the break-glass removal below.
-            has_any = (
-                consent_validator.has_consent(patient_id, u["username"], "all")
-                or consent_validator.has_consent(patient_id, u["username"], "document")
-            )
-            if not has_any:
-                raise HTTPException(403, "Access denied: Patient consent is required to download this file.")
+        meta = record_service.get_block_data(patient_id, block_index, username=u["username"])
+        if meta is None:
+            raise HTTPException(404, "Record not found")
+        if isinstance(meta, str):
+            allowed = consent_validator.has_consent(patient_id, u["username"], "all")
+        else:
+            allowed = _practitioner_may_access(consent_validator, patient_id, u["username"], meta)
+        if not allowed:
+            raise denied
 
     if role == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
@@ -491,6 +470,9 @@ def download_offchain_file(
         if isinstance(data, str) and ("SECURE" in data or "INCORRECT" in data or "ERROR" in data):
             raise HTTPException(400, f"Decryption failed: {data}")
 
+        if role == "practitioner" and not _practitioner_may_access(
+                consent_validator, patient_id, u["username"], data):
+            raise denied
         if not isinstance(data, dict) or not data.get("file_hash"):
             raise HTTPException(404, "File not found or not stored off-chain")
 
