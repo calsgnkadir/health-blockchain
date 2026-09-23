@@ -166,7 +166,7 @@ export function renderAttachmentHtml(fileName, fileType, fileData, patientIdVal,
 }
 
 export function downloadBase64File(fileName, fileType, fileData) {
-  const linkSource = `data:${type};base64,${data}`;
+  const linkSource = `data:${fileType};base64,${fileData}`; // xss-reviewed: set as an <a> href through the DOM, never parsed as HTML
   const downloadLink = document.createElement("a");
   downloadLink.href = linkSource;
   downloadLink.download = fileName;

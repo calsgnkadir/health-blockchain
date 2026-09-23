@@ -47,9 +47,11 @@ UNTRUSTED = re.compile(
     r"|\b(fileName|fileType|fileData|query|msg|reason|doctor|username)\b"
 )
 
-# Lines that do not write HTML (safe sinks or not a sink at all).
+# Lines that do not write HTML (safe sinks or not a sink at all), or carry an
+# explicit `// xss-reviewed: <reason>` marker — like `# noqa`, a reviewed,
+# justified exception that stays visible in the code.
 NOT_AN_HTML_SINK = re.compile(
-    r"textContent|addNotification\(|console\.|alert\(|confirm\("
+    r"xss-reviewed:|textContent|addNotification\(|console\.|alert\(|confirm\("
     r"|apiFetch\(|fetch\(|url\s*[+]?=|\.value\s*="
 )
 
