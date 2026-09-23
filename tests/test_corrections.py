@@ -143,6 +143,36 @@ class TestCorrectionFlow(unittest.TestCase):
         res = self._correct(0)
         self.assertIn(res.status_code, (400, 404, 422))
 
+    def test_correction_is_validated_like_a_new_record(self):
+        # This used to be stored as-is; a score above the max must be refused.
+        idx = self._add_assessment()
+        res = self.client.post(
+            f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
+            json={"reason": "Re-scored", "corrected_data": {
+                "record_type": "assessment",
+                "data": {"instrument": "GAD-7", "score": 99, "max_score": 21,
+                         "interpretation": "x"},
+            }},
+        )
+        self.assertEqual(res.status_code, 422, res.text)
+
+    def test_correction_drops_fields_the_record_form_never_sends(self):
+        idx = self._add_assessment()
+        res = self.client.post(
+            f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
+            json={"reason": "Re-scored", "corrected_data": {
+                "title": "Corrected assessment",
+                "file_type": 'image/png" onerror="alert(1)',
+                "smuggled_field": "<script>alert(1)</script>",
+            }},
+        )
+        self.assertEqual(res.status_code, 200, res.text)
+        current = self.client.get(f"/api/v1/records/CL-001/{idx}?version=current",
+                                  headers=self._auth()).json()["data"]
+        self.assertEqual(current["title"], "Corrected assessment")
+        self.assertNotIn("smuggled_field", current)
+        self.assertNotIn("file_type", current)
+
 
 if __name__ == "__main__":
     unittest.main()

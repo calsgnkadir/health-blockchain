@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.schemas.requests import (
     DATA_SCHEMAS, RECORD_TYPES, AssessmentSchema, SessionNoteSchema, HomeworkSchema,
+    RecordCreate,
 )
 from backend.demo_seed import _demo_chart, _confidential_record
 
@@ -47,6 +48,26 @@ class TestRecordSchemas(unittest.TestCase):
 
     def test_homework_due_date_may_be_in_the_future(self):
         HomeworkSchema(task="Thought record", due_date="2999-01-01")  # must not raise
+
+    # The attachment fields end up inside <img src="data:TYPE;base64,DATA"> on the
+    # client, so the server refuses anything that could break out of that attribute.
+    def _record(self, **overrides):
+        record = dict(patient_id="CL-001", record_type="document", title="t",
+                      doctor_name="d", institution="i", record_date="2026-01-01", data={})
+        record.update(overrides)
+        return record
+
+    def test_file_type_must_be_a_mime_type(self):
+        with self.assertRaises(ValidationError):
+            RecordCreate(**self._record(file_type='image/png" onerror="alert(1)'))
+
+    def test_file_data_must_be_base64(self):
+        with self.assertRaises(ValidationError):
+            RecordCreate(**self._record(file_data='AAAA" onerror="alert(1)'))
+
+    def test_valid_attachment_fields_pass(self):
+        RecordCreate(**self._record(file_name="scan.png", file_type="image/png",
+                                    file_data="iVBORw0KGgo="))  # must not raise
 
 
 if __name__ == "__main__":

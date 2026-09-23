@@ -1,7 +1,7 @@
 import { API, apiFetch, patientId, setSelectedPatient, getSelectedPatient, formatTs, formatTsFull, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser, setCurrentUser, getDualControlToken, setDualControlToken, appState } from './modules/utils.js';
 import { mfaRequired, resetLoginFormState, resetLoginForm, fillCreds, handleLoginSubmit, logout, setup2FA, enable2FA, disable2FA, initAuthListeners, loginWithPasskey, registerPasskey } from './modules/auth.js';
-import { updateChainPill, updateClinicalHighlights, renderVitalsChart, loadDashboard, navigate } from './modules/dashboard.js';
-import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, viewOriginalVersion, renderCorrectionForm, submitCorrection, closeModal, DYNAMIC_FIELDS, renderDynamicFields, zoomDicom, invertDicom, resetDicom, initRecordsListeners, startAddingDicomAnnotation, deleteDicomAnnotation, setDicomLevel, setDicomWidth } from './modules/records.js';
+import { updateChainPill, loadDashboard, navigate } from './modules/dashboard.js';
+import { allRecords, recordTypes, loadRecordTypes, loadRecords, filterRecords, renderAllRecords, renderRecordCard, renderAttachmentHtml, downloadBase64File, downloadOffchainFile, openRecord, decryptRecord, verifyMerkleProof, viewOriginalVersion, renderCorrectionForm, submitCorrection, closeModal, DYNAMIC_FIELDS, renderDynamicFields, initRecordsListeners } from './modules/records.js';
 import { getNotifications, addNotification, updateNotificationsUI, toggleNotifications, closeAllDropdowns, markAsRead, markAllAsRead, clearAllNotifications } from './modules/notifications.js';
 import { loadConsents, grantConsent, revokeConsent, triggerBreakGlass } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
@@ -84,191 +84,6 @@ window.enterApp = function() {
 };
 
 /* -- Page-Specific View Handlers (Remaining from Monolith) ----------- */
-window.loadVaccines = async function() {
-  const container = document.getElementById('vaccine-passport-list');
-  if (!container) return;
-  container.innerHTML = '<div class="loading-spinner">Loading Vaccine Passport...</div>';
-  try {
-    const pid = patientId();
-    const d = await apiFetch(`/api/records/${pid}`);
-    const vaccines = d.records.filter(r => r.record_type === 'vaccination');
-    if (vaccines.length === 0) {
-      container.innerHTML = emptyState('No vaccination records found in the blockchain registry.');
-      return;
-    }
-    
-    container.innerHTML = `
-      <div class="glass" style="padding: 20px; border-radius: 8px; margin-bottom: 20px; overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; color: #fff;">
-          <thead>
-            <tr style="border-bottom: 1px solid var(--border); color: var(--muted-hi); font-size: 13px;">
-              <th style="padding: 12px 8px;">Vaccine Name</th>
-              <th style="padding: 12px 8px;">Lot Number</th>
-              <th style="padding: 12px 8px;">Dose #</th>
-              <th style="padding: 12px 8px;">Date Administered</th>
-              <th style="padding: 12px 8px;">Next Dose Due</th>
-              <th style="padding: 12px 8px;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${vaccines.map(r => {
-              if (r.is_protected) {
-                return `
-                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" data-action="open-record" data-arg="${r.block_index}">
-                    <td colspan="5" style="padding: 14px 8px; color: var(--muted); font-style: italic;">🔐 Confidential Block #${r.block_index} — Click to decrypt in Records</td>
-                    <td style="padding: 14px 8px;"><span class="badge badge-encrypted">Encrypted</span></td>
-                  </tr>
-                `;
-              }
-              const val = r.data || {};
-              const dateStr = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : '—';
-              const nextDose = val.next_dose ? new Date(val.next_dose).toLocaleDateString('en-GB') : '—';
-              return `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; cursor: pointer;" data-action="open-record" data-arg="${r.block_index}">
-                  <td style="padding: 14px 8px; font-weight: 600;">${escapeHtml(val.vaccine_name || '—')}</td>
-                  <td style="padding: 14px 8px; font-family: var(--font-mono);">${escapeHtml(val.lot_number || '—')}</td>
-                  <td style="padding: 14px 8px;">Dose ${escapeHtml(val.dose_number || '1')}</td>
-                  <td style="padding: 14px 8px;">${dateStr}</td>
-                  <td style="padding: 14px 8px;">${nextDose}</td>
-                  <td style="padding: 14px 8px;"><span class="badge badge-shared">Verified</span></td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-  } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
-  }
-};
-
-window.loadMedications = async function() {
-  const container = document.getElementById('active-medications-list');
-  if (!container) return;
-  container.innerHTML = '<div class="loading-spinner">Loading Active Medications...</div>';
-  try {
-    const pid = patientId();
-    const d = await apiFetch(`/api/records/${pid}`);
-    const prescriptions = d.records.filter(r => r.record_type === 'prescription');
-    if (prescriptions.length === 0) {
-      container.innerHTML = emptyState('No active medications or prescriptions found.');
-      return;
-    }
-    
-    const activeList = [];
-    const expiredList = [];
-    
-    prescriptions.forEach(r => {
-      if (r.is_protected) {
-        activeList.push(r);
-        return;
-      }
-      
-      const val = r.data || {};
-      const recordDate = new Date(r.record_date);
-      const durationDays = parseInt(val.duration || 0);
-      const expiryDate = new Date(recordDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      expiryDate.setHours(0,0,0,0);
-      
-      const details = {
-        block_index: r.block_index,
-        title: r.title,
-        medication: val.medication || 'Unknown',
-        dose: val.dose || '—',
-        frequency: val.frequency || '—',
-        duration: durationDays,
-        instructions: r.notes || '—',
-        record_date: r.record_date,
-        doctor: r.doctor_name,
-        expiry_date: expiryDate.toLocaleDateString('en-GB'),
-        is_protected: false
-      };
-      
-      if (expiryDate >= today) {
-        activeList.push(details);
-      } else {
-        expiredList.push(details);
-      }
-    });
-    
-    let activeHtml = '';
-    if (activeList.length === 0) {
-      activeHtml = '<p style="color:var(--muted); font-size:13px; font-style:italic; margin-bottom: 24px;">No currently active medications.</p>';
-    } else {
-      activeHtml = `
-        <h3 style="color:#C9A84C; font-size:16px; font-weight:700; margin-bottom:14px;">⚡ CURRENT ACTIVE MEDICATIONS:</h3>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:32px;">
-          ${activeList.map(m => {
-            if (m.is_protected) {
-              return `
-                <div class="stat-card glass" style="border-left:3px solid var(--gold); cursor:pointer" data-action="open-record" data-arg="${m.block_index}">
-                  <div class="stat-info">
-                    <div class="stat-value" style="font-size:14px; font-weight:600; color:#fff;">🔐 Decrypt Protected Prescription</div>
-                    <div class="stat-label" style="font-size:11px; margin-top:4px;">Block #${m.block_index}</div>
-                  </div>
-                </div>
-              `;
-            }
-            return `
-              <div class="stat-card glass" style="border-left:3px solid #10b981; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
-                <div style="width:100%">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:700; font-size:16px; color:#fff;">${escapeHtml(m.medication)}</span>
-                    <span class="badge badge-shared" style="background:rgba(16,185,129,0.1); color:#10b981; border: 1px solid rgba(16,185,129,0.3)">ACTIVE</span>
-                  </div>
-                  <div style="font-size:12px; color:var(--muted-hi); margin-top:8px;">
-                    <strong>Dosage:</strong> ${escapeHtml(m.dose)} · <strong>Frequency:</strong> ${escapeHtml(m.frequency)}
-                  </div>
-                  <div style="font-size:12px; color:var(--muted); margin-top:4px;">
-                    <strong>Instructions:</strong> ${escapeHtml(m.instructions)}
-                  </div>
-                </div>
-                <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
-                  <span>Expires: <strong>${escapeHtml(m.expiry_date)}</strong></span>
-                  <span>Dr. ${escapeHtml(m.doctor)}</span>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-    }
-
-    let expiredHtml = '';
-    if (expiredList.length > 0) {
-      expiredHtml = `
-        <h3 style="color:var(--muted-hi); font-size:15px; font-weight:600; margin-bottom:14px;">⌛ EXPIRED PRESCRIPTIONS HISTORY:</h3>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
-          ${expiredList.map(m => `
-            <div class="stat-card glass" style="border-left:3px solid var(--border); opacity:0.6; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start;">
-              <div style="width:100%">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <span style="font-weight:700; font-size:15px; color:var(--muted-hi);">${escapeHtml(m.medication)}</span>
-                  <span class="badge badge-private" style="background:rgba(255,255,255,0.05); color:var(--muted)">EXPIRED</span>
-                </div>
-                <div style="font-size:12px; color:var(--muted); margin-top:8px;">
-                  <strong>Dosage:</strong> ${escapeHtml(m.dose)} · <strong>Frequency:</strong> ${escapeHtml(m.frequency)}
-                </div>
-              </div>
-              <div style="width:100%; border-top:1px solid rgba(255,255,255,0.05); margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted)">
-                <span>Expired on: <strong>${escapeHtml(m.expiry_date)}</strong></span>
-                <span>Dr. ${escapeHtml(m.doctor)}</span>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
-    container.innerHTML = activeHtml + expiredHtml;
-  } catch(e) {
-    container.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
-  }
-};
-
 window.loadDualControl = function() {
   const errEl = document.getElementById('dc-error');
   const succEl = document.getElementById('dc-success');
@@ -692,16 +507,9 @@ window.loadSecuritySettings = function() {
   if (sel) sel.value = savedTheme;
 };
 
-// DICOM Viewer Functions
-window.zoomDicom = zoomDicom;
-window.invertDicom = invertDicom;
-window.resetDicom = resetDicom;
+// Attachment downloads
 window.downloadBase64File = downloadBase64File;
 window.downloadOffchainFile = downloadOffchainFile;
-window.startAddingDicomAnnotation = startAddingDicomAnnotation;
-window.deleteDicomAnnotation = deleteDicomAnnotation;
-window.setDicomLevel = setDicomLevel;
-window.setDicomWidth = setDicomWidth;
 
 /* ── COMMAND PALETTE LOGIC ───────────────────────────────── */
 let commandPaletteSelectedIdx = 0;
@@ -743,12 +551,10 @@ function renderCommandPaletteResults(query = '') {
   query = query.trim().toLowerCase();
   
   const pages = [
-    { type: 'nav', page: 'dashboard', title: 'Dashboard Overview', desc: 'System status, recent records, and vitals', shortcut: 'G D' },
+    { type: 'nav', page: 'dashboard', title: 'Dashboard Overview', desc: 'System status, recent records, and chain activity', shortcut: 'G D' },
     { type: 'nav', page: 'records', title: 'Medical Records', desc: 'Browse and decrypt blockchain health blocks', shortcut: 'G R' },
     { type: 'nav', page: 'add-record', title: 'Add Health Record', desc: 'Commit clinical observations and files to chain', shortcut: 'G N' },
     { type: 'nav', page: 'chain-status', title: 'Chain Status Verification', desc: 'Verify cryptographic block structures', shortcut: 'G C' },
-    { type: 'nav', page: 'vaccines', title: 'Vaccine Passport', desc: 'Immutably registry for vaccines', shortcut: 'G V' },
-    { type: 'nav', page: 'medications', title: 'Medications & Prescriptions', desc: 'Active prescriptions and dosage instructions', shortcut: 'G M' },
     { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Doctor permissions and Break Glass', shortcut: 'G S' },
     { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }
   ];
@@ -1141,13 +947,6 @@ registerActions('click', {
   // command palette
   'close-command-palette': () => window.closeCommandPalette(),
   'command-palette-item':  (el) => window.triggerCommandPaletteItem(Number(arg(el))),
-
-  // DICOM viewport
-  'dicom-zoom':            (el) => zoomDicom(Number(arg(el))),
-  'dicom-invert':          () => invertDicom(),
-  'dicom-reset':           () => resetDicom(),
-  'dicom-annotate':        () => startAddingDicomAnnotation(),
-  'dicom-delete-annotation': (el) => deleteDicomAnnotation(Number(arg(el))),
 });
 
 registerActions('change', {
@@ -1162,8 +961,6 @@ registerActions('change', {
 
 registerActions('input', {
   'filter-records': () => filterRecords(),
-  'dicom-level':    (el) => setDicomLevel(el.value),
-  'dicom-width':    (el) => setDicomWidth(el.value),
 });
 
 registerActions('submit', {
