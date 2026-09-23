@@ -6,6 +6,7 @@ import { getNotifications, addNotification, updateNotificationsUI, toggleNotific
 import { loadConsents, grantConsent, revokeConsent } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
 import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
+import { loadClients, inviteClient, renewInvite, copyField, openClient, showRedeem, showLogin, redeemInvite, checkInviteLink } from './modules/clients.js';
 
 /* -- Particle Background Canvas ---------------------------------------- */
 (function initParticles() {
@@ -454,6 +455,7 @@ window.revokeConsent = revokeConsent;
 window.loadConsents = loadConsents;
 window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
+window.loadClients = loadClients;
 window.renderRecordCard = renderRecordCard;
 
 /* -- Security Settings Page Loader -------------------------------- */
@@ -881,6 +883,13 @@ registerActions('click', {
   'passkey-login':         () => loginWithPasskey(),
   'register-passkey':      () => registerPasskey(),
   'fill-credentials':      (el) => fillCreds(arg(el), arg2(el)),
+  'show-redeem':           (el, e) => { e.preventDefault(); showRedeem(); },
+  'show-login':            (el, e) => { e.preventDefault(); showLogin(); },
+
+  // clients (practitioner invitations)
+  'open-client':           (el) => openClient(arg(el)),
+  'renew-invite':          (el) => renewInvite(arg(el)),
+  'copy-field':            (el) => copyField(arg(el)),
 
   // records
   'open-record':           (el) => openRecord(Number(arg(el))),
@@ -950,6 +959,8 @@ registerActions('input', {
 
 registerActions('submit', {
   'grant-consent':        (el, e) => grantConsent(e),
+  'invite-client':        (el, e) => inviteClient(e),
+  'redeem-invite':        (el, e) => redeemInvite(e),
   'dual-control-request': (el, e) => window.requestDualControl(e),
   'dual-control-cosign':  (el, e) => window.coSignDualControl(e),
   'select-patient':       (el, e) => window.selectPatient(e),
@@ -988,6 +999,9 @@ initActionDispatch();
 initAuthListeners();
 initRecordsListeners();
 initCommandPaletteListeners();
+
+// A new client opening their invitation link lands on the redeem form.
+if (!currentUser) checkInviteLink();
 
 if (currentUser) {
   // The session token is an httpOnly cookie the JS can't see, so we confirm it

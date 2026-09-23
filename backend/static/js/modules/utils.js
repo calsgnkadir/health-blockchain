@@ -239,6 +239,8 @@ export const appState = {
       }
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
+      const navClients = document.getElementById('nav-clients');
+      if (navClients) navClients.style.display = (this.currentUser.role === 'practitioner') ? 'flex' : 'none';
       const navAdd = document.getElementById('nav-add');
       if (navAdd) navAdd.style.display = (this.currentUser.role === 'client') ? 'none' : 'flex';
 

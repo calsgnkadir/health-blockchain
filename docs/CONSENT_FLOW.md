@@ -23,3 +23,14 @@ The VIP Health Vault Consent Engine enforces time-bound, fine-grained access del
      attachment downloads and proofs (`core/services/access_policy.py`, see ADR-0003).
    - Without any active consent the whole file is closed to the practitioner, and writing a record needs
      the same consent as reading one.
+
+4. **Invitations do not grant consent**:
+   - A practitioner brings in a new client with an invitation (`POST /api/v1/onboarding/invite-client`):
+     the system picks the next free client ID (never one that still has a chain), creates a pending
+     account and returns a single-use code, valid for 72 hours and stored only as a hash.
+   - The client redeems the code to choose their password. The redeem response names the practitioner
+     who invited them, so the client knows whom to give consent to — but nothing is granted
+     automatically. Until the client grants consent, the practitioner gets the same `403` for the new
+     client's file as for any other client.
+   - A practitioner sees only the clients they invited, can issue a new code only for their own pending
+     clients, and may hold at most 20 open invitations at a time.

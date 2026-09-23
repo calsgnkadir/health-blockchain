@@ -463,3 +463,17 @@ class RedeemEnrollmentReq(BaseModel):
     """The account holder redeems a single-use, out-of-band enrollment token."""
     enrollment_token: str
     new_password: str
+
+
+class InviteClientReq(BaseModel):
+    """A practitioner invites a new client. The system picks the client ID and
+    username; the practitioner gives only the name they know the client by."""
+    full_name: str
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, v):
+        v = (v or "").strip()
+        if not 2 <= len(v) <= 100:
+            raise ValueError("Full name must be 2-100 characters")
+        return sanitize_html(v)

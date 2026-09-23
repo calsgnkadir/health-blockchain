@@ -53,6 +53,7 @@
           </div>
 
           <div id="login-error" class="alert alert-error" style="display:none"></div>
+          <div id="login-success" class="alert alert-success" style="display:none"></div>
 
           <form id="login-form" autocomplete="off">
             <div id="login-fields-group">
@@ -94,6 +95,45 @@
                 Username/Password</a>
             </div>
           </form>
+
+          <!-- Redeem an invitation code (new clients) -->
+          <form id="redeem-form" data-submit-action="redeem-invite" autocomplete="off" style="display:none">
+            <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+              Your practitioner gave you an invitation code. Choose a password to open your account.
+            </p>
+            <div id="redeem-error" class="alert alert-error" style="display:none"></div>
+            <div class="field-group">
+              <label>Invitation code</label>
+              <div class="input-wrap">
+                <input id="inp-invite-code" type="text" placeholder="paste your code" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>New password</label>
+              <div class="input-wrap">
+                <input id="inp-new-password" type="password" autocomplete="new-password" placeholder="••••••••" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Repeat password</label>
+              <div class="input-wrap">
+                <input id="inp-new-password2" type="password" autocomplete="new-password" placeholder="••••••••" required />
+              </div>
+            </div>
+            <p style="font-size:11px; color:var(--muted); margin-bottom:14px;">
+              At least 12 characters, with an uppercase letter, a lowercase letter, a digit and a special character.
+            </p>
+            <button type="submit" class="btn btn-gold btn-full">ACTIVATE ACCOUNT</button>
+            <div style="text-align:center; margin-top:14px;">
+              <a href="#" data-action="show-login"
+                style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to sign in</a>
+            </div>
+          </form>
+
+          <div id="login-invite-link" style="text-align:center; margin-top:14px;">
+            <a href="#" data-action="show-redeem"
+              style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Have an invitation code?</a>
+          </div>
 
           <div class="demo-credentials" id="demo-credentials-box" style="display:none; margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
             <p class="demo-title" style="color:#fcd34d; font-size:11px; font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">💡 QUICK DEMO AUTO-FILL (CLICK ACCOUNT):</p>
@@ -154,6 +194,11 @@
             <a class="nav-item" data-page="records" data-action="navigate" data-arg="records">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
               <span>Client Records</span>
+            </a>
+
+            <a class="nav-item" data-page="clients" id="nav-clients" data-action="navigate" data-arg="clients" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+              <span>My Clients</span>
             </a>
             
             
@@ -537,6 +582,53 @@
 
 
 
+
+        <!-- MY CLIENTS (practitioner): invitations -->
+        <section id="view-clients" class="view">
+          <div class="view-header">
+            <h2>My Clients</h2>
+            <p class="view-sub">Invite a new client with a one-time code. Inviting a client does not open their file: they decide what you may see once they sign in.</p>
+          </div>
+
+          <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Invite a new client</h3>
+              <div id="invite-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+              <form data-submit-action="invite-client">
+                <div class="field-group" style="margin-bottom:16px;">
+                  <label>Client's name</label>
+                  <input type="text" id="invite-full-name" maxlength="100" placeholder="e.g. Deniz Aydın" required />
+                </div>
+                <button type="submit" class="btn btn-gold btn-full">Create invitation</button>
+              </form>
+            </div>
+
+            <div class="glass" id="invite-result" hidden style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 12px;">Invitation created</h3>
+              <p style="font-size:13px; margin-bottom:12px;">
+                Client ID <strong id="invite-result-id"></strong> · username <strong id="invite-result-username"></strong><br>
+                <span style="color:var(--muted); font-size:12px;">Valid until <span id="invite-result-expiry"></span>. Shown only once — give it to the client in person.</span>
+              </p>
+              <div class="field-group" style="margin-bottom:10px;">
+                <label>Invitation link</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="invite-result-link" readonly style="flex:1; min-width:0;" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="copy-field" data-arg="invite-result-link">Copy</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Invitation code</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="invite-result-code" readonly style="flex:1; min-width:0; font-family:monospace;" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="copy-field" data-arg="invite-result-code">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="color: var(--gold); font-size: 15px; margin: 28px 0 12px;">Invited clients</h3>
+          <div id="clients-list" class="records-list"></div>
+        </section>
 
         <!-- WHO ACCESSED MY RECORDS (client transparency) -->
         <section id="view-my-access" class="view">
