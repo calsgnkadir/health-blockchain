@@ -1,4 +1,4 @@
-/* records.js — VIP Health Vault UI Records Module */
+/* records.js — Mahrem UI Records Module */
 import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser } from './utils.js';
 import { stashPayload } from './actions.js';
 import { addNotification } from './notifications.js';
@@ -20,7 +20,7 @@ export const TYPE_LABELS = {
 };
 
 const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared' };
-const ACCESS_LABELS = { private:'Patient Only', doctor_shared:'Patient + Doctor' };
+const ACCESS_LABELS = { private:'Client Only', doctor_shared:'Client + Practitioner' };
 
 export async function loadRecordTypes() {
   try {
@@ -198,13 +198,18 @@ export async function downloadOffchainFile(patientIdVal, blockIndexVal, password
   }
 }
 
-// Renders a record's type-specific fields, labelled like the add-record form.
+// Renders a record's type-specific fields in the add-record form's order and
+// wording (minus the form's input hints, e.g. "(YYYY-MM-DD)").
 export function renderDataFields(data, recordType) {
   if (!data || typeof data !== 'object') return '';
-  const labels = Object.fromEntries((DYNAMIC_FIELDS[recordType] || []).map(f => [f.id, f.label]));
-  return Object.entries(data).map(([k, v]) =>
-    `<div class="modal-field"><div class="modal-field-label">${escapeHtml(labels[k] || k)}</div><div class="modal-field-value">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div></div>`
-  ).join('');
+  const fields = DYNAMIC_FIELDS[recordType] || [];
+  const labels = Object.fromEntries(fields.map(f => [f.id, f.label.replace(/\s*\(.*\)$/, '')]));
+  const known = fields.map(f => f.id).filter(k => k in data);
+  const keys = [...known, ...Object.keys(data).filter(k => !known.includes(k))];
+  return keys.map(k => {
+    const v = data[k];
+    return `<div class="modal-field"><div class="modal-field-label">${escapeHtml(labels[k] || k)}</div><div class="modal-field-value">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div></div>`;
+  }).join('');
 }
 
 
@@ -214,7 +219,7 @@ export async function openRecord(idx) {
 
   if (r.is_protected) {
     document.getElementById('modal-content').innerHTML = `
-      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">Encrypted VIP Record</h2>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">Encrypted Record</h2>
       <p style="margin-bottom:16px;color:var(--muted)">This record is encrypted with AES-256. Enter the password to decrypt:</p>
       <div id="modal-decrypt-error" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
       <div class="field-group">
@@ -245,7 +250,7 @@ export async function openRecord(idx) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
       <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(r.doctor_name||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Practitioner</div><div class="modal-field-value">${escapeHtml(r.doctor_name||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(r.institution||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(r.record_date||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[r.access_level]||r.access_level||'—')}</div></div>
@@ -308,7 +313,7 @@ export async function decryptRecord(idx) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${escapeHtml(String(idx))}</div></div>
         <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Practitioner</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(d.institution||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(d.record_date||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[d.access_level]||d.access_level||'—')}</div></div>

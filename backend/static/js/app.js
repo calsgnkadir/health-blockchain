@@ -54,7 +54,7 @@ window.enterApp = function() {
 
   const isVip = currentUser.role === 'client';
 
-  // Privileged operators pick which patient to view; VIP patients are scoped to
+  // Privileged operators pick which client to view; clients are scoped to
   // their own record and never see the selector.
   const selector = document.getElementById('patient-selector');
   if (selector) selector.hidden = isVip;
@@ -102,7 +102,7 @@ window.renderDualControlToken = function() {
   if (!token) {
     box.innerHTML = `
       <div class="glass" style="padding:16px; border-radius:var(--radius); border:1px solid var(--border);">
-        <div style="font-size:13px; color:var(--muted);">No co-signed token held. Patient records stay locked until a second privileged principal approves a request.</div>
+        <div style="font-size:13px; color:var(--muted);">No co-signed token held. Client records stay locked until a second privileged principal approves a request.</div>
       </div>`;
     return;
   }
@@ -117,7 +117,7 @@ window.renderDualControlToken = function() {
             ${approved ? 'CO-SIGNED — raw record access unlocked' : 'PENDING CO-APPROVAL'}
           </div>
           <div style="font-size:12px; color:var(--muted-hi); margin-top:4px;">
-            Patient <strong>${escapeHtml(token.target_patient_id || '—')}</strong> ·
+            Client <strong>${escapeHtml(token.target_patient_id || '—')}</strong> ·
             Token <code style="font-family:var(--font-mono);">${escapeHtml(token.token_id)}</code>
             ${expiresIn !== null ? ` · expires in ${expiresIn} min` : ''}
           </div>
@@ -222,7 +222,7 @@ window.coSignDualControl = async function(event) {
 
     succEl.textContent = res.message;
     succEl.style.display = 'block';
-    addNotification('Dual-Control Co-Signed', `Token ${res.token_id} approved for patient ${res.target_patient_id}.`, 'success');
+    addNotification('Dual-Control Co-Signed', `Token ${res.token_id} approved for client ${res.target_patient_id}.`, 'success');
   } catch (e) {
     errEl.textContent = e.message;
     errEl.style.display = 'block';
@@ -240,7 +240,7 @@ window.loadUsers = async function() {
         <div class="user-avatar" style="background:linear-gradient(135deg,#C9A84C,#8B6914)">${escapeHtml(u.full_name.charAt(0))}</div>
         <div style="flex:1">
           <div style="font-weight:600">${escapeHtml(u.full_name)}</div>
-          <div style="font-size:12px;color:var(--muted)">@${escapeHtml(u.username)} · ${escapeHtml(u.patient_id||'no patient ID')}</div>
+          <div style="font-size:12px;color:var(--muted)">@${escapeHtml(u.username)} · ${escapeHtml(u.patient_id||'no client ID')}</div>
         </div>
         <span class="role-badge badge-${u.role==='admin'?'admin':u.role==='practitioner'?'practitioner':'client'}">${escapeHtml(ROLE_LABEL[u.role]||u.role)}</span>
       </div>`
@@ -485,7 +485,7 @@ window.loadSecuritySettings = function() {
         <span style="font-size:20px;">⚠️</span>
         <div>
           <div style="font-weight:700; color:#f59e0b; font-size:14px;">Two-Factor Authentication is NOT enabled</div>
-          <div style="font-size:12px; color:var(--muted); margin-top:2px;">Enable 2FA to secure your VIP Health Vault account.</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">Enable 2FA to secure your Mahrem account.</div>
         </div>
       </div>
       <button class="btn btn-gold" style="margin-top:16px;" data-action="setup-2fa">Setup 2FA Now</button>
@@ -551,8 +551,8 @@ function renderCommandPaletteResults(query = '') {
   
   const pages = [
     { type: 'nav', page: 'dashboard', title: 'Dashboard Overview', desc: 'System status, recent records, and chain activity', shortcut: 'G D' },
-    { type: 'nav', page: 'records', title: 'Medical Records', desc: 'Browse and decrypt blockchain health blocks', shortcut: 'G R' },
-    { type: 'nav', page: 'add-record', title: 'Add Health Record', desc: 'Commit clinical observations and files to chain', shortcut: 'G N' },
+    { type: 'nav', page: 'records', title: 'Client Records', desc: 'Browse and decrypt records on the chain', shortcut: 'G R' },
+    { type: 'nav', page: 'add-record', title: 'Add Record', desc: 'Write a session note, assessment or document to the chain', shortcut: 'G N' },
     { type: 'nav', page: 'chain-status', title: 'Chain Status Verification', desc: 'Verify cryptographic block structures', shortcut: 'G C' },
     { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Practitioner access permissions', shortcut: 'G S' },
     { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }
@@ -562,7 +562,7 @@ function renderCommandPaletteResults(query = '') {
   if (currentUser && currentUser.role === 'admin') {
     pages.push(
       { type: 'nav', page: 'audit', title: 'Access & Audit History', desc: 'Comprehensive audit logs for all access (Admin)', shortcut: 'G L' },
-      { type: 'nav', page: 'users', title: 'User Management', desc: 'Configure system roles and patient mappings (Admin)', shortcut: 'G U' }
+      { type: 'nav', page: 'users', title: 'User Management', desc: 'Configure system roles and client mappings (Admin)', shortcut: 'G U' }
     );
   }
 
@@ -600,7 +600,7 @@ function renderCommandPaletteResults(query = '') {
 
     if (matchedRecords.length > 0) {
       filteredItems.push({
-        group: 'Medical Records',
+        group: 'Client Records',
         items: query ? matchedRecords : matchedRecords.slice(0, 5)
       });
     }
@@ -737,7 +737,7 @@ window.loadBlockchainExplorerData = async function() {
   try {
     const pid = patientId();
     if (!pid) {
-      listContainer.innerHTML = '<div class="alert alert-error">No active patient ID found.</div>';
+      listContainer.innerHTML = '<div class="alert alert-error">No active client ID found.</div>';
       return;
     }
     
@@ -769,7 +769,7 @@ window.loadBlockchainExplorerData = async function() {
     
     const blocks = records.records || [];
     if (blocks.length === 0) {
-      listContainer.innerHTML = '<div class="empty-state"><p>No blocks found in this patient chain.</p></div>';
+      listContainer.innerHTML = '<div class="empty-state"><p>No blocks found for this client.</p></div>';
       return;
     }
     

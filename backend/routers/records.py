@@ -74,14 +74,14 @@ def _enforce_privileged_dual_control(request: Request, u: dict, patient_id: str)
                 alert_type="DUAL_CONTROL_VIOLATION_BLOCKED",
                 severity="CRITICAL",
                 title=f"Admin Dual-Control Access Blocked for {patient_id}",
-                description=f"Admin {u.get('username')} attempted unauthorized raw record access to patient {patient_id} without an active Security Officer co-signed token.",
+                description=f"Admin {u.get('username')} attempted unauthorized raw record access to client {patient_id} without an active Security Officer co-signed token.",
                 username=u.get("username"),
                 client_ip=client_ip,
                 extra={"patient_id": patient_id, "token_provided": dc_token}
             )
             raise HTTPException(
                 status_code=403,
-                detail=f"Dual-Control Policy Violation: privileged operators cannot view or decrypt VIP patient records without an active co-signed token for patient {patient_id}. Open Dual-Control Access to request one."
+                detail=f"Dual-Control Policy Violation: privileged operators cannot view or decrypt client records without an active co-signed token for patient {patient_id}. Open Dual-Control Access to request one."
             )
 
 def create_notification(

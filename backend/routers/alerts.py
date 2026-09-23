@@ -2,7 +2,7 @@
 backend/routers/alerts.py — Security Alerts & Dual-Control API Router
 ======================================================================
 Endpoints for viewing real-time security alerts and executing Dual-Control
-co-approvals for VIP vault management.
+co-approvals for vault management.
 """
 
 from typing import Optional
@@ -73,7 +73,7 @@ def create_dual_control_request(
         alert_type="DUAL_CONTROL_REQUESTED",
         severity="HIGH",
         title=f"Dual-Control Request for {req.target_patient_id}",
-        description=f"User {u['username']} requested {req.request_type} for patient {req.target_patient_id}. Reason: {req.reason}",
+        description=f"User {u['username']} requested {req.request_type} for client {req.target_patient_id}. Reason: {req.reason}",
         username=u["username"],
         extra=result
     )

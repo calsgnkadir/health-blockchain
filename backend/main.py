@@ -1,5 +1,5 @@
 """
-backend/main.py — VIP Health Vault · Backend API v5.0.0
+backend/main.py — Mahrem · Backend API v5.0.0
 ======================================================
 """
 
@@ -90,14 +90,14 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Demo chart seeding skipped: {e}")
     else:
         logger.info("Production Mode — Skipping default user seeding")
-    logger.info(f"VIP Health Vault API v5.0.0 ready - Device: {get_device_id()[:16]}...")
+    logger.info(f"Mahrem API v5.0.0 ready - Device: {get_device_id()[:16]}...")
     yield
 
 
 app = FastAPI(
-    title="VIP Health Vault API",
+    title="Mahrem API",
     version="5.0.0",
-    description="Isolated Hardware-Secured VIP Health Vault API with Cryptographic Merkle Root Anchoring",
+    description="Encrypted, tamper-evident client records for independent psychologists",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",

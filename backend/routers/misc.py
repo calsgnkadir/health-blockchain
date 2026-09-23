@@ -1,7 +1,7 @@
 """
 backend/routers/misc.py — Miscellaneous System, Notification, & Audit Endpoints
 ================================================================================
-Cleaned and refactored for v5.0.0 Stealth VIP Health Privacy Vault.
+Mahrem v5.0.0.
 Removed: Appointment booking, AI Triage chatbot, and FHIR export bridges.
 """
 

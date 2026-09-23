@@ -1,7 +1,7 @@
 """
 tests/test_kms.py — KMS Provider Unit Tests
 =============================================
-Tests for the KMS abstraction layer (Phase 1 of VIP Vault hardening).
+Tests for the KMS abstraction layer.
 """
 
 import os

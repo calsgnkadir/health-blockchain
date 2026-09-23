@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VIP Health Vault — Confidential Privacy Infrastructure</title>
+  <title>Mahrem — Confidential Client Records</title>
   <meta name="description"
-    content="Isolated, encrypted, audit-proof health privacy vault. Zero-knowledge access control.">
+    content="Encrypted, tamper-evident client records for independent psychologists.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
@@ -26,7 +26,7 @@
               padding:6px 12px; font-size:12px; font-weight:600; color:#111;
               background:#fcd34d; border-top:1px solid rgba(0,0,0,0.2);
               box-shadow:0 -2px 8px rgba(0,0,0,0.25);">
-    🔶 DEMO — synthetic data only. Public demo build; not a live health-record system.
+    🔶 DEMO — synthetic data only. Public demo build; not a live records system.
     The production vault is private-VPC only.
   </div>
 
@@ -41,8 +41,8 @@
       <div class="login-wrap">
         <div class="login-brand">
           <div>
-            <h1 class="brand-name">VIP Health Vault</h1>
-            <p class="brand-sub">Confidential Health Privacy Infrastructure</p>
+            <h1 class="brand-name">Mahrem</h1>
+            <p class="brand-sub">Confidential records for psychologists</p>
           </div>
         </div>
 
@@ -118,7 +118,7 @@
       <aside id="sidebar">
         <div class="sidebar-brand">
           <span class="brand-dot"></span>
-          <span>VIP Health Vault</span>
+          <span>Mahrem</span>
         </div>
 
         <div class="sidebar-user">
@@ -129,10 +129,10 @@
           </div>
         </div>
 
-        <!-- Patient context selector — privileged operators pick which patient to view.
-             VIP patients never see this: they are scoped to their own record. -->
+        <!-- Client context selector — privileged operators pick which client to view.
+             Clients never see this: they are scoped to their own record. -->
         <div id="patient-selector" hidden style="padding:10px 14px; border-top:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; margin-bottom:6px;">Active patient</div>
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; margin-bottom:6px;">Active client</div>
           <form data-submit-action="select-patient" style="display:flex; gap:6px;">
             <input id="patient-selector-input" type="text" placeholder="CL-001" autocomplete="off"
                    style="flex:1; min-width:0; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.05); color:#e5e7eb; border:1px solid rgba(255,255,255,0.15); font-size:12px;" />
@@ -153,7 +153,7 @@
             
             <a class="nav-item" data-page="records" data-action="navigate" data-arg="records">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              <span>Medical Records</span>
+              <span>Client Records</span>
             </a>
             
             
@@ -269,7 +269,7 @@
             <div class="stat-card glass">
               <div class="stat-info">
                 <div class="stat-value" id="stat-total-records">—</div>
-                <div class="stat-label">Health Records</div>
+                <div class="stat-label">Records</div>
               </div>
             </div>
             <div class="stat-card glass">
@@ -307,7 +307,7 @@
         <!-- RECORDS VIEW -->
         <section id="view-records" class="view">
           <div class="view-header">
-            <h2>Health Records</h2>
+            <h2>Client Records</h2>
           </div>
           <div class="view-header" style="margin-top: 0; padding-top: 0;">
             <div class="filter-bar">
@@ -323,7 +323,7 @@
         <!-- ADD RECORD VIEW -->
         <section id="view-add-record" class="view">
           <div class="view-header">
-            <h2>New Health Record</h2>
+            <h2>New Record</h2>
             <p class="view-sub">Records are added to the blockchain and become immutable</p>
           </div>
           <div class="form-card glass">
@@ -333,7 +333,7 @@
             <form id="add-record-form">
               <div class="form-grid">
                 <div class="field-group">
-                  <label>Patient ID <span class="req">*</span></label>
+                  <label>Client ID <span class="req">*</span></label>
                   <input id="rec-patient-id" type="text" placeholder="CL-001" required />
                 </div>
                 <div class="field-group">
@@ -349,8 +349,8 @@
                 <div class="field-group">
                   <label>Access Level <span class="req">*</span></label>
                   <select id="rec-access">
-                    <option value="doctor_shared">Patient + Doctor</option>
-                    <option value="private">Patient Only</option>
+                    <option value="doctor_shared">Client + Practitioner</option>
+                    <option value="private">Client Only</option>
                   </select>
                 </div>
                 <div class="field-group span-2">
@@ -358,8 +358,8 @@
                   <input id="rec-title" type="text" placeholder="Record title..." required />
                 </div>
                 <div class="field-group">
-                  <label>Doctor Name <span class="req">*</span></label>
-                  <input id="rec-doctor" type="text" placeholder="Prof. Dr. ..." required />
+                  <label>Practitioner Name <span class="req">*</span></label>
+                  <input id="rec-doctor" type="text" placeholder="Uzm. Psk. ..." required />
                 </div>
                 <div class="field-group">
                   <label>Institution <span class="req">*</span></label>
@@ -431,14 +431,14 @@
           <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <h2>Access &amp; Audit Log</h2>
-              <p class="view-sub">System audit and patient data access records</p>
+              <p class="view-sub">System audit and client data access records</p>
             </div>
             <button class="btn btn-gold btn-sm" data-action="refresh-logs">Refresh</button>
           </div>
           <div class="tab-container" style="display:flex; gap:10px; margin-bottom:20px;">
             <button id="btn-audit-tab" class="btn btn-gold btn-sm" data-action="switch-log-tab" data-arg="audit">System Audit
               Log</button>
-            <button id="btn-access-tab" class="btn btn-ghost btn-sm" data-action="switch-log-tab" data-arg="access">Patient Access
+            <button id="btn-access-tab" class="btn btn-ghost btn-sm" data-action="switch-log-tab" data-arg="access">Client Access
               Log</button>
           </div>
           <div id="audit-list" class="records-list"></div>
@@ -464,7 +464,7 @@
           <div class="glass form-card" style="max-width: 600px;">
             <h3>Two-Factor Authentication (TOTP 2FA)</h3>
             <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
-              Protect your VIP Health Vault account with an extra layer of security. After enabling, you must enter a
+              Protect your Mahrem account with an extra layer of security. After enabling, you must enter a
               6-digit verification code from your authenticator app (e.g. Google Authenticator) during login.
             </p>
 
@@ -538,7 +538,7 @@
 
 
 
-        <!-- WHO ACCESSED MY RECORDS (patient transparency) -->
+        <!-- WHO ACCESSED MY RECORDS (client transparency) -->
         <section id="view-my-access" class="view">
           <div class="view-header">
             <h2>Who Accessed My Records</h2>
@@ -552,7 +552,7 @@
         <section id="view-dual-control" class="view">
           <div class="view-header">
             <h2>Dual-Control Access</h2>
-            <p class="view-sub">Administrators, auditors, and security officers cannot read patient records on their own authority. Raw access requires an M-of-N co-signature from a second privileged principal, and every step is alerted and audited.</p>
+            <p class="view-sub">Administrators, auditors, and security officers cannot read client records on their own authority. Raw access requires an M-of-N co-signature from a second privileged principal, and every step is alerted and audited.</p>
           </div>
 
           <div id="dc-error" class="alert alert-error" style="display:none; margin-bottom:16px;"></div>
@@ -565,7 +565,7 @@
               <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">1 · Request Access</h3>
               <form id="dc-request-form" data-submit-action="dual-control-request">
                 <div class="field-group" style="margin-bottom:12px;">
-                  <label>Target Patient ID</label>
+                  <label>Target Client ID</label>
                   <input type="text" id="dc-patient-id" value="CL-001" required />
                 </div>
                 <div class="field-group" style="margin-bottom:12px;">
@@ -615,16 +615,16 @@
 
             <!-- Right: Grant Consent Form -->
             <div style="display:flex; flex-direction:column; gap:20px;">
-              <!-- Grant Consent Form (patients only — consent is the patient's decision) -->
+              <!-- Grant Consent Form (clients only — consent is the client's decision) -->
               <div class="glass" id="consent-grant-card" style="padding: 20px; border-radius: var(--radius); display:none;">
-                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Doctor Access</h3>
+                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Practitioner Access</h3>
                 <div id="consent-grant-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
 
                 <form id="consent-grant-form" data-submit-action="grant-consent">
                   <div class="field-group" style="margin-bottom:12px;">
-                    <label>Doctor Username</label>
+                    <label>Practitioner Username</label>
                     <input type="text" id="consent-doctor-username" placeholder="e.g. psk.elif" required />
                   </div>
                   <div class="field-group" style="margin-bottom:12px;">
@@ -654,7 +654,7 @@
         <!-- FOOTER -->
         <footer
           style="margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px;">
-          VIP Health Vault System
+          Mahrem
         </footer>
 
       </main>

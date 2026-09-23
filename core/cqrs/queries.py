@@ -98,7 +98,7 @@ class QueryHandler:
             }
 
             if block.is_protected:
-                entry["title"]        = "ENCRYPTED VIP RECORD"
+                entry["title"]        = "ENCRYPTED RECORD"
                 entry["record_type"]  = "protected"
                 entry["data"]         = None
                 entry["file_name"]    = None

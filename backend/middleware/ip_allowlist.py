@@ -120,7 +120,7 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
             return JSONResponse(
                 status_code=403,
                 content={
-                    "detail": "Network Security Violation: IP address not authorized for VIP Vault access.",
+                    "detail": "Network Security Violation: IP address not authorized for Mahrem access.",
                     "client_ip": client_ip
                 }
             )

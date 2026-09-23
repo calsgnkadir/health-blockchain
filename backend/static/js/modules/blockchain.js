@@ -1,4 +1,4 @@
-/* blockchain.js — VIP Health Vault UI Blockchain Module */
+/* blockchain.js — Mahrem UI Blockchain Module */
 import { apiFetch, patientId, formatTs, escapeHtml } from './utils.js';
 import { updateChainPill } from './dashboard.js';
 

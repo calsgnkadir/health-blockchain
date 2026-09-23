@@ -1,4 +1,4 @@
-/* utils.js — VIP Health Vault UI Utilities */
+/* utils.js — Mahrem UI Utilities */
 
 export const API = '';
 
@@ -165,8 +165,8 @@ export const ROLE_LABEL = {
   security_officer: 'KVKK Officer', auditor: 'Auditor',
 };
 
-// Privileged operators (admin / doctor / auditor / security officer) are not tied
-// to one patient — they pick whose chart to view. VIP patients are always scoped
+// Privileged operators (admin / practitioner / auditor / security officer) are not tied
+// to one patient — they pick whose chart to view. Clients are always scoped
 // to their own record and never touch this.
 let _selectedPatient = null;
 

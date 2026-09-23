@@ -1,4 +1,4 @@
-/* auth.js — VIP Health Vault UI Authentication Module */
+/* auth.js — Mahrem UI Authentication Module */
 import { apiFetch, setToken, setCurrentUser, getCurrentUser, setDualControlToken, bytesToB64url, b64urlToBytes } from './utils.js';
 import { updateNotificationsUI, addNotification } from './notifications.js';
 
@@ -239,7 +239,7 @@ export async function registerPasskey() {
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge: b64urlToBytes(challenge),
-        rp: { name: 'VIP Health Vault' },
+        rp: { name: 'Mahrem' },
         user: {
           id: new TextEncoder().encode(currentUser.username),
           name: currentUser.username,
@@ -273,7 +273,7 @@ export async function registerPasskey() {
       succEl.textContent = 'Passkey enrolled. You can now sign in with this device from the login screen.';
       succEl.style.display = 'block';
     }
-    addNotification('Passkey Registered', 'Your hardware Passkey / TouchID was successfully bound to your VIP Health Vault account.', 'success');
+    addNotification('Passkey Registered', 'Your hardware Passkey / TouchID was successfully bound to your Mahrem account.', 'success');
   } catch (err) {
     fail('Failed to enroll passkey: ' + (err.message || err));
   }

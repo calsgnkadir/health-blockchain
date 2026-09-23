@@ -36,7 +36,7 @@ def append_access_log(
     """
     Append a hash-linked access event.
 
-    Who read (or attempted to read) a VIP record is exactly the claim this vault
+    Who read (or attempted to read) a client record is exactly the claim this vault
     must be able to defend, so the access log is not a flat, deletable table: each
     entry carries a sequence number and the hash of the previous entry, forming a
     tamper-evident ledger verifiable via ``verify_access_log_integrity``. Reads are

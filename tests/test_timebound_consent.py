@@ -1,7 +1,7 @@
 """
 tests/test_timebound_consent.py — Time-Bound Consent & RBAC Unit Tests
 ========================================================================
-Tests for Granular Time-Bound RBAC & Audit Enforcement (Phase 4 of VIP Vault hardening).
+Tests for Granular Time-Bound RBAC & Audit Enforcement.
 """
 
 import os

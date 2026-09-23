@@ -1,4 +1,4 @@
-/* dashboard.js — VIP Health Vault UI Dashboard Module */
+/* dashboard.js — Mahrem UI Dashboard Module */
 import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
 
@@ -158,7 +158,7 @@ export async function loadDashboard() {
       const isPolicyBlock = /Dual-Control/i.test(e.message || '');
       recent.innerHTML = `
         <div class="alert alert-error" style="line-height:1.5">
-          <strong>${isPolicyBlock ? 'Patient records are locked by policy' : 'Could not load dashboard data'}</strong><br>
+          <strong>${isPolicyBlock ? 'Client records are locked by policy' : 'Could not load dashboard data'}</strong><br>
           ${escapeHtml(e.message || 'Unknown error')}
           ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' data-action=\"navigate\" data-arg=\"dual-control\">Open Dual-Control Access</button>" : ''}
         </div>`;
@@ -176,8 +176,8 @@ export function navigate(page) {
   
   const titles = {
     dashboard:      'Dashboard Overview',
-    records:        'Medical Health Records',
-    'add-record':   'Add Health Record',
+    records:        'Client Records',
+    'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
     users:          'User Management',
     audit:          'Access & Audit History',

@@ -1,7 +1,7 @@
 """
 tests/test_pseudonymization.py — Pseudonymization Engine Unit Tests
 =====================================================================
-Tests for the identity decoupling layer (Phase 2 of VIP Vault hardening).
+Tests for the identity decoupling layer.
 """
 
 import os

@@ -60,7 +60,7 @@ def generate_pseudonym(
     Only admins and the patient themselves can access this endpoint.
     """
     if u["role"] not in ("admin", "client"):
-        raise HTTPException(403, "Only admins and VIP patients can manage pseudonyms")
+        raise HTTPException(403, "Only admins and clients can manage pseudonyms")
 
     if u["role"] == "client" and u.get("patient_id") != req.patient_id:
         raise HTTPException(403, "You can only access your own pseudonym")
