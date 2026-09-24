@@ -35,7 +35,8 @@ one still protects the data. This page is a short map; the threat model has the 
 
 ### 4. Sign-in
 - Argon2id password hashing; WebAuthn/FIDO2 passkeys (ES256 signature verified on the
-  server); optional TOTP.
+  server); optional TOTP. With `MANDATORY_FIDO2=true`, an account that has a passkey
+  cannot sign in with its password alone.
 - 5 sign-in attempts per IP per minute on password login, passkey login and
   invitation-code redemption.
 - No self-registration: accounts start from a single-use, expiring code

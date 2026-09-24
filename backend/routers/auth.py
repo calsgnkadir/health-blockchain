@@ -12,6 +12,7 @@ from backend.schemas.requests import (
 )
 from core.services.auth_service import AuthService
 import core.totp as totp
+from infrastructure.repositories.sql_repositories import _to_placeholder
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -42,6 +43,15 @@ def _require_active(user_entity) -> None:
         )
 
 
+def _has_passkey(username: str) -> bool:
+    db = get_sql_db()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(_to_placeholder("SELECT COUNT(*) FROM webauthn_credentials WHERE username = ?"),
+                       (username,))
+        return cursor.fetchone()[0] > 0
+
+
 @router.post("/login", summary="User Login")
 def login(
     req: LoginReq,
@@ -51,26 +61,26 @@ def login(
 ):
     client_ip = _get_client_ip(request)
 
+    # Mandatory passkeys (MANDATORY_FIDO2=true), for every role.
+    # This used to only return a flag nothing read, for admins and clients only:
+    # every password login still succeeded, so the setting enforced nothing.
+    #  - An account that has a passkey must sign in with it. Its password alone no
+    #    longer opens a session, so a stolen password is not enough. Checked before
+    #    the password, so this answer never tells a guesser the password was right.
+    #  - An account without one may sign in with its password, because a passkey can
+    #    only be enrolled by someone signed in; the response tells the UI to go
+    #    straight to enrolment.
+    mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
+    if mandatory_fido2 and _has_passkey(req.username):
+        raise HTTPException(403, "This account signs in with its passkey.")
+
     user_entity = auth_service.authenticate(req.username, req.password, client_ip)
     if not user_entity:
         raise HTTPException(401, "Incorrect username or password")
 
     _require_active(user_entity)
 
-    # Mandatory FIDO2 / hardware-key policy. Enforcing "must have a passkey" by
-    # refusing every password login deadlocks a fresh account: you cannot enrol a
-    # passkey (POST /auth/webauthn/register) without first logging in. So an account
-    # with no passkey yet is granted a one-time enrolment grace — it logs in and the
-    # response flags that a passkey must be enrolled now; the UI drives enrolment.
-    passkey_enrollment_required = False
-    mandatory_fido2 = os.getenv("MANDATORY_FIDO2", "false").lower() in ("true", "1", "yes")
-    if mandatory_fido2 and user_entity.role in ("admin", "client"):
-        db = get_sql_db()
-        with db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM webauthn_credentials WHERE username = ?", (user_entity.username,))
-            count = cursor.fetchone()[0]
-            passkey_enrollment_required = (count == 0)
+    passkey_enrollment_required = mandatory_fido2
 
     if user_entity.totp_enabled:
         if not req.code:

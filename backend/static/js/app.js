@@ -35,7 +35,7 @@ import { loadClients, inviteClient, renewInvite, copyField, openClient, showRede
 })();
 
 /* -- Enter App Initialization --------------------------------------- */
-window.enterApp = function() {
+window.enterApp = function(options = {}) {
   const currentUser = getCurrentUser();
   if (!currentUser) return;
 
@@ -81,7 +81,10 @@ window.enterApp = function() {
   updateNotificationsUI();
   addNotification('System Login', `Access granted to user ${currentUser.username}. Device Fingerprint verified.`, 'success');
 
-  loadRecordTypes().then(() => navigate('dashboard'));
+  if (options.passkeyRequired) {
+    addNotification('Passkey required', 'This vault requires a passkey. Enrol one on this page before you continue.', 'warning');
+  }
+  loadRecordTypes().then(() => navigate(options.passkeyRequired ? 'security' : 'dashboard'));
 };
 
 /* -- Page-Specific View Handlers (Remaining from Monolith) ----------- */

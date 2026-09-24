@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **255 passing tests**.
+> Art. 17)**, with **263 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -48,7 +48,8 @@ so client IDs cannot be probed.
 | Practitioner Only | never | only the author, with consent |
 
 A password-protected record needs consent for *all* records, because its type is
-unknown until it is decrypted. Writing a record needs the same consent as reading it.
+unknown until it is decrypted; who may see it is stored outside the ciphertext, so a
+client's locked journal is not even listed for the practitioner. Writing a record needs the same consent as reading it.
 An invitation grants nothing: the client gives consent themselves.
 
 ## Security engineering at a glance
@@ -126,6 +127,12 @@ full history is in the [CHANGELOG](CHANGELOG.md).
   password login, passkey login and invitation codes.
 - **Practitioners could write into any client's file** without consent, and read any
   client's chain status and notifications.
+- **A client's locked journal showed up in the practitioner's list** as an "ENCRYPTED
+  RECORD" row: its access level was inside the ciphertext, so the list could not tell
+  it apart. The audience is now stored outside the ciphertext.
+- **`MANDATORY_FIDO2` enforced nothing.** It returned a flag no code read, and only for
+  admins and clients; every password login still worked. Now an account with a passkey
+  must use it, for every role, and one without is taken straight to enrolment.
 - **CI had not run the tests for a month.** Since 21 August a lint error failed the
   first step, so every later step was skipped; a red build that "always fails" hid that
   nothing was being tested.

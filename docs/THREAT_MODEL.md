@@ -86,7 +86,7 @@ keys and access rules, not from secrecy.
 | :--- | :--- |
 | One stolen admin account | Dual-control: reading a record needs a second, different approver. Self-approval is rejected. |
 | Stolen disk or backup | Records are AES-256-GCM ciphertext, stored under HMAC pseudonyms — no real client ID on disk. |
-| Password guessing or theft | Argon2id hashing, login rate-limiting, and optional mandatory FIDO2 passkeys. |
+| Password guessing or theft | Argon2id hashing, login rate-limiting, and optional mandatory passkeys (a passkey-holding account cannot use its password alone). |
 | Changing the history | Signed, append-only hash-chain: any edit is detected when the chain is verified. |
 | "Delete my data" / subpoena | Crypto-shred: destroying a per-client key makes that client's data unreadable for good. |
 
@@ -101,7 +101,7 @@ not bugs. Each one names what a real production system would add.
 | Tampering is **detected, not blocked**. | Tamper-evidence is the design goal; blocking needs more infrastructure. | Real-time monitoring, alerting, and incident response. |
 | No high availability (single node = single point of failure). | This tier optimizes confidentiality and integrity, not uptime. | Replication behind a load balancer; DoS protection at the edge. |
 | No independent penetration test or audit. | Solo portfolio project. | Third-party pentest and code audit before handling real client data. |
-| If passkeys are not enforced, a stolen password exposes what that account can see. `MANDATORY_FIDO2` covers administrators and clients, not yet practitioners. | Passkey enforcement is opt-in. | Enforce hardware passkeys for all roles, practitioners first. |
+| If passkeys are not enforced, a stolen password exposes what that account can see. Even with `MANDATORY_FIDO2=true`, an account that has not enrolled a passkey yet can still sign in with its password (to enrol one). | Passkey enforcement is opt-in, and enrolment needs a signed-in session. | Enforce passkeys from day one, enrolling them in person during onboarding. |
 
 ### Scope
 

@@ -43,10 +43,13 @@ redeemed.
 ## After sign-in: passkeys
 
 Any account can then register a passkey (FIDO2 / WebAuthn). With
-`MANDATORY_FIDO2=true`, an administrator or client who has no passkey yet is told to
-enrol one right after signing in (a passkey can only be enrolled by someone who is
-already signed in, so refusing the login would lock a new account out for good).
-Practitioners are not yet covered by this setting.
+`MANDATORY_FIDO2=true`, for every role:
+
+- an account that has a passkey **must sign in with it** — its password alone is
+  refused (checked before the password, so the answer never confirms a guess);
+- an account without one may sign in with its password and is taken straight to
+  passkey enrolment. Refusing that login would lock a new account out for good,
+  because a passkey can only be enrolled by someone who is signed in.
 
 ## Rate limit
 

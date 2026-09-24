@@ -71,7 +71,9 @@ export async function handleLoginSubmit(e) {
       setCurrentUser(data.user);
       resetLoginFormState();
       if (window.enterApp) {
-        window.enterApp();
+        // Under a mandatory-passkey policy an account without one goes straight
+        // to enrolment instead of the dashboard.
+        window.enterApp({ passkeyRequired: !!data.passkey_enrollment_required });
       }
     }
   } catch(ex) {
