@@ -98,6 +98,11 @@ single node on purpose ([ADR-0002](docs/adr/0002-single-node-deployment.md)).
 
 ## Interface
 
+Captured from the Docker demo. The practitioner, then the client, then an
+administrator who cannot read anything on their own. Every frame is captioned.
+
+![Walkthrough](docs/screenshots/walkthrough.gif)
+
 | Sign in | Practitioner dashboard (clients, progress chart) |
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
