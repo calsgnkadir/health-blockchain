@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VIP Health Vault — Confidential Privacy Infrastructure</title>
+  <title>Mahrem — Confidential Client Records</title>
   <meta name="description"
-    content="Isolated, encrypted, audit-proof health privacy vault. Zero-knowledge access control.">
+    content="Encrypted, tamper-evident client records for independent psychologists.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
@@ -26,7 +26,7 @@
               padding:6px 12px; font-size:12px; font-weight:600; color:#111;
               background:#fcd34d; border-top:1px solid rgba(0,0,0,0.2);
               box-shadow:0 -2px 8px rgba(0,0,0,0.25);">
-    🔶 DEMO — synthetic data only. Public demo build; not a live health-record system.
+    🔶 DEMO — synthetic data only. Public demo build; not a live records system.
     The production vault is private-VPC only.
   </div>
 
@@ -41,8 +41,8 @@
       <div class="login-wrap">
         <div class="login-brand">
           <div>
-            <h1 class="brand-name">VIP Health Vault</h1>
-            <p class="brand-sub">Confidential Health Privacy Infrastructure</p>
+            <h1 class="brand-name">Mahrem</h1>
+            <p class="brand-sub">Confidential records for psychologists</p>
           </div>
         </div>
 
@@ -53,6 +53,7 @@
           </div>
 
           <div id="login-error" class="alert alert-error" style="display:none"></div>
+          <div id="login-success" class="alert alert-success" style="display:none"></div>
 
           <form id="login-form" autocomplete="off">
             <div id="login-fields-group">
@@ -95,6 +96,45 @@
             </div>
           </form>
 
+          <!-- Redeem an invitation code (new clients) -->
+          <form id="redeem-form" data-submit-action="redeem-invite" autocomplete="off" style="display:none">
+            <p style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+              Your practitioner gave you an invitation code. Choose a password to open your account.
+            </p>
+            <div id="redeem-error" class="alert alert-error" style="display:none"></div>
+            <div class="field-group">
+              <label>Invitation code</label>
+              <div class="input-wrap">
+                <input id="inp-invite-code" type="text" placeholder="paste your code" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>New password</label>
+              <div class="input-wrap">
+                <input id="inp-new-password" type="password" autocomplete="new-password" placeholder="••••••••" required />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Repeat password</label>
+              <div class="input-wrap">
+                <input id="inp-new-password2" type="password" autocomplete="new-password" placeholder="••••••••" required />
+              </div>
+            </div>
+            <p style="font-size:11px; color:var(--muted); margin-bottom:14px;">
+              At least 12 characters, with an uppercase letter, a lowercase letter, a digit and a special character.
+            </p>
+            <button type="submit" class="btn btn-gold btn-full">ACTIVATE ACCOUNT</button>
+            <div style="text-align:center; margin-top:14px;">
+              <a href="#" data-action="show-login"
+                style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Back to sign in</a>
+            </div>
+          </form>
+
+          <div id="login-invite-link" style="text-align:center; margin-top:14px;">
+            <a href="#" data-action="show-redeem"
+              style="color:var(--gold); font-size:13px; text-decoration:none; font-weight:500;">Have an invitation code?</a>
+          </div>
+
           <div class="demo-credentials" id="demo-credentials-box" style="display:none; margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
             <p class="demo-title" style="color:#fcd34d; font-size:11px; font-weight:700; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px">💡 QUICK DEMO AUTO-FILL (CLICK ACCOUNT):</p>
             <div class="demo-list" id="demo-credentials-list" style="display:flex; flex-direction:column; gap:6px;">
@@ -118,7 +158,7 @@
       <aside id="sidebar">
         <div class="sidebar-brand">
           <span class="brand-dot"></span>
-          <span>VIP Health Vault</span>
+          <span>Mahrem</span>
         </div>
 
         <div class="sidebar-user">
@@ -129,12 +169,12 @@
           </div>
         </div>
 
-        <!-- Patient context selector — privileged operators pick which patient to view.
-             VIP patients never see this: they are scoped to their own record. -->
+        <!-- Client context selector — privileged operators pick which client to view.
+             Clients never see this: they are scoped to their own record. -->
         <div id="patient-selector" hidden style="padding:10px 14px; border-top:1px solid rgba(255,255,255,0.08);">
-          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; margin-bottom:6px;">Active patient</div>
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#9ca3af; margin-bottom:6px;">Active client</div>
           <form data-submit-action="select-patient" style="display:flex; gap:6px;">
-            <input id="patient-selector-input" type="text" placeholder="VIP-001" autocomplete="off"
+            <input id="patient-selector-input" type="text" placeholder="CL-001" autocomplete="off"
                    style="flex:1; min-width:0; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.05); color:#e5e7eb; border:1px solid rgba(255,255,255,0.15); font-size:12px;" />
             <button type="submit"
                     style="padding:6px 10px; border-radius:6px; background:#f59e0b; color:#111; border:none; font-weight:600; font-size:12px; cursor:pointer;">Load</button>
@@ -153,20 +193,15 @@
             
             <a class="nav-item" data-page="records" data-action="navigate" data-arg="records">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              <span>Medical Records</span>
+              <span data-role-text="records-title">Client Records</span>
+            </a>
+
+            <a class="nav-item" data-page="clients" id="nav-clients" data-action="navigate" data-arg="clients" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+              <span>My Clients</span>
             </a>
             
             
-            <a class="nav-item" data-page="vaccines" data-action="navigate" data-arg="vaccines">
-              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2l4 4"></path><path d="M17 7l-8.5 8.5a2.12 2.12 0 0 1-3 0l-1-1a2.12 2.12 0 0 1 0-3L13 3z"></path><path d="M9 11l4 4"></path><path d="M5 15l-3 3 4 4 3-3"></path></svg>
-              <span>Vaccine Passport</span>
-            </a>
-
-            <a class="nav-item" data-page="medications" data-action="navigate" data-arg="medications">
-              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="8" rx="4"></rect><line x1="12" y1="8" x2="12" y2="16"></line></svg>
-              <span>Medications</span>
-            </a>
-
             <a class="nav-item" data-page="add-record" id="nav-add" data-action="navigate" data-arg="add-record">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
               <span>Add New Record</span>
@@ -269,6 +304,17 @@
 
         <!-- DASHBOARD VIEW -->
         <section id="view-dashboard" class="view active">
+          <!-- Practitioner: the clients they may work with -->
+          <div id="practitioner-clients-panel" hidden style="margin-bottom:24px;">
+            <div class="section-header">
+              <h2 class="section-title">My Clients</h2>
+              <button class="btn btn-ghost btn-sm" data-action="navigate" data-arg="clients">+ Invite a client</button>
+            </div>
+            <div id="dashboard-clients" class="records-list"></div>
+          </div>
+
+          <h2 id="dashboard-client-heading" class="section-title" hidden style="margin-bottom:14px;"></h2>
+
           <div class="stats-grid">
             <div class="stat-card glass">
               <div class="stat-info">
@@ -279,7 +325,7 @@
             <div class="stat-card glass">
               <div class="stat-info">
                 <div class="stat-value" id="stat-total-records">—</div>
-                <div class="stat-label">Health Records</div>
+                <div class="stat-label">Records</div>
               </div>
             </div>
             <div class="stat-card glass">
@@ -296,60 +342,17 @@
             </div>
           </div>
 
-          <!-- Patient Clinical Highlights (Allergy alerts + Vitals) -->
-          <div id="patient-highlights" style="display:none; margin-top:24px; margin-bottom:24px;">
-            <!-- Vitals Cards -->
-            <div id="vitals-highlight-deck"
-              style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-              <div class="stat-card glass" style="border-left: 3px solid #ff4d4d;">
-                <div class="stat-info">
-                  <div class="stat-value" id="vital-bp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
-                  </div>
-                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Blood Pressure (mmHg)</div>
-                </div>
-              </div>
-              <div class="stat-card glass" style="border-left: 3px solid #C9A84C;">
-                <div class="stat-info">
-                  <div class="stat-value" id="vital-hr-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
-                  </div>
-                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Heart Rate (bpm)</div>
-                </div>
-              </div>
-              <div class="stat-card glass" style="border-left: 3px solid #3b82f6;">
-                <div class="stat-info">
-                  <div class="stat-value" id="vital-temp-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
-                  </div>
-                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">Temperature (°C)</div>
-                </div>
-              </div>
-              <div class="stat-card glass" style="border-left: 3px solid #10b981;">
-                <div class="stat-info">
-                  <div class="stat-value" id="vital-spo2-val" style="font-size: 20px; font-weight: 700; color: #fff;">—
-                  </div>
-                  <div class="stat-label" style="font-size: 11px; color: var(--muted-hi);">SpO2 Saturation (%)</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Allergy Warning Widget -->
-            <div id="allergy-warning-box" class="alert alert-error"
-              style="display:none; padding:16px; border-radius:8px; margin-bottom:20px; background: rgba(229, 115, 115, 0.1); border: 1px solid rgba(229, 115, 115, 0.3);">
-              <strong style="color:#ff8a80; font-size: 14px; display: block; margin-bottom: 6px;">⚠️ CRITICAL PATIENT
-                ALLERGIES:</strong>
-              <ul id="allergy-list-ul"
-                style="margin-left: 20px; list-style-type: disc; color: #ffbcaf; font-size:13px; line-height:1.4;"></ul>
-            </div>
-          </div>
-
           <!-- Charts Grid -->
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:24px; margin-top:24px; margin-bottom:24px;">
-            <!-- Vital Signs Trend Chart -->
-            <div id="vitals-chart-panel" class="glass" style="display:none; padding:20px; border-radius:14px; border: 1px solid var(--border);">
-              <h3 style="color:var(--gold); font-size:15px; margin-bottom:14px;">📈 Vital Signs Trends</h3>
-              <div style="width:100%; height:260px; position:relative;">
-                <canvas id="vitalsChart"></canvas>
+            <!-- Outcome measures (GAD-7, PHQ-9, ...) over time -->
+            <div id="outcome-chart-panel" class="glass" hidden style="padding:20px; border-radius:14px; border: 1px solid var(--border);">
+              <h3 style="color:var(--gold); font-size:15px; margin-bottom:6px;">Progress</h3>
+              <p id="outcome-summary" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></p>
+              <div style="width:100%; height:240px; position:relative;">
+                <canvas id="outcomeChart"></canvas>
               </div>
             </div>
+
             <!-- Ledger Activity Timeline Chart -->
             <div id="activity-chart-panel" class="glass" style="padding:20px; border-radius:14px; border: 1px solid var(--border);">
               <h3 style="color:var(--info); font-size:15px; margin-bottom:14px;">🛡️ Ledger Activity Timeline</h3>
@@ -361,7 +364,7 @@
 
           <div class="section-header">
             <h2 class="section-title">Recent Records</h2>
-            <button class="btn btn-gold btn-sm" data-action="navigate" data-arg="add-record">+ New Record</button>
+            <button class="btn btn-gold btn-sm" id="dashboard-new-record" data-action="navigate" data-arg="add-record">+ New Record</button>
           </div>
           <div id="recent-records" class="records-list"></div>
         </section>
@@ -369,7 +372,7 @@
         <!-- RECORDS VIEW -->
         <section id="view-records" class="view">
           <div class="view-header">
-            <h2>Health Records</h2>
+            <h2 data-role-text="records-title">Client Records</h2>
           </div>
           <div class="view-header" style="margin-top: 0; padding-top: 0;">
             <div class="filter-bar">
@@ -385,7 +388,7 @@
         <!-- ADD RECORD VIEW -->
         <section id="view-add-record" class="view">
           <div class="view-header">
-            <h2>New Health Record</h2>
+            <h2>New Record</h2>
             <p class="view-sub">Records are added to the blockchain and become immutable</p>
           </div>
           <div class="form-card glass">
@@ -395,8 +398,8 @@
             <form id="add-record-form">
               <div class="form-grid">
                 <div class="field-group">
-                  <label>Patient ID <span class="req">*</span></label>
-                  <input id="rec-patient-id" type="text" placeholder="VIP-001" required />
+                  <label>Client ID <span class="req">*</span></label>
+                  <input id="rec-patient-id" type="text" placeholder="CL-001" required />
                 </div>
                 <div class="field-group">
                   <label>Record Date <span class="req">*</span></label>
@@ -411,9 +414,8 @@
                 <div class="field-group">
                   <label>Access Level <span class="req">*</span></label>
                   <select id="rec-access">
-                    <option value="doctor_shared">Patient + Doctor</option>
-                    <option value="private">Patient Only</option>
-                    <option value="emergency">Emergency Access</option>
+                    <option value="doctor_shared">Client + Practitioner</option>
+                    <option value="private">Client Only</option>
                   </select>
                 </div>
                 <div class="field-group span-2">
@@ -421,12 +423,12 @@
                   <input id="rec-title" type="text" placeholder="Record title..." required />
                 </div>
                 <div class="field-group">
-                  <label>Doctor Name <span class="req">*</span></label>
-                  <input id="rec-doctor" type="text" placeholder="Prof. Dr. ..." required />
+                  <label>Practitioner Name <span class="req">*</span></label>
+                  <input id="rec-doctor" type="text" placeholder="Uzm. Psk. ..." required />
                 </div>
                 <div class="field-group">
                   <label>Institution <span class="req">*</span></label>
-                  <input id="rec-institution" type="text" placeholder="Hospital / Clinic" required />
+                  <input id="rec-institution" type="text" placeholder="Practice / Clinic" required />
                 </div>
               </div>
 
@@ -494,14 +496,14 @@
           <div class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
               <h2>Access &amp; Audit Log</h2>
-              <p class="view-sub">System audit and patient data access records</p>
+              <p class="view-sub">System audit and client data access records</p>
             </div>
             <button class="btn btn-gold btn-sm" data-action="refresh-logs">Refresh</button>
           </div>
           <div class="tab-container" style="display:flex; gap:10px; margin-bottom:20px;">
             <button id="btn-audit-tab" class="btn btn-gold btn-sm" data-action="switch-log-tab" data-arg="audit">System Audit
               Log</button>
-            <button id="btn-access-tab" class="btn btn-ghost btn-sm" data-action="switch-log-tab" data-arg="access">Patient Access
+            <button id="btn-access-tab" class="btn btn-ghost btn-sm" data-action="switch-log-tab" data-arg="access">Client Access
               Log</button>
           </div>
           <div id="audit-list" class="records-list"></div>
@@ -516,24 +518,6 @@
           <div id="users-list" class="records-list"></div>
         </section>
 
-        <!-- VACCINE PASSPORT VIEW -->
-        <section id="view-vaccines" class="view">
-          <div class="view-header">
-            <h2>Vaccine Passport</h2>
-            <p class="view-sub">Verified blockchain vaccination and immunization registry</p>
-          </div>
-          <div id="vaccine-passport-list" class="records-list"></div>
-        </section>
-
-        <!-- ACTIVE MEDICATIONS VIEW -->
-        <section id="view-medications" class="view">
-          <div class="view-header">
-            <h2>Active Medications &amp; Reminders</h2>
-            <p class="view-sub">Current active prescriptions and reminder schedule</p>
-          </div>
-          <div id="active-medications-list" class="records-list"></div>
-        </section>
-
         <!-- SECURITY & 2FA VIEW -->
         <section id="view-security" class="view">
           <div class="view-header">
@@ -545,7 +529,7 @@
           <div class="glass form-card" style="max-width: 600px;">
             <h3>Two-Factor Authentication (TOTP 2FA)</h3>
             <p style="margin-top: 8px; margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.5;">
-              Protect your VIP Health Vault account with an extra layer of security. After enabling, you must enter a
+              Protect your Mahrem account with an extra layer of security. After enabling, you must enter a
               6-digit verification code from your authenticator app (e.g. Google Authenticator) during login.
             </p>
 
@@ -619,7 +603,54 @@
 
 
 
-        <!-- WHO ACCESSED MY RECORDS (patient transparency) -->
+        <!-- MY CLIENTS (practitioner): invitations -->
+        <section id="view-clients" class="view">
+          <div class="view-header">
+            <h2>My Clients</h2>
+            <p class="view-sub">Invite a new client with a one-time code. Inviting a client does not open their file: they decide what you may see once they sign in.</p>
+          </div>
+
+          <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Invite a new client</h3>
+              <div id="invite-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+              <form data-submit-action="invite-client">
+                <div class="field-group" style="margin-bottom:16px;">
+                  <label>Client's name</label>
+                  <input type="text" id="invite-full-name" maxlength="100" placeholder="e.g. Deniz Aydın" required />
+                </div>
+                <button type="submit" class="btn btn-gold btn-full">Create invitation</button>
+              </form>
+            </div>
+
+            <div class="glass" id="invite-result" hidden style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 12px;">Invitation created</h3>
+              <p style="font-size:13px; margin-bottom:12px;">
+                Client ID <strong id="invite-result-id"></strong> · username <strong id="invite-result-username"></strong><br>
+                <span style="color:var(--muted); font-size:12px;">Valid until <span id="invite-result-expiry"></span>. Shown only once — give it to the client in person.</span>
+              </p>
+              <div class="field-group" style="margin-bottom:10px;">
+                <label>Invitation link</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="invite-result-link" readonly style="flex:1; min-width:0;" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="copy-field" data-arg="invite-result-link">Copy</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Invitation code</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="invite-result-code" readonly style="flex:1; min-width:0; font-family:monospace;" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="copy-field" data-arg="invite-result-code">Copy</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="color: var(--gold); font-size: 15px; margin: 28px 0 12px;">Invited clients</h3>
+          <div id="clients-list" class="records-list"></div>
+        </section>
+
+        <!-- WHO ACCESSED MY RECORDS (client transparency) -->
         <section id="view-my-access" class="view">
           <div class="view-header">
             <h2>Who Accessed My Records</h2>
@@ -633,7 +664,7 @@
         <section id="view-dual-control" class="view">
           <div class="view-header">
             <h2>Dual-Control Access</h2>
-            <p class="view-sub">Administrators, auditors, and security officers cannot read patient records on their own authority. Raw access requires an M-of-N co-signature from a second privileged principal, and every step is alerted and audited.</p>
+            <p class="view-sub">Administrators, auditors, and security officers cannot read client records on their own authority. Raw access requires an M-of-N co-signature from a second privileged principal, and every step is alerted and audited.</p>
           </div>
 
           <div id="dc-error" class="alert alert-error" style="display:none; margin-bottom:16px;"></div>
@@ -646,8 +677,8 @@
               <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">1 · Request Access</h3>
               <form id="dc-request-form" data-submit-action="dual-control-request">
                 <div class="field-group" style="margin-bottom:12px;">
-                  <label>Target Patient ID</label>
-                  <input type="text" id="dc-patient-id" value="VIP-001" required />
+                  <label>Target Client ID</label>
+                  <input type="text" id="dc-patient-id" value="CL-001" required />
                 </div>
                 <div class="field-group" style="margin-bottom:12px;">
                   <label>Justification</label>
@@ -680,49 +711,44 @@
         <!-- CONSENT MANAGEMENT VIEW -->
         <section id="view-consent" class="view">
           <div class="view-header">
-            <h2>Consent Management</h2>
-            <p class="view-sub">Manage clinical access permissions for healthcare practitioners, or initiate emergency override access (Break Glass).</p>
+            <h2 data-role-text="consent-title">Consent Management</h2>
+            <p class="view-sub" data-role-text="consent-sub">Decide which practitioners may see which of your records, and for how long.</p>
           </div>
 
           <div class="stats-grid"
             style="grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 20px; align-items: start;">
             <!-- Left: Active Consents Table -->
             <div class="glass" style="padding: 24px; border-radius: var(--radius);">
-              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Active Access Permissions</h3>
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;" data-role-text="consent-list-title">Active Access Permissions</h3>
               <div id="consent-table-container">
                 <div id="consents-list"></div>
               </div>
             </div>
 
-            <!-- Right: Grant Consent Form & Break Glass Panel -->
+            <!-- Right: Grant Consent Form -->
             <div style="display:flex; flex-direction:column; gap:20px;">
-              <!-- Grant Consent Form (patients only — consent is the patient's decision) -->
+              <!-- Grant Consent Form (clients only — consent is the client's decision) -->
               <div class="glass" id="consent-grant-card" style="padding: 20px; border-radius: var(--radius); display:none;">
-                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Doctor Access</h3>
+                <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Authorize Practitioner Access</h3>
                 <div id="consent-grant-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
                 <div id="consent-grant-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
                 </div>
 
                 <form id="consent-grant-form" data-submit-action="grant-consent">
                   <div class="field-group" style="margin-bottom:12px;">
-                    <label>Doctor Username</label>
-                    <input type="text" id="consent-doctor-username" placeholder="e.g. dr.smith" required />
+                    <label>Practitioner Username</label>
+                    <input type="text" id="consent-doctor-username" placeholder="e.g. psk.elif" required />
                   </div>
                   <div class="field-group" style="margin-bottom:12px;">
                     <label>Record Type</label>
                     <select id="consent-record-type" required>
                       <option value="all">All Records</option>
-                      <option value="diagnosis">Diagnosis</option>
-                      <option value="lab_result">Lab Results</option>
-                      <option value="prescription">Prescriptions</option>
-                      <option value="surgery">Surgeries</option>
-                      <option value="vaccination">Vaccinations</option>
-                      <option value="imaging">Imaging Studies</option>
-                      <option value="vital_signs">Vital Signs</option>
-                      <option value="allergy">Allergies</option>
-                      <option value="psychology">Psychology Logs</option>
-                      <option value="genetic">Genetics Profiles</option>
-                      <option value="emergency">Emergency Data</option>
+                      <option value="session_note">Session Notes</option>
+                      <option value="assessment">Assessments</option>
+                      <option value="treatment_plan">Treatment Plans</option>
+                      <option value="homework">Homework</option>
+                      <option value="consent_form">Consent Forms</option>
+                      <option value="document">Documents</option>
                       <option value="other">Other Records</option>
                     </select>
                   </div>
@@ -733,30 +759,6 @@
                   <button type="submit" class="btn btn-gold btn-full">Save Permission</button>
                 </form>
               </div>
-
-              <!-- Break Glass Panel (For Doctors only) -->
-              <div class="glass" id="break-glass-panel"
-                style="padding: 20px; border-radius: var(--radius); border: 1px solid rgba(229,115,115,0.3); display:none;">
-                <h3
-                  style="color: #ff8a80; font-size: 15px; margin-bottom: 12px; display:flex; align-items:center; gap:8px;">
-                  <span>🚨 Emergency Override (Break Glass)</span>
-                </h3>
-                <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height:1.4;">
-                  In severe medical emergencies, use this button to temporarily access all patient data for 15 minutes without pre-existing consent. All overrides are permanently recorded in the audit logs.
-                </p>
-                <div id="break-glass-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
-                <div id="break-glass-success" class="alert alert-success" style="display:none; margin-bottom:12px;">
-                </div>
-                <form id="break-glass-form" data-submit-action="break-glass">
-                  <div class="field-group" style="margin-bottom:14px;">
-                    <label>Override Justification (Notes)</label>
-                    <textarea id="break-glass-reason"
-                      placeholder="Please specify the medical emergency reasoning (e.g. Acute loss of consciousness, urgent surgery required)..."
-                      rows="3" required></textarea>
-                  </div>
-                  <button type="submit" class="btn btn-error btn-full">Trigger Break Glass (Grant Access)</button>
-                </form>
-              </div>
             </div>
           </div>
         </section>
@@ -764,7 +766,7 @@
         <!-- FOOTER -->
         <footer
           style="margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 12px;">
-          VIP Health Vault System
+          Mahrem
         </footer>
 
       </main>

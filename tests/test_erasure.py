@@ -26,7 +26,7 @@ from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
 _ACCOUNTS = {
     "admin": ("admin", "Admin@2026Secure!"),
     "officer": ("sec.officer", "SecOfficer@2026!"),
-    "doctor": ("dr.smith", "Doctor@2026Secure!"),
+    "doctor": ("psk.elif", "Practitioner@2026!"),
 }
 
 
@@ -41,7 +41,7 @@ class TestErasure(unittest.TestCase):
         self.svc = RecordService(LMDBBlockRepository(), AESGCMStrategy())
         # Unique numeric patient id per run so destructive erasure never touches
         # another test's chain.
-        self.patient = f"VIP-9{uuid.uuid4().int % 1000:03d}"
+        self.patient = f"CL-9{uuid.uuid4().int % 1000:03d}"
 
     def _headers(self, actor):
         username, password = _ACCOUNTS[actor]
@@ -67,7 +67,7 @@ class TestErasure(unittest.TestCase):
             self.svc.add_record(self.patient, {
                 "record_type": "diagnosis", "title": "Essential hypertension",
                 "data": {"icd_code": "I10", "severity": sev, "note": "SENSITIVE-MARKER"},
-            }, username="dr.smith")
+            }, username="psk.elif")
 
     def _erase(self, actor="admin", token=None):
         headers = self._headers(actor)

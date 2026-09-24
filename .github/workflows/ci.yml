@@ -1,4 +1,4 @@
-name: VIP Health Vault CI
+name: Mahrem CI
 
 on:
   push:

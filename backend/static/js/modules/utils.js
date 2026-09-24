@@ -1,4 +1,4 @@
-/* utils.js — VIP Health Vault UI Utilities */
+/* utils.js — Mahrem UI Utilities */
 
 export const API = '';
 
@@ -160,10 +160,13 @@ export function emptyState(msg) {
   </div><p>${escapeHtml(msg)}</p></div>`;
 }
 
-export const ROLE_LABEL = { admin: 'Administrator', doctor: 'Doctor', vip_patient: 'VIP Patient' };
+export const ROLE_LABEL = {
+  admin: 'Administrator', practitioner: 'Practitioner', client: 'Client',
+  security_officer: 'KVKK Officer', auditor: 'Auditor',
+};
 
-// Privileged operators (admin / doctor / auditor / security officer) are not tied
-// to one patient — they pick whose chart to view. VIP patients are always scoped
+// Privileged operators (admin / practitioner / auditor / security officer) are not tied
+// to one patient — they pick whose chart to view. Clients are always scoped
 // to their own record and never touch this.
 let _selectedPatient = null;
 
@@ -177,8 +180,53 @@ export function getSelectedPatient() {
 
 export function patientId() {
   const user = getCurrentUser();
-  if (user && user.role === 'vip_patient') return user.patient_id;
+  if (user && user.role === 'client') return user.patient_id;
   return _selectedPatient;   // null until a privileged operator selects a patient
+}
+
+/* -- Role-aware wording --------------------------------------------
+ * The same page is seen by the client, their practitioner and operators, and
+ * "your records" means something different to each. Elements that need a
+ * different sentence per role carry data-role-text="<key>"; the text lives
+ * here, with `default` for every role not listed.
+ */
+export const ROLE_TEXTS = {
+  'records-title': {
+    client:       'My Records',
+    default:      'Client Records',
+  },
+  'consent-title': {
+    client:       'My Consents',
+    practitioner: 'Consent from this client',
+    default:      'Consent Rules',
+  },
+  'consent-sub': {
+    client:       'Decide which practitioners may see which of your records, and for how long.',
+    practitioner: 'What this client has allowed you to see, and until when. Only the client can change it.',
+    default:      "This client's consent rules. Only the client can change them.",
+  },
+  'consent-list-title': {
+    client:       'Who can see my records',
+    practitioner: 'Your access',
+    default:      'Active Access Permissions',
+  },
+  'consent-empty': {
+    client:       'You have not given any practitioner access yet.',
+    practitioner: 'This client has not given you access to any records.',
+    default:      'No active consent rules.',
+  },
+};
+
+export function roleText(key, role = (getCurrentUser() || {}).role) {
+  const texts = ROLE_TEXTS[key];
+  if (!texts) return key;
+  return texts[role] || texts.default;
+}
+
+function applyRoleTexts(role) {
+  document.querySelectorAll('[data-role-text]').forEach(el => {
+    el.textContent = roleText(el.dataset.roleText, role);
+  });
 }
 
 // Centralized UI State Manager
@@ -215,8 +263,8 @@ export const appState = {
       if (sbName) sbName.textContent = this.currentUser.full_name;
       const sbRole = document.getElementById('sidebar-role');
       if (sbRole) {
-        if (this.currentUser.role === 'vip_patient') {
-          sbRole.textContent = this.currentUser.patient_id === 'VIP-001' ? 'PAT-2024-0047' : this.currentUser.patient_id;
+        if (this.currentUser.role === 'client') {
+          sbRole.textContent = this.currentUser.patient_id;
         } else {
           sbRole.textContent = ROLE_LABEL[this.currentUser.role] || this.currentUser.role;
         }
@@ -236,25 +284,24 @@ export const appState = {
       }
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
+      const navClients = document.getElementById('nav-clients');
+      if (navClients) navClients.style.display = (this.currentUser.role === 'practitioner') ? 'flex' : 'none';
+      applyRoleTexts(this.currentUser.role);
+      const newRecordBtn = document.getElementById('dashboard-new-record');
+      if (newRecordBtn) newRecordBtn.style.display = (this.currentUser.role === 'client') ? 'none' : '';
       const navAdd = document.getElementById('nav-add');
-      if (navAdd) navAdd.style.display = (this.currentUser.role === 'vip_patient') ? 'none' : 'flex';
+      if (navAdd) navAdd.style.display = (this.currentUser.role === 'client') ? 'none' : 'flex';
 
       // Only the patient who owns the chart may grant or revoke clinical access.
       const consentGrantCard = document.getElementById('consent-grant-card');
       if (consentGrantCard) {
-        consentGrantCard.style.display = (this.currentUser.role === 'vip_patient') ? 'block' : 'none';
+        consentGrantCard.style.display = (this.currentUser.role === 'client') ? 'block' : 'none';
       }
 
       // The patient can see who read their records; it is their transparency view.
       const navMyAccess = document.getElementById('nav-my-access');
       if (navMyAccess) {
-        navMyAccess.style.display = (this.currentUser.role === 'vip_patient') ? 'flex' : 'none';
-      }
-
-      // Break-Glass is the practitioner's audited path to records without consent.
-      const breakGlassPanel = document.getElementById('break-glass-panel');
-      if (breakGlassPanel) {
-        breakGlassPanel.style.display = (this.currentUser.role === 'doctor') ? 'block' : 'none';
+        navMyAccess.style.display = (this.currentUser.role === 'client') ? 'flex' : 'none';
       }
     }
 

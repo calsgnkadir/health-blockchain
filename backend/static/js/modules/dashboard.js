@@ -1,250 +1,139 @@
-/* dashboard.js — VIP Health Vault UI Dashboard Module */
-import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState } from './utils.js';
+/* dashboard.js — Mahrem UI Dashboard Module */
+import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState, getCurrentUser, roleText } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
+import { recordTypes } from './records.js';
 
-let vitalsChartInstance = null;
 let activityChartInstance = null;
+let outcomeChartInstance = null;
 
-export function updateChainPill(valid) {
-  appState.updateChain(valid);
+/* -- Practitioner: client list --------------------------------------- */
+
+const CLIENT_STATUS = {
+  consented:           null,   // shown as the consent summary instead
+  waiting_for_consent: 'Joined — waiting for consent',
+  invited:             'Invitation not used yet',
+};
+
+function consentSummary(c) {
+  const labels = c.consent_types.map(t =>
+    t === 'all' ? 'All records' : ((recordTypes.find(rt => rt.value === t) || {}).label || t));
+  return `${labels.join(', ')} · until ${formatTs(c.consent_expires_at)}`;  // xss-reviewed: plain text, escaped by the caller
 }
 
-export function updateClinicalHighlights(records) {
-  const highlightDiv = document.getElementById('patient-highlights');
-  if (!highlightDiv) return;
-  
-  highlightDiv.style.display = 'block';
-
-  // 1. Vitals
-  // `r.data` holds the record-type specific clinical fields.
-  const vitalsRecord = records.find(r => r.record_type === 'vital_signs' && !r.is_protected && r.data);
-  if (vitalsRecord && vitalsRecord.data) {
-    const v = vitalsRecord.data;
-    document.getElementById('vital-bp-val').textContent = v.blood_pressure || '—';
-    document.getElementById('vital-hr-val').textContent = v.heart_rate ? `${v.heart_rate} bpm` : '—';
-    document.getElementById('vital-temp-val').textContent = v.temperature ? `${v.temperature} °C` : '—';
-    document.getElementById('vital-spo2-val').textContent = v.oxygen_sat ? `${v.oxygen_sat} %` : '—';
-    
-    const tempVal = parseFloat(v.temperature);
-    if (tempVal >= 38.0) {
-      document.getElementById('vital-temp-val').style.color = '#ff4d4d';
-    } else {
-      document.getElementById('vital-temp-val').style.color = '#fff';
-    }
-    const hrVal = parseInt(v.heart_rate);
-    if (hrVal > 100 || hrVal < 60) {
-      document.getElementById('vital-hr-val').style.color = '#C9A84C';
-    } else {
-      document.getElementById('vital-hr-val').style.color = '#fff';
-    }
-  } else {
-    document.getElementById('vital-bp-val').textContent = '—';
-    document.getElementById('vital-hr-val').textContent = '—';
-    document.getElementById('vital-temp-val').textContent = '—';
-    document.getElementById('vital-spo2-val').textContent = '—';
-    document.getElementById('vital-temp-val').style.color = '#fff';
-    document.getElementById('vital-hr-val').style.color = '#fff';
-  }
-
-  // 2. Allergies
-  const allergyRecords = records.filter(r => r.record_type === 'allergy' && !r.is_protected && r.data);
-  const allergyBox = document.getElementById('allergy-warning-box');
-  const allergyUl = document.getElementById('allergy-list-ul');
-  
-  if (allergyRecords.length > 0) {
-    allergyUl.innerHTML = allergyRecords.map(r => {
-      const a = r.data || {};
-      return `<li><strong>${escapeHtml(a.allergen || 'Unknown')}</strong>: ${escapeHtml(a.reaction || 'No reaction listed')} (${escapeHtml(a.severity || 'Mild')} severity, onset: ${escapeHtml(a.onset_date || '—')})</li>`;
-    }).join('');
-    allergyBox.style.display = 'block';
-  } else {
-    allergyUl.innerHTML = '';
-    allergyBox.style.display = 'none';
-  }
-}
-
-export function renderVitalsChart(records) {
-  const chartPanel = document.getElementById('vitals-chart-panel');
-  if (!chartPanel) return;
-
-  const vitalsRecords = records
-    .filter(r => r.record_type === 'vital_signs' && !r.is_protected && r.data)
-    .map(r => ({
-      date: r.record_date || new Date(r.timestamp * 1000).toISOString().split('T')[0],
-      v: r.data,
-      timestamp: r.timestamp
-    }));
-
-  vitalsRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  if (vitalsRecords.length === 0) {
-    chartPanel.style.display = 'none';
-    return;
-  }
-
-  chartPanel.style.display = 'block';
-
-  const labels = vitalsRecords.map(r => {
-    try {
-      const parts = r.date.split('-');
-      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
-    } catch(e) {}
-    return r.date;
-  });
-
-  const tempData = vitalsRecords.map(r => parseFloat(r.v.temperature) || null);
-  const hrData = vitalsRecords.map(r => parseInt(r.v.heart_rate) || null);
-  const spo2Data = vitalsRecords.map(r => parseInt(r.v.oxygen_sat) || null);
-
-  const canvas = document.getElementById('vitalsChart');
-  if (!canvas) return;
-
-  if (typeof Chart === 'undefined') {
-    let html = `
-      <div style="color:var(--muted); font-size:12px; margin-bottom:12px; font-style:italic;">
-        (Chart.js offline. Displaying clinical trends log)
+function renderClientCard(c, selectedId) {
+  const pid = escapeHtml(c.patient_id);
+  const selected = c.patient_id === selectedId;
+  const line = c.status === 'consented' ? consentSummary(c) : (CLIENT_STATUS[c.status] || c.status);
+  // Only a client who gave consent can be opened; the others would answer 403.
+  const button = c.status === 'consented'
+    ? `<button type="button" class="btn ${selected ? 'btn-gold' : 'btn-ghost'} btn-sm" data-action="open-client" data-arg="${pid}" data-arg2="dashboard">${selected ? 'Selected' : 'Select'}</button>`
+    : '';
+  return `
+    <div class="user-card glass" style="${selected ? 'border-color:var(--gold);' : ''}">
+      <div class="user-avatar" style="background:linear-gradient(135deg,#C9A84C,#8B6914)">${escapeHtml(c.full_name.charAt(0))}</div>
+      <div style="flex:1">
+        <div style="font-weight:600">${escapeHtml(c.full_name)} <span style="font-size:12px;color:var(--muted);font-weight:400">${pid}</span></div>
+        <div style="font-size:12px;color:var(--muted)">${escapeHtml(line)}</div>
       </div>
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border); color:var(--gold);">
-              <th style="padding:8px;">Date</th>
-              <th style="padding:8px;">Temp (°C)</th>
-              <th style="padding:8px;">Heart Rate (bpm)</th>
-              <th style="padding:8px;">SpO2 (%)</th>
-              <th style="padding:8px;">BP (mmHg)</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-    vitalsRecords.forEach(r => {
-      html += `
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-          <td style="padding:8px; font-family:var(--font-mono);">${escapeHtml(r.date)}</td>
-          <td style="padding:8px;">${escapeHtml(String(r.v.temperature || '—'))} °C</td>
-          <td style="padding:8px;">${escapeHtml(String(r.v.heart_rate || '—'))} bpm</td>
-          <td style="padding:8px;">${escapeHtml(String(r.v.oxygen_sat || '—'))} %</td>
-          <td style="padding:8px;">${escapeHtml(String(r.v.blood_pressure || '—'))}</td>
-        </tr>
-      `;
+      ${button}
+    </div>`;
+}
+
+// Renders the practitioner's clients and returns them ([] on error).
+async function loadPractitionerClients(selectedId) {
+  const list = document.getElementById('dashboard-clients');
+  if (!list) return [];
+  try {
+    const d = await apiFetch('/api/practitioner/clients');
+    list.innerHTML = d.clients.length
+      ? d.clients.map(c => renderClientCard(c, selectedId)).join('')
+      : emptyState('No clients yet. Invite a client, or ask a client to give you consent.');
+    return d.clients;
+  } catch (e) {
+    list.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+    return [];
+  }
+}
+
+/* -- Outcome measures (GAD-7, PHQ-9, ...) ---------------------------- */
+
+// Scores from assessment records, grouped by instrument, oldest first.
+export function outcomeSeries(records) {
+  const byInstrument = {};
+  records
+    .filter(r => r.record_type === 'assessment' && r.data && r.data.instrument && r.record_date)
+    .forEach(r => {
+      const score = Number(r.data.score);
+      const max = Number(r.data.max_score);
+      if (!Number.isFinite(score)) return;
+      const name = String(r.data.instrument);
+      if (!byInstrument[name]) byInstrument[name] = { max: 0, points: [] };
+      if (Number.isFinite(max)) byInstrument[name].max = Math.max(byInstrument[name].max, max);
+      byInstrument[name].points.push({ date: r.record_date, score });
     });
-    html += `</tbody></table></div>`;
-    
-    let fallbackDiv = document.getElementById('vitals-chart-fallback');
-    if (!fallbackDiv) {
-      fallbackDiv = document.createElement('div');
-      fallbackDiv.id = 'vitals-chart-fallback';
-      canvas.parentNode.appendChild(fallbackDiv);
-    }
-    fallbackDiv.innerHTML = html;
-    canvas.style.display = 'none';
-    return;
-  }
+  Object.values(byInstrument).forEach(s => s.points.sort((a, b) => a.date.localeCompare(b.date)));
+  return byInstrument;
+}
 
-  const fallbackDiv = document.getElementById('vitals-chart-fallback');
-  if (fallbackDiv) fallbackDiv.style.display = 'none';
-  canvas.style.display = 'block';
+const LINE_COLORS = ['#C9A84C', '#0ABFBC', '#E57373', '#81C784'];
 
-  if (vitalsChartInstance) {
-    vitalsChartInstance.destroy();
-  }
+export function renderOutcomeChart(records) {
+  const panel = document.getElementById('outcome-chart-panel');
+  if (!panel) return;
+  const series = outcomeSeries(records);
+  const names = Object.keys(series);
+  panel.hidden = names.length === 0;
+  if (outcomeChartInstance) { outcomeChartInstance.destroy(); outcomeChartInstance = null; }
+  if (!names.length || typeof Chart === 'undefined') return;
 
-  const ctx = canvas.getContext('2d');
-  vitalsChartInstance = new Chart(ctx, {
+  // One line per instrument: first score → latest score.
+  document.getElementById('outcome-summary').textContent = names.map(name => {
+    const pts = series[name].points;
+    const first = pts[0].score;
+    const last = pts[pts.length - 1].score;
+    const change = last - first;
+    return pts.length > 1
+      ? `${name}: ${first} → ${last} (${change > 0 ? '+' : ''}${change})`
+      : `${name}: ${last}`;
+  }).join(' · ');
+
+  const dates = [...new Set(names.flatMap(n => series[n].points.map(p => p.date)))].sort();
+  outcomeChartInstance = new Chart(document.getElementById('outcomeChart').getContext('2d'), {
     type: 'line',
     data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Heart Rate (bpm)',
-          data: hrData,
-          borderColor: '#ff4d4d',
-          backgroundColor: 'rgba(255, 77, 77, 0.08)',
-          borderWidth: 2,
-          tension: 0.35,
-          yAxisID: 'y-hr-spo2',
-          pointBackgroundColor: '#ff4d4d',
-          pointRadius: 4
-        },
-        {
-          label: 'SpO2 Saturation (%)',
-          data: spo2Data,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.08)',
-          borderWidth: 2,
-          tension: 0.35,
-          yAxisID: 'y-hr-spo2',
-          pointBackgroundColor: '#3b82f6',
-          pointRadius: 4
-        },
-        {
-          label: 'Temperature (°C)',
-          data: tempData,
-          borderColor: '#C9A84C',
-          backgroundColor: 'rgba(201, 168, 76, 0.08)',
-          borderWidth: 2,
-          tension: 0.35,
-          yAxisID: 'y-temp',
-          pointBackgroundColor: '#C9A84C',
-          pointRadius: 4
-        }
-      ]
+      labels: dates.map(d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })),
+      datasets: names.map((name, i) => ({
+        label: name,
+        data: dates.map(d => {
+          const p = series[name].points.find(pt => pt.date === d);
+          return p ? p.score : null;
+        }),
+        spanGaps: true,
+        borderColor: LINE_COLORS[i % LINE_COLORS.length],
+        backgroundColor: LINE_COLORS[i % LINE_COLORS.length],
+        tension: 0.25,
+        pointRadius: 4,
+      })),
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            color: '#9B95B0',
-            font: { family: 'Inter', size: 11 }
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(18, 18, 42, 0.95)',
-          titleColor: '#C9A84C',
-          bodyColor: '#EDE8E0',
-          borderColor: 'rgba(201, 168, 76, 0.25)',
-          borderWidth: 1
-        }
-      },
+      plugins: { legend: { labels: { color: '#8892A4', font: { family: 'Inter', size: 11 } } } },
       scales: {
-        x: {
-          grid: { color: 'rgba(255, 255, 255, 0.03)' },
-          ticks: { color: '#6B6882', font: { family: 'JetBrains Mono', size: 10 } }
-        },
-        'y-hr-spo2': {
-          type: 'linear',
-          position: 'left',
+        x: { grid: { color: 'rgba(255, 255, 255, 0.03)' }, ticks: { color: '#8892A4', font: { size: 10 } } },
+        y: {
+          min: 0,
+          suggestedMax: Math.max(...names.map(n => series[n].max)) || undefined,
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#ff4d4d', font: { family: 'JetBrains Mono', size: 10 } },
-          min: 40,
-          max: 150,
-          title: {
-            display: true,
-            text: 'Heart Rate / SpO2',
-            color: '#ff4d4d',
-            font: { family: 'Inter', size: 10 }
-          }
+          ticks: { color: '#8892A4', font: { size: 10 } },
         },
-        'y-temp': {
-          type: 'linear',
-          position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: { color: '#C9A84C', font: { family: 'JetBrains Mono', size: 10 } },
-          min: 34,
-          max: 42,
-          title: {
-            display: true,
-            text: 'Temp (°C)',
-            color: '#C9A84C',
-            font: { family: 'Inter', size: 10 }
-          }
-        }
-      }
-    }
+      },
+    },
   });
+}
+
+export function updateChainPill(valid) {
+  appState.updateChain(valid);
 }
 
 export function renderActivityChart(records) {
@@ -322,7 +211,9 @@ export function renderActivityChart(records) {
 }
 
 export async function loadDashboard() {
-  const pid = patientId();
+  let pid = patientId();
+  const role = (getCurrentUser() || {}).role;
+  const isPractitioner = role === 'practitioner';
 
   // Clear first: on a failed or blocked load the panel must not keep showing the
   // previous session's figures as if they belonged to the current user.
@@ -330,12 +221,44 @@ export async function loadDashboard() {
     const el = document.getElementById(id);
     if (el) el.textContent = '—';
   });
+  const outcomePanel = document.getElementById('outcome-chart-panel');
+  if (outcomePanel) outcomePanel.hidden = true;
+  const heading = document.getElementById('dashboard-client-heading');
+  if (heading) heading.hidden = true;
 
-  // Privileged operators pick a patient before any chart loads (no hardcoded
+  // A practitioner works from their client list, not from a typed client ID.
+  // The ledger activity chart is for operators; a practitioner gets progress.
+  const clientsPanel = document.getElementById('practitioner-clients-panel');
+  if (clientsPanel) clientsPanel.hidden = !isPractitioner;
+  const activityPanel = document.getElementById('activity-chart-panel');
+  if (activityPanel) activityPanel.hidden = isPractitioner;
+  if (isPractitioner) {
+    const clients = await loadPractitionerClients(pid);
+    const current = clients.find(c => c.patient_id === pid);
+    if (!current) {
+      // Nothing selected yet (or the selected client withdrew consent): open
+      // the first client who gave consent, if there is one.
+      const first = clients.find(c => c.status === 'consented');
+      if (first) {
+        window.openClientInPlace(first.patient_id);
+        return;   // openClientInPlace reloads the dashboard for that client
+      }
+      pid = null;
+    } else if (heading) {
+      heading.textContent = `${current.full_name} · ${current.patient_id}`;
+      heading.hidden = false;
+    }
+  }
+
+  // Privileged operators pick a client before any chart loads (no hardcoded
   // default), so prompt for a selection instead of firing a forbidden request.
   if (!pid) {
     const integ = document.getElementById('stat-integrity');
-    if (integ) integ.textContent = 'SELECT PATIENT';
+    if (integ) integ.textContent = 'SELECT CLIENT';
+    const recent = document.getElementById('recent-records');
+    if (recent) recent.innerHTML = emptyState(isPractitioner
+      ? 'Select a client above to see their file.'
+      : 'Choose a client to see their file.');
     return;
   }
 
@@ -379,9 +302,8 @@ export async function loadDashboard() {
     document.getElementById('recent-records').innerHTML =
       recent.length ? recent.map(r => window.renderRecordCard(r)).join('') : emptyState('No records yet');
 
-    updateClinicalHighlights(recData.records);
-    renderVitalsChart(recData.records);
     renderActivityChart(recData.records);
+    renderOutcomeChart(recData.records);
 
     // Trigger chain failure notification if broken
     if (!valid) {
@@ -399,7 +321,7 @@ export async function loadDashboard() {
       const isPolicyBlock = /Dual-Control/i.test(e.message || '');
       recent.innerHTML = `
         <div class="alert alert-error" style="line-height:1.5">
-          <strong>${isPolicyBlock ? 'Patient records are locked by policy' : 'Could not load dashboard data'}</strong><br>
+          <strong>${isPolicyBlock ? 'Client records are locked by policy' : 'Could not load dashboard data'}</strong><br>
           ${escapeHtml(e.message || 'Unknown error')}
           ${isPolicyBlock ? "<br><br><button class='btn btn-gold btn-sm' data-action=\"navigate\" data-arg=\"dual-control\">Open Dual-Control Access</button>" : ''}
         </div>`;
@@ -417,26 +339,24 @@ export function navigate(page) {
   
   const titles = {
     dashboard:      'Dashboard Overview',
-    records:        'Medical Health Records',
-    'add-record':   'Add Health Record',
+    records:        roleText('records-title'),
+    clients:        'My Clients',
+    'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
-    vaccines:       'Vaccine Passport',
-    medications:    'Medications & Prescriptions',
     users:          'User Management',
     audit:          'Access & Audit History',
     security:       'Security & 2FA Settings',
     'dual-control': 'Dual-Control Access',
     'my-access':    'Who Accessed My Records',
-    consent:        'Consent Management',
+    consent:        roleText('consent-title'),
   };
   
   document.getElementById('topbar-title').textContent = titles[page] || page;
   
   if (page === 'dashboard')     loadDashboard();
   if (page === 'records')       if (window.loadRecords) window.loadRecords();
+  if (page === 'clients')       if (window.loadClients) window.loadClients();
   if (page === 'chain-status')  if (window.loadChainStatus) window.loadChainStatus();
-  if (page === 'vaccines')      if (window.loadVaccines) window.loadVaccines();
-  if (page === 'medications')   if (window.loadMedications) window.loadMedications();
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');
   if (page === 'security')      if (window.loadSecuritySettings) window.loadSecuritySettings();

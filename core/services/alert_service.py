@@ -1,7 +1,7 @@
 """
 core/services/alert_service.py — Real-Time Security Alert & Anomaly Engine
 ==========================================================================
-Captures critical security events (Break-Glass triggers, rapid failed auth,
+Captures critical security events (dual-control violations, rapid failed auth,
 unauthorized IP attempts) and records them into an immutable alert queue.
 """
 

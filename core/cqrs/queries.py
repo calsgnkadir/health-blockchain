@@ -4,23 +4,22 @@ from typing import Any, Optional, List
 from core.ports.repositories import IBlockRepository, INotificationRepository
 from core.services.record_service import RecordService
 from core.services.consent_validator import ConsentValidator
+from core.services import access_policy
 import database.storage as storage
 
 class GetPatientRecordsQuery:
-    def __init__(self, patient_id: str, requester_username: str, requester_role: str, ignore_consent: bool = False):
+    def __init__(self, patient_id: str, requester_username: str, requester_role: str):
         self.patient_id = patient_id
         self.requester_username = requester_username
         self.requester_role = requester_role
-        self.ignore_consent = ignore_consent
 
 class DecryptRecordQuery:
-    def __init__(self, patient_id: str, block_index: int, password: Optional[str], requester_username: str, requester_role: str, ignore_consent: bool = False):
+    def __init__(self, patient_id: str, block_index: int, password: Optional[str], requester_username: str, requester_role: str):
         self.patient_id = patient_id
         self.block_index = block_index
         self.password = password
         self.requester_username = requester_username
         self.requester_role = requester_role
-        self.ignore_consent = ignore_consent
 
 class GetNotificationsQuery:
     def __init__(self, patient_id: str, username: str):
@@ -54,6 +53,10 @@ class QueryHandler:
         chain = self.record_service.get_chain(patient_id)
         final_data = self.record_service.get_final_data(patient_id)
         corrections = self.record_service.get_corrections_index(patient_id)
+
+        def has_consent(record_type: str) -> bool:
+            return self.consent_validator.has_consent(patient_id, username, record_type)
+
         records = []
 
         for block in chain:
@@ -72,23 +75,13 @@ class QueryHandler:
             if isinstance(data, dict) and data.get("type") == "audit":
                 continue
 
-            # Consent checks for Doctors
-            if role == "doctor" and not query.ignore_consent:
-                rec_type = "other"
-                if isinstance(data, dict):
-                    rec_type = data.get("record_type", "other")
-
-                # Check explicit consent
-                has_access = self.consent_validator.has_consent(patient_id, username, rec_type)
-                if not has_access:
-                    # Hide completely or show secure entry depending on preference.
-                    # We will filter out completely to match typical EMR privacy.
-                    continue
-
-            # Doctors cannot see private access level records unless override
-            if role == "doctor" and isinstance(data, dict) and data.get("access_level") == "private":
-                if not query.ignore_consent:
-                    continue
+            # The shared access policy decides (core/services/access_policy.py).
+            # Records the user may not see are left out of the list entirely
+            # rather than shown as locked entries.
+            protected_access = (self.record_service.get_block_access(patient_id, block.index)
+                                if isinstance(data, str) else None)
+            if not access_policy.can_view_stored(role, username, data, has_consent, protected_access):
+                continue
 
             entry = {
                 "block_index":    block.index,
@@ -106,7 +99,7 @@ class QueryHandler:
             }
 
             if block.is_protected:
-                entry["title"]        = "ENCRYPTED VIP RECORD"
+                entry["title"]        = "ENCRYPTED RECORD"
                 entry["record_type"]  = "protected"
                 entry["data"]         = None
                 entry["file_name"]    = None
@@ -133,28 +126,32 @@ class QueryHandler:
         return records
 
     def handle_decrypt_record(self, query: DecryptRecordQuery) -> Any:
-        # Check consent for doctor
-        if query.requester_role == "doctor" and not query.ignore_consent:
-            # First, fetch record metadata to get record type
+        is_practitioner = query.requester_role == "practitioner"
+        if is_practitioner:
             chain = self.record_service.get_chain(query.patient_id)
-            block = next((b for b in chain if b.index == query.block_index), None)
-            if not block:
+            if not any(b.index == query.block_index for b in chain):
                 return "Record not found"
+            # An encrypted record's type is only known after decryption, so a
+            # practitioner needs consent for all records before we even try.
+            if not self.consent_validator.has_consent(query.patient_id, query.requester_username, "all"):
+                return "SECURE — 'All Records' client consent is required to decrypt encrypted blocks."
 
-            # Read metadata (non-decrypted if protected) to find record type
-            # Wait, since block is protected, we can check if there's any decrypted index or if consent allows 'all'
-            has_all_consent = self.consent_validator.has_consent(query.patient_id, query.requester_username, "all")
-            if not has_all_consent:
-                # We can't know the exact record type without decrypting, so we require 'all' or we check record type from block_repo
-                # Since record type is saved inside block.data which is ENCRYPTED, we only allow if doctor has 'all' consent
-                return "SECURE — 'All Records' patient consent is required to decrypt encrypted blocks."
-
-        return self.record_service.get_final_block_data(
+        data = self.record_service.get_final_block_data(
             patient_id=query.patient_id,
             block_index=query.block_index,
             password=query.password,
             username=query.requester_username
         )
+        # Same rule as the record list, applied now that the real access level is
+        # known: a client-only record stays hidden from a practitioner, and a
+        # practitioner's own note from the client, even for someone holding the
+        # password.
+        if isinstance(data, dict) and not access_policy.can_view(
+                query.requester_role, query.requester_username, data,
+                lambda record_type: self.consent_validator.has_consent(
+                    query.patient_id, query.requester_username, record_type)):
+            return "SECURE — you do not have access to this record."
+        return data
 
     def handle_get_notifications(self, query: GetNotificationsQuery) -> List[dict]:
         return self.notif_repo.load_notifications_by_patient(query.patient_id)

@@ -1,10 +1,10 @@
 """
-scripts/capture_walkthrough.py — regenerate the README security walkthrough GIF.
+scripts/capture_walkthrough.py — regenerate the README walkthrough GIF.
 
-Drives a running demo instance with a headless browser, captures the nine
-walkthrough scenes (patient journey + admin dual-control governance), overlays a
-self-captioning top bar on each, and stitches them into a looping GIF at
-docs/screenshots/walkthrough.gif.
+Drives a running demo instance with a headless browser, captures ten scenes
+(the practitioner, the client, and an administrator who cannot read anything on
+their own), overlays a self-captioning top bar on each, and stitches them into a
+looping GIF at docs/screenshots/walkthrough.gif.
 
 Silent by design: every frame explains itself, so the GIF is legible in a README
 without audio.
@@ -13,14 +13,14 @@ Setup (one time):
     pip install playwright pillow
     python -m playwright install chromium
 
-Start a clean demo server (fresh data, only the seeded chart), e.g. from a copy
-with no backend/projects:
-    ENVIRONMENT=development VHV_DEMO_MODE=true VHV_BIND_HOST=127.0.0.1 PORT=8093 \
-        python backend/main.py
+Start a clean demo, e.g. with Docker (fresh volumes):
+    docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
 
 Then:
-    python scripts/capture_walkthrough.py                       # uses :8093
-    python scripts/capture_walkthrough.py http://127.0.0.1:8090
+    python scripts/capture_walkthrough.py                       # uses :8000
+    python scripts/capture_walkthrough.py http://127.0.0.1:8093
+
+It signs in three times; the demo allows 5 sign-ins per IP per minute.
 """
 
 import os
@@ -30,28 +30,30 @@ import tempfile
 from playwright.sync_api import sync_playwright
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8093"
+BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_GIF = os.path.join(ROOT, "docs", "screenshots", "walkthrough.gif")
 
-VIP = ("vip001", "VIPPatient@2026!")
+PRACTITIONER = ("psk.elif", "Practitioner@2026!")
+CLIENT = ("client001", "Client@2026Secure!")
 ADMIN = ("admin", "Admin@2026Secure!")
 VW = {"width": 1366, "height": 860}
 
 # (id, caption, duration_ms)
 SCENES = [
-    ("01", "Sign in — Argon2id hashing, httpOnly-cookie sessions, optional FIDO2 passkey", 2300),
-    ("02", "The patient signs in to their own vault  (vip001 \u00b7 Ahmet Karata\u015f)", 1500),
-    ("03", "Dashboard — chain VALID, live vitals, critical-allergy banner", 3000),
-    ("04", "Medical Records — every row is a signed block on the patient's hash-chain", 2400),
-    ("05", "Records are AES-256-GCM encrypted at rest — decryption is per-record", 2600),
-    ("06", "Who Accessed My Records — tamper-evident, append-only access ledger", 2500),
-    ("07", "Blockchain — end-to-end hash + HMAC-signature verification", 2400),
-    ("08", "Even an admin sees \u201cSELECT PATIENT\u201d — no data on their own authority", 2700),
-    ("09", "Dual-Control — reading a record needs an M-of-N co-signature (self-approval is rejected)", 3400),
+    ("01", "Sign in — Argon2id hashing, httpOnly-cookie sessions, 5 attempts per minute", 2300),
+    ("02", "The practitioner signs in  (psk.elif \u00b7 Uzm. Psk. Elif Y\u0131lmaz)", 1500),
+    ("03", "Dashboard — only clients who gave consent; GAD-7 progress 16 \u2192 7", 3200),
+    ("04", "Client Records — every row is a signed block with an access level", 2800),
+    ("05", "My Clients — invite with a one-time code; an invitation grants no access", 2600),
+    ("06", "The client signs in — their own file; the practitioner's process note is hidden", 3000),
+    ("07", "My Consents — the client decides who sees which records, and until when", 2800),
+    ("08", "Who Accessed My Records — tamper-evident, hash-linked access ledger", 2800),
+    ("09", "An admin sees \u201cSELECT CLIENT\u201d — no records on their own authority", 2700),
+    ("10", "Dual control — reading a record needs a second person's co-signature", 3400),
 ]
 
-TITLE = "VIP HEALTH VAULT — SECURITY WALKTHROUGH"
+TITLE = "MAHREM — CONFIDENTIAL CLIENT RECORDS"
 W, BAR = 1100, 92
 BG, ACC, MUT, FG = (11, 13, 18), (230, 168, 60), (150, 160, 175), (238, 242, 248)
 
@@ -66,59 +68,54 @@ def _font(sz, bold=False):
     return ImageFont.load_default()
 
 
-def _login(page, user, pw, settle=3800):
+def _fill_login(page, user, pw):
     page.goto(BASE, wait_until="networkidle")
-    page.fill('input[placeholder="username"]', user)
-    page.fill('input[type="password"]', pw)
-    return settle  # caller decides when to click / shoot
+    page.fill("#inp-username", user)
+    page.fill("#inp-password", pw)
+
+
+def _shot(page, raw_dir, sid, settle):
+    page.wait_for_timeout(settle)
+    page.screenshot(path=os.path.join(raw_dir, f"{sid}.png"))
 
 
 def capture(raw_dir):
-    """Drive the browser and drop nine raw PNG scenes into raw_dir."""
+    """Drive the browser and drop the raw PNG scenes into raw_dir."""
     with sync_playwright() as p:
         b = p.chromium.launch()
 
-        # Act 1 — the patient (vip001)
+        # Act 1 — the practitioner
         pg = b.new_context(viewport=VW).new_page()
         pg.goto(BASE, wait_until="networkidle")
-        pg.wait_for_timeout(700)
-        pg.screenshot(path=os.path.join(raw_dir, "01.png"))
-        pg.fill('input[placeholder="username"]', VIP[0])
-        pg.fill('input[type="password"]', VIP[1])
-        pg.wait_for_timeout(300)
-        pg.screenshot(path=os.path.join(raw_dir, "02.png"))
-        pg.click('button[type="submit"]')
-        pg.wait_for_timeout(3800)
-        pg.screenshot(path=os.path.join(raw_dir, "03.png"))
-        pg.click('[data-page="records"]'); pg.wait_for_timeout(2200)
-        pg.screenshot(path=os.path.join(raw_dir, "04.png"))
-        # open the encrypted record via a real bubbling click on the delegated handler
-        pg.evaluate("""() => {
-            const c = document.querySelector('.record-card.is-encrypted')
-                   || document.querySelector('[data-action="open-record"]');
-            if (c) c.click();
-        }""")
-        pg.wait_for_timeout(1600)
-        pg.screenshot(path=os.path.join(raw_dir, "05.png"))
-        # close the modal deterministically — Escape isn't bound, and the open
-        # overlay would otherwise intercept the next nav click.
-        pg.evaluate("() => { const o = document.getElementById('modal-overlay');"
-                    " if (o) o.classList.remove('open'); }")
-        pg.wait_for_timeout(400)
-        pg.click('[data-page="my-access"]'); pg.wait_for_timeout(2000)
-        pg.screenshot(path=os.path.join(raw_dir, "06.png"))
-        pg.click('[data-page="chain-status"]'); pg.wait_for_timeout(2000)
-        pg.screenshot(path=os.path.join(raw_dir, "07.png"))
+        _shot(pg, raw_dir, "01", 700)
+        _fill_login(pg, *PRACTITIONER)
+        _shot(pg, raw_dir, "02", 300)
+        pg.click("#btn-login")
+        _shot(pg, raw_dir, "03", 5000)
+        pg.click('[data-page="records"]')
+        _shot(pg, raw_dir, "04", 3000)
+        pg.click('[data-page="clients"]')
+        _shot(pg, raw_dir, "05", 2000)
 
-        # Act 2 — governance (admin cannot self-authorize)
-        pg2 = b.new_context(viewport=VW).new_page()
-        pg2.goto(BASE, wait_until="networkidle")
-        pg2.fill('input[placeholder="username"]', ADMIN[0])
-        pg2.fill('input[type="password"]', ADMIN[1])
-        pg2.click('button[type="submit"]'); pg2.wait_for_timeout(3800)
-        pg2.screenshot(path=os.path.join(raw_dir, "08.png"))
-        pg2.click('[data-page="dual-control"]'); pg2.wait_for_timeout(1800)
-        pg2.screenshot(path=os.path.join(raw_dir, "09.png"))
+        # Act 2 — the client
+        pg = b.new_context(viewport=VW).new_page()
+        _fill_login(pg, *CLIENT)
+        pg.click("#btn-login")
+        pg.wait_for_timeout(4500)
+        pg.click('[data-page="records"]')
+        _shot(pg, raw_dir, "06", 3000)
+        pg.click('[data-page="consent"]')
+        _shot(pg, raw_dir, "07", 2200)
+        pg.click('[data-page="my-access"]')
+        _shot(pg, raw_dir, "08", 2200)
+
+        # Act 3 — governance (an admin cannot self-authorize)
+        pg = b.new_context(viewport=VW).new_page()
+        _fill_login(pg, *ADMIN)
+        pg.click("#btn-login")
+        _shot(pg, raw_dir, "09", 4000)
+        pg.click('[data-page="dual-control"]')
+        _shot(pg, raw_dir, "10", 1800)
 
         b.close()
 
@@ -148,7 +145,8 @@ def compose(raw_dir):
         d.text((34, 44), cap, font=cf, fill=FG)
         d.rounded_rectangle([px - 14, 26, W - 20, 60], 10, fill=(24, 29, 38), outline=(52, 60, 72))
         d.text((px, 32), step, font=f_step, fill=ACC)
-        frames.append(canvas); durs.append(dur)
+        frames.append(canvas)
+        durs.append(dur)
 
     pal = frames[2].convert("P", palette=Image.ADAPTIVE, colors=256)
     q = [fr.quantize(palette=pal, dither=Image.NONE) for fr in frames]

@@ -1,22 +1,22 @@
-# VIP Health Vault — Private VPC / Sovereign Cloud Deployment Specification
+# Mahrem — Private Network Deployment
 
 > [!IMPORTANT]
 > **Regulatory & Architecture Mandate (KVKK Art. 9 & Air-Gapped Network Isolation)**  
-> High-confidentiality VIP health records (cabinet ministers, defense officials, state protocol) **MUST NOT** be hosted on public US-based PaaS platforms. Deployment must be conducted inside an isolated Private VPC, private cloud, or institutional on-premise datacenter.
+> Therapy records are special-category health data. They **must not** be hosted on a public PaaS. Run Mahrem inside a private network: the practice's own server, a private cloud or a private VPC, reachable only over VPN / TLS.
 
 ---
 
 ## 1. Network Topology & IP Isolation Architecture
 
 ```
-[ VIP Authorized Terminals ]
+[ Practice devices ]
             │
    (Encrypted VPN / TLS)
             ▼
 [ Institutional Firewall / WAF ] ──▶ [ Private Subnet (10.0.0.0/8) ]
                                                 │
                                                 ▼
-                                    [ VIP Health Vault Container ]
+                                    [ Mahrem container ]
                                      ├── IPAllowlistMiddleware
                                      ├── Persistent Storage Mounts
                                      └── Hardware Passkey Auth
@@ -60,8 +60,8 @@ Under **KVKK Article 9 (Transfer of Personal Data Abroad)**, special category he
 
 ## 5. Institutional Deployment Gate & Legal Scope
 
-State officials' health data touches national security classifications outside generic KVKK/GDPR self-certification. Before enrolling active state officials or cabinet ministers, the following **Institutional Deployment Gate Requirements** must be satisfied:
+Before the first real client is enrolled, the following must be in place:
 
-1. **Institutional Backing & Sign-Off:** Written authorization from the Presidential Protocol Office, Defense Health Directorate, or Hospital IT Security Department.
+1. **Data controller duties:** the practice, as data controller under KVKK, completes its registration and information notices, and a KVKK-compliant explicit consent is collected from each client.
 2. **KMS Enterprise Integration:** Transitioning from local PBKDF2 key envelopes to an institutional Hardware Security Module (HSM) or HashiCorp Vault instance.
 3. **Designated Security Officers:** Formal appointment of dual-control co-signers (`security_officer` role) by institutional security authorities.

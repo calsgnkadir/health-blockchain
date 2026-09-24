@@ -113,28 +113,28 @@ class TestAccessLedgerEndpoint(unittest.TestCase):
         return res.json()["access_token"]
 
     def test_patient_reads_own_access_log_with_integrity(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-001/access-logs",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-001/access-logs",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200, res.text)
         body = res.json()
         # The endpoint must always report an integrity verdict for the trail. The
         # strict valid/tamper behaviour is covered by the isolated unit tests
-        # above; VIP-001's ledger is shared across the API test classes here.
+        # above; CL-001's ledger is shared across the API test classes here.
         self.assertIn("integrity", body)
         for field in ("valid", "count", "broken_at"):
             self.assertIn(field, body["integrity"])
         self.assertIsInstance(body["integrity"]["valid"], bool)
 
     def test_patient_cannot_read_another_patients_access_log(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-777/access-logs",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-777/access-logs",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 403)
 
     def test_clinician_view_is_recorded_but_owner_view_is_not(self):
-        patient = self._token("vip001", "VIPPatient@2026!")
-        doctor = self._token("dr.smith", "Doctor@2026Secure!")
+        patient = self._token("client001", "Client@2026Secure!")
+        doctor = self._token("psk.elif", "Practitioner@2026!")
 
         # Grant the doctor consent so the read is authorized, then have the doctor
         # list the chart — this must appear in the patient's access ledger.
@@ -142,17 +142,17 @@ class TestAccessLedgerEndpoint(unittest.TestCase):
         self.client.post("/api/v1/consent",
                          headers={"Authorization": f"Bearer {patient}",
                                   "X-CSRF-Token": csrf or ""},
-                         json={"patient_id": "VIP-001", "doctor_username": "dr.smith",
+                         json={"patient_id": "CL-001", "doctor_username": "psk.elif",
                                "record_type": "all", "duration_days": 30})
-        self.client.get("/api/v1/records/VIP-001",
+        self.client.get("/api/v1/records/CL-001",
                         headers={"Authorization": f"Bearer {doctor}"})
 
-        logs = self.client.get("/api/v1/blockchain/VIP-001/access-logs",
+        logs = self.client.get("/api/v1/blockchain/CL-001/access-logs",
                                headers={"Authorization": f"Bearer {patient}"}).json()["logs"]
         actions = [(entry.get("username"), entry.get("action")) for entry in logs]
-        self.assertIn(("dr.smith", "RECORDS_VIEWED"), actions)
+        self.assertIn(("psk.elif", "RECORDS_VIEWED"), actions)
         # The patient's own list views must not flood their transparency ledger.
-        self.assertNotIn(("vip001", "RECORDS_VIEWED"), actions)
+        self.assertNotIn(("client001", "RECORDS_VIEWED"), actions)
 
 
 if __name__ == "__main__":

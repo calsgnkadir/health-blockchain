@@ -34,31 +34,6 @@ class TestXSSHardening(unittest.TestCase):
         res = self.client.get("/api/v1/health", headers=headers)
         self.assertEqual(res.status_code, 200)
 
-class TestAttachmentFieldValidation(unittest.TestCase):
-    """The attachment fields end up inside <img src="data:TYPE;base64,DATA"> on the
-    client, so the server refuses anything that could break out of that attribute."""
-
-    def _record(self, **overrides):
-        from backend.schemas.requests import RecordCreate
-        record = dict(patient_id="VIP-001", record_type="other", title="t",
-                      doctor_name="d", institution="i", record_date="2026-01-01", data={})
-        record.update(overrides)
-        return RecordCreate(**record)
-
-    def test_file_type_must_be_a_mime_type(self):
-        from pydantic import ValidationError
-        with self.assertRaises(ValidationError):
-            self._record(file_type='image/png" onerror="alert(1)')
-
-    def test_file_data_must_be_base64(self):
-        from pydantic import ValidationError
-        with self.assertRaises(ValidationError):
-            self._record(file_data='AAAA" onerror="alert(1)')
-
-    def test_valid_attachment_fields_pass(self):
-        self._record(file_name="scan.png", file_type="image/png", file_data="iVBORw0KGgo=")
-
-
 if __name__ == "__main__":
     unittest.main()
 
@@ -81,35 +56,33 @@ class TestClinicalTextFidelity(unittest.TestCase):
         os.environ["TESTING"] = "true"
         self.client = TestClient(app)
         res = self.client.post("/api/v1/auth/login",
-                               json={"username": "vip001", "password": "VIPPatient@2026!"})
+                               json={"username": "client001", "password": "Client@2026Secure!"})
         self.headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
 
     def test_special_characters_round_trip_unchanged(self):
         doctor = "Dr. Smith & Co"
         institution = "A<B Kliniği"
-        dose = "<5 mg"
+        task = "Rate anxiety <5 & note triggers"
 
         res = self.client.post("/api/v1/records", headers=self.headers, json={
-            "patient_id": "VIP-001",
-            "record_type": "prescription",
+            "patient_id": "CL-001",
+            "record_type": "homework",
             "title": "Fidelity check",
             "doctor_name": doctor,
             "institution": institution,
             "record_date": "2026-08-18",
             "access_level": "doctor_shared",
             "is_confidential": False,
-            "data": {"medication": "Paracetamol & caffeine", "dose": dose,
-                     "frequency": "2x1", "duration": "5"},
+            "data": {"task": task, "due_date": "2026-08-25"},
             "notes": "",
         })
         self.assertEqual(res.status_code, 200, res.text)
 
-        records = self.client.get("/api/v1/records/VIP-001", headers=self.headers).json()["records"]
+        records = self.client.get("/api/v1/records/CL-001", headers=self.headers).json()["records"]
         stored = next(r for r in records if r["title"] == "Fidelity check")
         self.assertEqual(stored["doctor_name"], doctor)
         self.assertEqual(stored["institution"], institution)
-        self.assertEqual(stored["data"]["dose"], dose)
-        self.assertEqual(stored["data"]["medication"], "Paracetamol & caffeine")
+        self.assertEqual(stored["data"]["task"], task)
 
     def test_new_records_carry_no_entity_encoding(self):
         """
@@ -119,19 +92,19 @@ class TestClinicalTextFidelity(unittest.TestCase):
         """
         title = "Entity check"
         self.client.post("/api/v1/records", headers=self.headers, json={
-            "patient_id": "VIP-001",
-            "record_type": "diagnosis",
+            "patient_id": "CL-001",
+            "record_type": "treatment_plan",
             "title": title,
             "doctor_name": "Prof. Müller & Sons",
             "institution": "Ünite <A>",
             "record_date": "2026-08-18",
             "access_level": "doctor_shared",
             "is_confidential": False,
-            "data": {"icd_code": "I10", "severity": "Moderate", "symptoms": "Headache & nausea"},
+            "data": {"goals": "Sleep & mood", "approach": "CBT", "planned_sessions": 10},
             "notes": "",
         })
 
-        records = self.client.get("/api/v1/records/VIP-001", headers=self.headers).json()["records"]
+        records = self.client.get("/api/v1/records/CL-001", headers=self.headers).json()["records"]
         stored = str(next(r for r in records if r["title"] == title))
         self.assertNotIn("&amp;", stored)
         self.assertNotIn("&lt;", stored)

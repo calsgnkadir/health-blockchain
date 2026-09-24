@@ -18,12 +18,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.main import app
 from database.sql_db import default_sql_db
 
-PATIENT_ID = "VIP-001"
+PATIENT_ID = "CL-001"
 
 ACCOUNTS = {
     "admin": ("admin", "Admin@2026Secure!"),
     "officer": ("sec.officer", "SecOfficer@2026!"),
-    "patient": ("vip001", "VIPPatient@2026!"),
+    "patient": ("client001", "Client@2026Secure!"),
 }
 
 
@@ -100,7 +100,7 @@ class TestDualControlAccess(unittest.TestCase):
         token_id = self._request_token(patient_id=PATIENT_ID)
         self.assertEqual(self._co_sign(token_id).status_code, 200)
         self.assertEqual(
-            self._read_records("admin", token_id, patient_id="VIP-OTHER").status_code, 403
+            self._read_records("admin", token_id, patient_id="CL-OTHER").status_code, 403
         )
 
     def test_unknown_token_is_rejected(self):

@@ -1,4 +1,4 @@
-/* records.js — VIP Health Vault UI Records Module */
+/* records.js — Mahrem UI Records Module */
 import { apiFetch, patientId, formatTs, emptyState, ROLE_LABEL, escapeHtml, getCurrentUser } from './utils.js';
 import { stashPayload } from './actions.js';
 import { addNotification } from './notifications.js';
@@ -8,29 +8,45 @@ export let recordTypes = [];
 
 /* -- Record type labels (no icons) ------------------- */
 export const TYPE_LABELS = {
-  diagnosis:   'Diagnosis',
-  lab_result:  'Lab Result',
-  prescription:'Prescription',
-  surgery:     'Surgery',
-  vaccination: 'Vaccination',
-  imaging:     'Imaging',
-  vital_signs: 'Vital Signs',
-  allergy:     'Allergy',
-  psychology:  'Psychology',
-  genetic:     'Genetics',
-  emergency:   'Emergency',
-  other:       'Other',
-  correction:  'Correction',
-  unknown:     'Unknown',
+  session_note:   'Session Note',
+  assessment:     'Assessment',
+  treatment_plan: 'Treatment Plan',
+  homework:       'Homework',
+  consent_form:   'Consent Form',
+  document:       'Document',
+  other:          'Other',
+  correction:     'Correction',
+  unknown:        'Unknown',
 };
 
-const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared', emergency:'badge-emergency' };
-const ACCESS_LABELS = { private:'Patient Only', doctor_shared:'Patient + Doctor', emergency:'Emergency Access' };
+const ACCESS_COLORS = { private:'badge-private', doctor_shared:'badge-shared', practitioner_only:'badge-practitioner-only' };
+const ACCESS_LABELS = { private:'Client Only', doctor_shared:'Client + Practitioner', practitioner_only:'Practitioner Only' };
+// The levels each role may give a new record. Mirrors CREATABLE_LEVELS in
+// core/services/access_policy.py; the server checks it again.
+const CREATABLE_LEVELS = {
+  client:       ['doctor_shared', 'private'],
+  practitioner: ['doctor_shared', 'practitioner_only'],
+};
+
+function fillAccessSelect(levels) {
+  const sel = document.getElementById('rec-access');
+  if (!sel) return;
+  const role = (getCurrentUser() || {}).role;
+  const allowed = CREATABLE_LEVELS[role] || levels.map(l => l.value);
+  sel.innerHTML = '';
+  levels.filter(l => allowed.includes(l.value)).forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.value;
+    o.textContent = l.label;
+    sel.appendChild(o);
+  });
+}
 
 export async function loadRecordTypes() {
   try {
     const d = await apiFetch('/api/record-types');
     recordTypes = d.types;
+    fillAccessSelect(d.access_levels || []);
     
     const sel = document.getElementById('rec-type');
     if (sel) {
@@ -61,9 +77,16 @@ export async function loadRecordTypes() {
 export async function loadRecords() {
   const container = document.getElementById('all-records');
   if (!container) return;
+  const pid = patientId();
+  if (!pid) {
+    // Asking for /records/null would only return a confusing 403.
+    allRecords = [];
+    container.innerHTML = emptyState('No client selected. Choose one on the Dashboard.');
+    return;
+  }
   container.innerHTML = '<div class="loading-spinner">Loading...</div>';
   try {
-    const d = await apiFetch(`/api/records/${patientId()}`);
+    const d = await apiFetch(`/api/records/${pid}`);
     allRecords = d.records;
     renderAllRecords();
   } catch(e) { 
@@ -99,13 +122,15 @@ export function renderAllRecords() {
 export function renderRecordCard(r) {
   const type = r.record_type || 'unknown';
   const typeAbbr = (TYPE_LABELS[type] || type).substring(0, 3).toUpperCase();
-  const al = r.access_level || 'private';
+  // A password-protected record's access level is inside the ciphertext, so the
+  // list does not know it. Show no badge rather than guess one.
+  const al = r.access_level || '';
   const date = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
   const encBadge = r.is_protected ? '<span class="badge badge-encrypted">ENCRYPTED</span>' : '';
   const corrBadge = r.is_correction ? '<span class="badge badge-private">CORRECTION</span>' : '';
   const correctedBadge = r.is_corrected ? '<span class="badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)">CORRECTED</span>' : '';
   const typLabel = escapeHtml(recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type);
-  const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>`;
+  const alBadge = al ? `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>` : '';
   return `
   <div class="record-card ${r.is_protected?'is-encrypted':''} ${r.is_correction?'is-correction':''}"
        data-action="open-record" data-arg="${r.block_index}">
@@ -203,88 +228,20 @@ export async function downloadOffchainFile(patientIdVal, blockIndexVal, password
   }
 }
 
-export function parseFhirData(data) {
+// Renders a record's type-specific fields in the add-record form's order and
+// wording (minus the form's input hints, e.g. "(YYYY-MM-DD)").
+export function renderDataFields(data, recordType) {
   if (!data || typeof data !== 'object') return '';
-  
-  if (data.resourceType === 'Observation') {
-    let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">Observation R4</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.status || 'final')}</div></div>`;
-    
-    if (data.category && data.category[0] && data.category[0].coding && data.category[0].coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Category</div><div class="modal-field-value">${escapeHtml(data.category[0].coding[0].display || data.category[0].coding[0].code)}</div></div>`;
-    }
-    
-    if (data.code) {
-      const codeLabel = data.code.text || (data.code.coding && data.code.coding[0] && data.code.coding[0].display) || 'Observation';
-      fields += `<div class="modal-field"><div class="modal-field-label">Observation Code</div><div class="modal-field-value">${escapeHtml(codeLabel)}</div></div>`;
-    }
-
-    if (data.valueQuantity) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${escapeHtml(String(data.valueQuantity.value))} ${escapeHtml(data.valueQuantity.unit || '')}</div></div>`;
-    } else if (data.valueString) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Value</div><div class="modal-field-value">${escapeHtml(data.valueString)}</div></div>`;
-    }
-    
-    if (data.referenceRange && data.referenceRange[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Reference Range</div><div class="modal-field-value">${escapeHtml(data.referenceRange[0].text || '')}</div></div>`;
-    }
-
-    if (data.component && data.component.length > 0) {
-      data.component.forEach(c => {
-        const compLabel = (c.code && c.code.coding && c.code.coding[0] && c.code.coding[0].display) || (c.code && c.code.text) || 'Component';
-        const compVal = c.valueQuantity ? `${c.valueQuantity.value} ${c.valueQuantity.unit || ''}` : (c.valueString || '—'); // xss-reviewed: escaped with escapeHtml(compVal) below
-        fields += `<div class="modal-field"><div class="modal-field-label">${escapeHtml(compLabel)}</div><div class="modal-field-value">${escapeHtml(compVal)}</div></div>`;
-      });
-    }
-    return fields;
-  }
-  
-  if (data.resourceType === 'Condition') {
-    let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">Condition R4</div></div>`;
-    
-    if (data.clinicalStatus && data.clinicalStatus.coding && data.clinicalStatus.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Clinical Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.clinicalStatus.coding[0].code)}</div></div>`;
-    }
-    
-    if (data.verificationStatus && data.verificationStatus.coding && data.verificationStatus.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Verification</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.verificationStatus.coding[0].code)}</div></div>`;
-    }
-    
-    if (data.code) {
-      const codeVal = data.code.coding && data.code.coding[0] ? `${data.code.coding[0].code} - ${data.code.coding[0].display}` : (data.code.text || 'Unknown'); // xss-reviewed: escaped with escapeHtml(codeVal) below
-      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Diagnosis</div><div class="modal-field-value">${escapeHtml(codeVal)}</div></div>`;
-    }
-    
-    if (data.severity && data.severity.coding && data.severity.coding[0]) {
-      fields += `<div class="modal-field"><div class="modal-field-label">Severity</div><div class="modal-field-value">${escapeHtml(data.severity.coding[0].display)}</div></div>`;
-    }
-    
-    return fields;
-  }
-  
-  if (data.resourceType === 'MedicationRequest') {
-    let fields = `<div class="modal-field"><div class="modal-field-label">FHIR Standard</div><div class="modal-field-value" style="color:var(--gold);font-weight:bold;">MedicationRequest R4</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Status</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.status)}</div></div>`;
-    fields += `<div class="modal-field"><div class="modal-field-label">Intent</div><div class="modal-field-value" style="text-transform:capitalize;">${escapeHtml(data.intent)}</div></div>`;
-    
-    if (data.medicationCodeableConcept) {
-      const medName = data.medicationCodeableConcept.text || (data.medicationCodeableConcept.coding && data.medicationCodeableConcept.coding[0] && data.medicationCodeableConcept.coding[0].display) || 'Medication';
-      fields += `<div class="modal-field"><div class="modal-field-label">Medication</div><div class="modal-field-value">${escapeHtml(medName)}</div></div>`;
-    }
-    
-    if (data.dosageInstruction && data.dosageInstruction[0]) {
-      const dose = data.dosageInstruction[0];
-      fields += `<div class="modal-field" style="grid-column: span 2;"><div class="modal-field-label">Dosage Instructions</div><div class="modal-field-value">${escapeHtml(dose.text || '—')}</div></div>`;
-    }
-    
-    return fields;
-  }
-
-  // Fallback to flat/non-FHIR layout
-  return Object.entries(data).map(([k,v]) =>
-    `<div class="modal-field"><div class="modal-field-label">${escapeHtml(k)}</div><div class="modal-field-value">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div></div>`
-  ).join('');
+  const fields = DYNAMIC_FIELDS[recordType] || [];
+  const labels = Object.fromEntries(fields.map(f => [f.id, f.label.replace(/\s*\(.*\)$/, '')]));
+  const known = fields.map(f => f.id).filter(k => k in data);
+  const keys = [...known, ...Object.keys(data).filter(k => !known.includes(k))];
+  return keys.map(k => {
+    const v = data[k];
+    return `<div class="modal-field"><div class="modal-field-label">${escapeHtml(labels[k] || k)}</div><div class="modal-field-value">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div></div>`;
+  }).join('');
 }
+
 
 export async function openRecord(idx) {
   const r = allRecords.find(x => x.block_index === idx);
@@ -292,7 +249,7 @@ export async function openRecord(idx) {
 
   if (r.is_protected) {
     document.getElementById('modal-content').innerHTML = `
-      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">Encrypted VIP Record</h2>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">Encrypted Record</h2>
       <p style="margin-bottom:16px;color:var(--muted)">This record is encrypted with AES-256. Enter the password to decrypt:</p>
       <div id="modal-decrypt-error" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
       <div class="field-group">
@@ -314,25 +271,22 @@ export async function openRecord(idx) {
   const clinical = r.data || {};
   const typLabel = recordTypes.find(t => t.value === r.record_type)?.label || r.record_type || '—';
 
-  const dataFields = parseFhirData(clinical);
+  const dataFields = renderDataFields(clinical, r.record_type);
 
   const attachmentHtml = renderAttachmentHtml(r.file_name, r.file_type, r.file_data, patientId(), r.block_index);
-  const isImaging = r.record_type === 'imaging';
-  const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
   document.getElementById('modal-content').innerHTML = `
     <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">${escapeHtml(r.title)}</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${r.block_index}</div></div>
       <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
-      <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(r.doctor_name||'—')}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Practitioner</div><div class="modal-field-value">${escapeHtml(r.doctor_name||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(r.institution||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(r.record_date||'—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[r.access_level]||r.access_level||'—')}</div></div>
     </div>
     ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
     ${r.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(r.notes)}</div></div>` : ''}
-    ${dicomViewerHtml}
     ${attachmentHtml}
     ${r.is_corrected && r.correction ? `
       <div class="alert" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);margin-top:16px;line-height:1.6">
@@ -347,24 +301,11 @@ export async function openRecord(idx) {
     <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(r.created_by||'—')}</div></div>
     <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-ghost btn-sm" data-action="verify-proof" data-arg="${r.block_index}">Verify Merkle Inclusion Proof</button>
-      ${['doctor','vip_patient','admin'].includes((getCurrentUser()||{}).role) ? `<button class="btn btn-ghost btn-sm" data-action="correct-record" data-arg="${r.block_index}">Correct this record</button>` : ''}
+      ${['practitioner','client','admin'].includes((getCurrentUser()||{}).role) ? `<button class="btn btn-ghost btn-sm" data-action="correct-record" data-arg="${r.block_index}">Correct this record</button>` : ''}
       <div id="merkle-proof-result" style="width:100%;margin-top:12px"></div>
     </div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
-
-  if (isImaging) {
-    dicomAnnotations = clinical.annotations || [];
-    initDicomViewer(clinical);
-    if (r.file_data && r.file_type && r.file_type.startsWith('image/')) {
-      loadDicomPixelsFromBase64(r.file_data).then(pixels => {
-        if (pixels) {
-          dicomRawPixels = pixels;
-          drawDicomFrame();
-        }
-      });
-    }
-  }
 }
 
 export async function decryptRecord(idx) {
@@ -390,11 +331,9 @@ export async function decryptRecord(idx) {
     const d = decData || {};
     const typLabel = recordTypes.find(t => t.value === d.record_type)?.label || d.record_type || '—';
 
-    const dataFields = parseFhirData(d.data);
+    const dataFields = renderDataFields(d.data, d.record_type);
 
     const attachmentHtml = renderAttachmentHtml(d.file_name, d.file_type, d.file_data, patientId(), idx, pwd);
-    const isImaging = d.record_type === 'imaging';
-    const dicomViewerHtml = isImaging ? getDicomViewerHtml() : '';
 
     // Every value is escaped, as in openRecord(). This view used to interpolate
     // the decrypted fields raw — a stored XSS: a payload in a confidential
@@ -404,34 +343,18 @@ export async function decryptRecord(idx) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="modal-field"><div class="modal-field-label">Block #</div><div class="modal-field-value">${escapeHtml(String(idx))}</div></div>
         <div class="modal-field"><div class="modal-field-label">Record Type</div><div class="modal-field-value">${escapeHtml(typLabel)}</div></div>
-        <div class="modal-field"><div class="modal-field-label">Doctor</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
+        <div class="modal-field"><div class="modal-field-label">Practitioner</div><div class="modal-field-value">${escapeHtml(d.doctor_name||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Institution</div><div class="modal-field-value">${escapeHtml(d.institution||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Date</div><div class="modal-field-value">${escapeHtml(d.record_date||'—')}</div></div>
         <div class="modal-field"><div class="modal-field-label">Access</div><div class="modal-field-value">${escapeHtml(ACCESS_LABELS[d.access_level]||d.access_level||'—')}</div></div>
       </div>
       ${dataFields ? `<hr style="border-color:var(--border);margin:16px 0"><h4 style="color:var(--muted-hi);font-size:12px;margin-bottom:12px">DATA FIELDS</h4><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${dataFields}</div>` : ''}
       ${d.notes ? `<div class="modal-field" style="margin-top:14px"><div class="modal-field-label">Notes</div><div class="modal-field-value">${escapeHtml(d.notes)}</div></div>` : ''}
-      ${dicomViewerHtml}
       ${attachmentHtml}
       <hr style="border-color:var(--border);margin:16px 0">
       <div class="modal-field"><div class="modal-field-label">Block Hash</div><div class="modal-field-value mono">${escapeHtml(r ? r.hash_preview : '—')}</div></div>
       <div class="modal-field"><div class="modal-field-label">Created By</div><div class="modal-field-value">${escapeHtml(d.created_by||'—')}</div></div>
     `;
-
-    if (isImaging) {
-      dicomAnnotations = d.data?.annotations || [];
-      initDicomViewer(d.data || {});
-      const fData = d.file_data || (r ? r.file_data : null);
-      const fType = d.file_type || (r ? r.file_type : null);
-      if (fData && fType && fType.startsWith('image/')) {
-        loadDicomPixelsFromBase64(fData).then(pixels => {
-          if (pixels) {
-            dicomRawPixels = pixels;
-            drawDicomFrame();
-          }
-        });
-      }
-    }
   } catch (ex) {
     errEl.textContent = ex.message;
     errEl.style.display = 'block';
@@ -568,15 +491,13 @@ export function closeModal() {
 }
 
 /* -- Add Record Dynamic Fields --------------------------------- */
+// Must match the field names of the schemas in backend/schemas/requests.py.
 export const DYNAMIC_FIELDS = {
-  diagnosis:    [{id:'icd_code',label:'ICD Code'},{id:'severity',label:'Severity (Mild/Moderate/Severe)'},{id:'symptoms',label:'Symptoms'}],
-  lab_result:   [{id:'test_name',label:'Test Name'},{id:'result_value',label:'Result Value'},{id:'reference_range',label:'Reference Range'},{id:'unit',label:'Unit'}],
-  prescription: [{id:'medication',label:'Medication Name'},{id:'dose',label:'Dose'},{id:'frequency',label:'Frequency'},{id:'duration',label:'Duration (days)'}],
-  surgery:      [{id:'procedure',label:'Procedure'},{id:'anesthesia',label:'Anesthesia Type'},{id:'duration_min',label:'Duration (min)'},{id:'outcome',label:'Outcome'}],
-  vaccination:  [{id:'vaccine_name',label:'Vaccine Name'},{id:'lot_number',label:'Lot Number'},{id:'dose_number',label:'Dose Number'},{id:'next_dose',label:'Next Dose Date'}],
-  imaging:      [{id:'modality',label:'Modality (MRI/CT/X-Ray)'},{id:'body_part',label:'Body Part'},{id:'findings',label:'Findings'},{id:'radiologist',label:'Radiologist'}],
-  vital_signs:  [{id:'blood_pressure',label:'Blood Pressure (mmHg)'},{id:'heart_rate',label:'Heart Rate (bpm)'},{id:'temperature',label:'Temperature (C)'},{id:'oxygen_sat',label:'SpO2 (%)'}],
-  allergy:      [{id:'allergen',label:'Allergen'},{id:'reaction',label:'Reaction Type'},{id:'severity',label:'Severity'},{id:'onset_date',label:'Onset Date'}],
+  session_note:   [{id:'session_number',label:'Session Number'},{id:'duration_min',label:'Duration (min)'},{id:'session_format',label:'Format (In-person/Online)'},{id:'summary',label:'Summary'}],
+  assessment:     [{id:'instrument',label:'Instrument (e.g. GAD-7, PHQ-9)'},{id:'score',label:'Score'},{id:'max_score',label:'Max Score'},{id:'interpretation',label:'Interpretation'}],
+  treatment_plan: [{id:'goals',label:'Goals'},{id:'approach',label:'Approach (e.g. CBT)'},{id:'planned_sessions',label:'Planned Sessions'}],
+  homework:       [{id:'task',label:'Task'},{id:'due_date',label:'Due Date (YYYY-MM-DD)'}],
+  consent_form:   [{id:'form_type',label:'Form Type'},{id:'signed_date',label:'Signed Date (YYYY-MM-DD)'}],
 };
 
 export function renderDynamicFields() {
@@ -591,513 +512,7 @@ export function renderDynamicFields() {
     </div>`
   ).join('');
 
-  if (type === 'imaging') {
-    html += `
-      <div class="field-group span-2" id="add-record-dicom-wrapper" style="margin-top: 14px;">
-        <label>DICOM Workspace & Clinical Annotations</label>
-        <div class="dicom-viewport-box" style="height: 240px; position:relative;">
-          <canvas id="dicom-canvas" class="dicom-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
-          <div class="dicom-controls">
-            <button type="button" data-action="dicom-zoom" data-arg="1.2">Zoom +</button>
-            <button type="button" data-action="dicom-zoom" data-arg="0.8">Zoom -</button>
-            <button type="button" data-action="dicom-invert">Invert</button>
-            <button type="button" data-action="dicom-annotate" id="btn-add-annotation-mode" style="background:rgba(16,185,129,0.2); border:1px solid var(--accent-integrations); color:var(--accent-integrations);">+ Add Annotation</button>
-            <button type="button" data-action="dicom-reset">Reset</button>
-          </div>
-          <div class="dicom-overlay-text top-left">MODALITY: <span id="dicom-modality">CT</span></div>
-          <div class="dicom-overlay-text bottom-left"><span id="dicom-wl">W: 240 L: 120</span></div>
-          <div class="dicom-overlay-text top-right">SCALE: <span id="dicom-scale">1.0x</span></div>
-          <div class="dicom-overlay-text bottom-right">512 x 512px<br>8-BIT MONO</div>
-        </div>
-        <div id="dicom-annotations-list" style="margin-top: 10px;"></div>
-      </div>
-    `;
-    
-    setTimeout(() => {
-      const modalityInput = document.getElementById('dyn-modality');
-      const bodyPartInput = document.getElementById('dyn-body_part');
-      
-      const refreshSimulatedImage = () => {
-        const modality = (modalityInput ? modalityInput.value : '') || 'CT';
-        const bodyPart = (bodyPartInput ? bodyPartInput.value : '') || 'CHEST';
-        dicomAnnotations = [];
-        initDicomViewer({ modality, body_part: bodyPart });
-      };
-      
-      const refreshSimeline = () => {
-        refreshSimulatedImage();
-      };
-      
-      if (modalityInput) modalityInput.addEventListener('input', refreshSimeline);
-      if (bodyPartInput) bodyPartInput.addEventListener('input', refreshSimeline);
-      
-      const fileInput = document.getElementById('rec-file');
-      if (fileInput) {
-        const fileChangeHandler = async () => {
-          if (fileInput.files && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            if (file.type.startsWith('image/')) {
-              const getBase64 = (f) => new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(f);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-              });
-              const base64 = await getBase64(file);
-              const pixels = await loadDicomPixelsFromBase64(base64);
-              if (pixels) {
-                dicomRawPixels = pixels;
-                dicomAnnotations = [];
-                const modality = (modalityInput ? modalityInput.value : '') || 'CT';
-                const bodyPart = (bodyPartInput ? bodyPartInput.value : '') || 'CHEST';
-                const modEl = document.getElementById('dicom-modality');
-                if (modEl) modEl.textContent = `${modality} (${bodyPart}) - CUSTOM FILE`;
-                drawDicomFrame();
-                updateDicomAnnotationsList();
-              }
-            }
-          }
-        };
-        fileInput.removeEventListener('change', fileInput._prevHandler);
-        fileInput.addEventListener('change', fileChangeHandler);
-        fileInput._prevHandler = fileChangeHandler;
-      }
-      const mod = modalityInput ? modalityInput.value : 'CT';
-      const body = bodyPartInput ? bodyPartInput.value : 'CHEST';
-      initDicomViewer({ modality: mod, body_part: body });
-    }, 50);
-  }
-
   container.innerHTML = html;
-}
-
-/* -- DICOM Engine Logic -- */
-export let dicomWidth = 240;
-export let dicomLevel = 120;
-export let dicomZoom = 1.0;
-export let dicomPanX = 0;
-export let dicomPanY = 0;
-export let dicomInverted = false;
-export let dicomRawPixels = null;
-export let dicomCanvasInstance = null;
-export let dicomModalityText = 'CT';
-export let dicomBodyPartText = 'CHEST';
-export let dicomAnnotations = [];
-export let dicomAnnotationMode = false;
-
-export function getDicomViewerHtml() {
-  return `
-    <div id="dicom-viewer-container" style="margin-top:16px;">
-      <hr style="border-color:var(--border);margin:16px 0">
-      <h4 style="color:var(--muted-hi); font-size:12px; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">DICOM IMAGE VIEWPORT</h4>
-      <div class="dicom-viewport-box">
-        <canvas id="dicom-canvas" class="dicom-canvas"></canvas>
-        <div class="dicom-controls" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" data-action="dicom-zoom" data-arg="1.2">Zoom +</button>
-          <button type="button" data-action="dicom-zoom" data-arg="0.8">Zoom -</button>
-          <button type="button" data-action="dicom-invert">Invert Colors</button>
-          <button type="button" data-action="dicom-reset">Reset</button>
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; margin-left: 10px;">
-            <span style="color: var(--muted-hi);">Level:</span>
-            <input type="range" id="dicom-level-slider" min="-512" max="512" value="120" data-input-action="dicom-level" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
-            <span style="color: var(--muted-hi);">Width:</span>
-            <input type="range" id="dicom-width-slider" min="10" max="1024" value="240" data-input-action="dicom-width" style="width: 70px; height: 4px; background: var(--border); border-radius: 2px;" />
-          </div>
-        </div>
-        <div class="dicom-overlay-text top-left">MODALITY: <span id="dicom-modality">-</span></div>
-        <div class="dicom-overlay-text bottom-left"><span id="dicom-wl">-</span></div>
-        <div class="dicom-overlay-text top-right">SCALE: <span id="dicom-scale">1.0x</span></div>
-        <div class="dicom-overlay-text bottom-right">512 x 512px<br>8-BIT MONO</div>
-      </div>
-      <div id="dicom-annotations-list" style="margin-top: 10px;"></div>
-      <span style="font-size:11px; color:var(--muted); margin-top:8px; display:block; line-height:1.4;">
-        * Left-click + drag or use sliders to adjust Window/Level (Contrast/Brightness). Scroll wheel or right-click drag to Zoom. Middle-click drag to Pan.
-      </span>
-    </div>
-  `;
-}
-
-export function initDicomViewer(data) {
-  const canvas = document.getElementById('dicom-canvas');
-  if (!canvas) return;
-
-  dicomCanvasInstance = canvas;
-  const modality = data.modality || 'CT';
-  const bodyPart = data.body_part || 'CHEST';
-  dicomModalityText = modality;
-  dicomBodyPartText = bodyPart;
-
-  const modEl = document.getElementById('dicom-modality');
-  if (modEl) modEl.textContent = `${modality} - ${bodyPart}`;
-  
-  if (Array.isArray(data.annotations)) {
-    dicomAnnotations = [...data.annotations];
-  } else {
-    dicomAnnotations = [];
-  }
-  updateDicomAnnotationsList();
-
-  if (modality.toLowerCase().includes('mri')) {
-    dicomWidth = 180;
-    dicomLevel = 90;
-  } else {
-    dicomWidth = 240;
-    dicomLevel = 120;
-  }
-  dicomZoom = 1.0;
-  dicomPanX = 0;
-  dicomPanY = 0;
-  dicomInverted = false;
-
-  updateDicomHudText();
-
-  dicomRawPixels = generateSimulatedImaging(modality, bodyPart);
-  dicomAnnotationMode = false;
-
-  // Setup Event Listeners
-  canvas.removeEventListener('mousedown', onDicomMouseDown);
-  canvas.removeEventListener('mousemove', onDicomMouseMove);
-  canvas.removeEventListener('mouseup', onDicomMouseUp);
-  canvas.removeEventListener('mouseleave', onDicomMouseLeave);
-  canvas.removeEventListener('wheel', onDicomWheel);
-  canvas.removeEventListener('contextmenu', onDicomContextMenu);
-  canvas.removeEventListener('click', onDicomCanvasClick);
-
-  canvas.addEventListener('mousedown', onDicomMouseDown);
-  canvas.addEventListener('mousemove', onDicomMouseMove);
-  canvas.addEventListener('mouseup', onDicomMouseUp);
-  canvas.addEventListener('mouseleave', onDicomMouseLeave);
-  canvas.addEventListener('wheel', onDicomWheel, { passive: false });
-  canvas.addEventListener('contextmenu', onDicomContextMenu);
-  canvas.addEventListener('click', onDicomCanvasClick);
-
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width || 512;
-  canvas.height = rect.height || 320;
-
-  drawDicomFrame();
-}
-
-export function updateDicomHudText() {
-  const wlEl = document.getElementById('dicom-wl');
-  if (wlEl) {
-    wlEl.innerHTML = `W: <strong>${Math.round(dicomWidth)}</strong> L: <strong>${Math.round(dicomLevel)}</strong>${dicomInverted ? ' <span style="color:#ff3333">[INV]</span>' : ''}`;
-  }
-  const scaleEl = document.getElementById('dicom-scale');
-  if (scaleEl) {
-    scaleEl.textContent = `${dicomZoom.toFixed(1)}x`;
-  }
-  const lvlSlider = document.getElementById('dicom-level-slider');
-  if (lvlSlider) lvlSlider.value = Math.round(dicomLevel);
-  const wdtSlider = document.getElementById('dicom-width-slider');
-  if (wdtSlider) wdtSlider.value = Math.round(dicomWidth);
-}
-
-export function setDicomLevel(val) {
-  dicomLevel = parseFloat(val);
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-export function setDicomWidth(val) {
-  dicomWidth = parseFloat(val);
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-let isDicomDragging = false;
-let dicomDragStart = { x: 0, y: 0 };
-let dicomDragMode = 'window'; 
-
-export function onDicomMouseDown(e) {
-  e.preventDefault();
-  isDicomDragging = true;
-  dicomDragStart.x = e.clientX;
-  dicomDragStart.y = e.clientY;
-  
-  if (e.button === 2) {
-    dicomDragMode = 'zoom';
-  } else if (e.button === 1) {
-    dicomDragMode = 'pan';
-  } else {
-    dicomDragMode = 'window';
-  }
-}
-
-export function onDicomMouseMove(e) {
-  if (!isDicomDragging) return;
-  const dx = e.clientX - dicomDragStart.x;
-  const dy = e.clientY - dicomDragStart.y;
-  dicomDragStart.x = e.clientX;
-  dicomDragStart.y = e.clientY;
-
-  if (dicomDragMode === 'window') {
-    dicomWidth += dx * 1.5;
-    dicomLevel -= dy * 1.5;
-    dicomWidth = Math.max(10, Math.min(1024, dicomWidth));
-    dicomLevel = Math.max(-512, Math.min(512, dicomLevel));
-    updateDicomHudText();
-  } else if (dicomDragMode === 'zoom') {
-    dicomZoom *= (1 - dy * 0.01);
-    dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
-    updateDicomHudText();
-  } else if (dicomDragMode === 'pan') {
-    dicomPanX += dx;
-    dicomPanY += dy;
-  }
-  drawDicomFrame();
-}
-
-export function onDicomMouseUp(e) { isDicomDragging = false; }
-export function onDicomMouseLeave(e) { isDicomDragging = false; }
-export function onDicomContextMenu(e) { e.preventDefault(); }
-
-export function onDicomWheel(e) {
-  e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.9 : 1.1;
-  dicomZoom *= factor;
-  dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-export function zoomDicom(factor) {
-  dicomZoom *= factor;
-  dicomZoom = Math.max(0.2, Math.min(8.0, dicomZoom));
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-export function invertDicom() {
-  dicomInverted = !dicomInverted;
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-export function resetDicom() {
-  if (dicomModalityText.toLowerCase().includes('mri')) {
-    dicomWidth = 180;
-    dicomLevel = 90;
-  } else {
-    dicomWidth = 240;
-    dicomLevel = 120;
-  }
-  dicomZoom = 1.0;
-  dicomPanX = 0;
-  dicomPanY = 0;
-  dicomInverted = false;
-  updateDicomHudText();
-  drawDicomFrame();
-}
-
-export function generateSimulatedImaging(modality, bodyPart) {
-  const off = document.createElement('canvas');
-  off.width = 512;
-  off.height = 512;
-  const ctx = off.getContext('2d');
-  
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, 512, 512);
-
-  const m = (modality || '').toLowerCase();
-  const bp = (bodyPart || '').toLowerCase();
-
-  if (m.includes('mri') || bp.includes('brain') || bp.includes('head')) {
-    // Brain MRI Outline
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 12;
-    ctx.beginPath();
-    ctx.ellipse(256, 256, 170, 210, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.strokeStyle = '#444';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.ellipse(256, 256, 180, 220, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = '#777';
-    ctx.beginPath();
-    ctx.ellipse(256, 256, 155, 195, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#222';
-    for (let angle = 0; angle < Math.PI * 2; angle += 0.15) {
-      const x = 256 + Math.cos(angle) * 145;
-      const y = 256 + Math.sin(angle) * 185;
-      ctx.beginPath();
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#999';
-    ctx.beginPath();
-    ctx.ellipse(256, 256, 120, 160, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.moveTo(256, 180);
-    ctx.bezierCurveTo(210, 180, 210, 280, 250, 280);
-    ctx.bezierCurveTo(240, 250, 240, 200, 256, 180);
-    ctx.moveTo(256, 180);
-    ctx.bezierCurveTo(302, 180, 302, 280, 262, 280);
-    ctx.bezierCurveTo(272, 250, 272, 200, 256, 180);
-    ctx.fill();
-
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(256, 60);
-    ctx.lineTo(256, 450);
-    ctx.stroke();
-
-  } else if (m.includes('x-ray') || bp.includes('chest') || bp.includes('lung') || bp.includes('heart')) {
-    // Lung fields
-    ctx.fillStyle = '#1c1c1c';
-    ctx.beginPath();
-    ctx.ellipse(170, 256, 75, 170, -0.05, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(342, 256, 75, 170, 0.05, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spine
-    ctx.fillStyle = '#888';
-    ctx.fillRect(244, 80, 24, 350);
-
-    // Rib cage overlay
-    ctx.strokeStyle = 'rgba(180, 180, 180, 0.35)';
-    ctx.lineWidth = 8;
-    for (let y = 110; y < 400; y += 30) {
-      ctx.beginPath();
-      ctx.arc(130, y, 90, Math.PI * 1.8, Math.PI * 0.3);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(382, y, 90, Math.PI * 0.7, Math.PI * 1.2);
-      ctx.stroke();
-    }
-
-    // Clavicles
-    ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
-    ctx.lineWidth = 12;
-    ctx.beginPath();
-    ctx.moveTo(244, 110);
-    ctx.quadraticCurveTo(170, 100, 100, 130);
-    ctx.moveTo(268, 110);
-    ctx.quadraticCurveTo(342, 100, 412, 130);
-    ctx.stroke();
-
-    // Heart silhouette
-    ctx.fillStyle = 'rgba(160, 160, 160, 0.7)';
-    ctx.beginPath();
-    ctx.ellipse(220, 280, 55, 75, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Diaphragm
-    ctx.fillStyle = '#555';
-    ctx.beginPath();
-    ctx.moveTo(60, 430);
-    ctx.quadraticCurveTo(170, 390, 244, 420);
-    ctx.quadraticCurveTo(342, 390, 452, 430);
-    ctx.lineTo(452, 512);
-    ctx.lineTo(60, 512);
-    ctx.closePath();
-    ctx.fill();
-
-  } else {
-    // Hand/Bone X-Ray
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, 512, 512);
-
-    ctx.fillStyle = '#a0a0a0';
-    ctx.fillRect(236, 40, 40, 180);
-    ctx.beginPath();
-    ctx.arc(256, 220, 36, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillRect(236, 292, 40, 180);
-    ctx.beginPath();
-    ctx.arc(256, 292, 36, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(210, 256);
-    ctx.lineTo(302, 256);
-    ctx.stroke();
-    
-    ctx.strokeStyle = 'rgba(80, 80, 80, 0.2)';
-    ctx.lineWidth = 60;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(256, 20);
-    ctx.lineTo(256, 492);
-    ctx.stroke();
-  }
-
-  const imgData = ctx.getImageData(0, 0, 512, 512);
-  const rawIntensity = new Uint8Array(512 * 512);
-  for (let i = 0; i < imgData.data.length; i += 4) {
-    rawIntensity[i / 4] = Math.round(
-      0.299 * imgData.data[i] +
-      0.587 * imgData.data[i + 1] +
-      0.114 * imgData.data[i + 2]
-    );
-  }
-  return rawIntensity;
-}
-
-export function drawDicomFrame() {
-  const canvas = dicomCanvasInstance;
-  if (!canvas || !dicomRawPixels) return;
-
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width;
-  const ch = canvas.height;
-
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, cw, ch);
-
-  const offscreen = document.createElement('canvas');
-  offscreen.width = 512;
-  offscreen.height = 512;
-  const octx = offscreen.getContext('2d');
-  const oimgData = octx.createImageData(512, 512);
-
-  const lut = new Uint8Array(256);
-  const lowBound = dicomLevel - dicomWidth / 2;
-  const range = dicomWidth;
-
-  for (let i = 0; i < 256; i++) {
-    let val = ((i - lowBound) / range) * 255;
-    if (val < 0) val = 0;
-    if (val > 255) val = 255;
-    lut[i] = dicomInverted ? (255 - val) : val;
-  }
-
-  for (let i = 0; i < 512 * 512; i++) {
-    const rawVal = dicomRawPixels[i];
-    const displayVal = lut[rawVal];
-    const pixelIdx = i * 4;
-    oimgData.data[pixelIdx] = displayVal;     
-    oimgData.data[pixelIdx + 1] = displayVal; 
-    oimgData.data[pixelIdx + 2] = displayVal; 
-    oimgData.data[pixelIdx + 3] = 255;        
-  }
-  octx.putImageData(oimgData, 0, 0);
-
-  ctx.save();
-  ctx.translate(cw / 2 + dicomPanX, ch / 2 + dicomPanY);
-  ctx.scale(dicomZoom, dicomZoom);
-  ctx.drawImage(offscreen, -256, -256);
-  
-  // Draw clinical annotations on top of the image
-  drawDicomAnnotations(ctx);
-  
-  ctx.restore();
 }
 
 export function initRecordsListeners() {
@@ -1138,9 +553,6 @@ export function initRecordsListeners() {
         const el = document.getElementById('dyn-'+f.id);
         if (el && el.value.trim()) dynData[f.id] = el.value.trim();
       });
-      if (type === 'imaging') {
-        dynData.annotations = dicomAnnotations;
-      }
 
       const fileInput = document.getElementById('rec-file');
       let file_name = null;
@@ -1209,7 +621,7 @@ export function initRecordsListeners() {
         document.getElementById('confidential-password-group').style.display = 'none';
         
         const user = JSON.parse(localStorage.getItem('vhv_user') || '{}');
-        if (user.role === 'vip_patient') {
+        if (user.role === 'client') {
           document.getElementById('rec-patient-id').value = user.patient_id || '';
         }
         document.getElementById('rec-date').value = new Date().toISOString().split('T')[0];
@@ -1220,160 +632,4 @@ export function initRecordsListeners() {
       }
     });
   }
-}
-
-export function drawDicomAnnotations(ctx) {
-  if (!dicomAnnotations || dicomAnnotations.length === 0) return;
-  
-  ctx.strokeStyle = '#ff3333';
-  ctx.lineWidth = Math.max(1, 2 / dicomZoom);
-  ctx.fillStyle = '#ff3333';
-  ctx.font = `${Math.max(10, 12 / dicomZoom)}px var(--font)`;
-  
-  dicomAnnotations.forEach((ann, index) => {
-    const ax = ann.x - 256;
-    const ay = ann.y - 256;
-    const aw = ann.width || 40;
-    const ah = ann.height || 40;
-    
-    // Draw bounding box
-    ctx.strokeRect(ax - aw/2, ay - ah/2, aw, ah);
-    
-    // Draw index badge background
-    ctx.fillRect(ax - aw/2, ay - ah/2 - 16 / dicomZoom, 14 / dicomZoom, 14 / dicomZoom);
-    
-    // Draw index badge text
-    ctx.save();
-    ctx.fillStyle = '#fff';
-    ctx.fillText(index + 1, ax - aw/2 + 3 / dicomZoom, ay - ah/2 - 5 / dicomZoom);
-    ctx.restore();
-    
-    // Draw annotation text
-    ctx.fillText(ann.text, ax - aw/2 + 18 / dicomZoom, ay - ah/2 - 5 / dicomZoom);
-  });
-}
-
-export function updateDicomAnnotationsList() {
-  const container = document.getElementById('dicom-annotations-list');
-  if (!container) return;
-  
-  if (!dicomAnnotations || dicomAnnotations.length === 0) {
-    container.innerHTML = '<div style="font-size:11px; color:var(--muted); text-align:left;">No clinical annotations. Click "+ Add Annotation" to mark findings.</div>';
-    return;
-  }
-  
-  const isAddMode = !!document.getElementById('btn-add-annotation-mode');
-  
-  container.innerHTML = `
-    <div style="font-size: 11px; font-weight:700; color:var(--muted-hi); margin-bottom: 6px; text-transform:uppercase; text-align:left;">Clinical Findings (${dicomAnnotations.length})</div>
-    ${dicomAnnotations.map((ann, idx) => `
-      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom: 4px;">
-        <span style="color:#ff8a80; font-weight:600; margin-right:8px;">[${idx+1}] ${ann.text}</span>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:10px; color:var(--muted)">X: ${Math.round(ann.x)}, Y: ${Math.round(ann.y)}</span>
-          ${isAddMode ? `<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px; font-size:10px; color:var(--danger); border-color:rgba(239,68,68,0.2); background:transparent;" data-action="dicom-delete-annotation" data-arg="${idx}">Delete</button>` : ''}
-        </div>
-      </div>
-    `).join('')}
-  `;
-}
-
-export function startAddingDicomAnnotation() {
-  const canvas = dicomCanvasInstance;
-  if (!canvas) return;
-  
-  dicomAnnotationMode = !dicomAnnotationMode;
-  const btn = document.getElementById('btn-add-annotation-mode');
-  
-  if (dicomAnnotationMode) {
-    if (btn) {
-      btn.style.background = 'var(--accent-integrations)';
-      btn.style.color = '#000';
-      btn.textContent = 'Click on Image...';
-    }
-    canvas.style.cursor = 'crosshair';
-  } else {
-    if (btn) {
-      btn.style.background = 'rgba(16,185,129,0.2)';
-      btn.style.color = 'var(--accent-integrations)';
-      btn.textContent = '+ Add Annotation';
-    }
-    canvas.style.cursor = 'default';
-  }
-}
-
-export function onDicomCanvasClick(e) {
-  if (!dicomAnnotationMode) return;
-  
-  const canvas = dicomCanvasInstance;
-  if (!canvas) return;
-  
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX - rect.left;
-  const sy = e.clientY - rect.top;
-  
-  const cw = canvas.width;
-  const ch = canvas.height;
-  
-  // Inverse projection math
-  const px = (sx - cw / 2 - dicomPanX) / dicomZoom + 256;
-  const py = (sy - ch / 2 - dicomPanY) / dicomZoom + 256;
-  
-  if (px >= 0 && px <= 512 && py >= 0 && py <= 512) {
-    const text = prompt("Enter clinical finding annotation:");
-    if (text && text.trim()) {
-      dicomAnnotations.push({
-        x: px,
-        y: py,
-        text: text.trim(),
-        width: 40,
-        height: 40
-      });
-      drawDicomFrame();
-      updateDicomAnnotationsList();
-    }
-  }
-  
-  // Exit mode
-  dicomAnnotationMode = false;
-  const btn = document.getElementById('btn-add-annotation-mode');
-  if (btn) {
-    btn.style.background = 'rgba(16,185,129,0.2)';
-    btn.style.color = 'var(--accent-integrations)';
-    btn.textContent = '+ Add Annotation';
-  }
-  canvas.style.cursor = 'default';
-}
-
-export function deleteDicomAnnotation(idx) {
-  dicomAnnotations.splice(idx, 1);
-  drawDicomFrame();
-  updateDicomAnnotationsList();
-}
-
-export function loadDicomPixelsFromBase64(base64Data) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = `data:image/png;base64,${base64Data}`;
-    img.onload = () => {
-      const off = document.createElement('canvas');
-      off.width = 512;
-      off.height = 512;
-      const ctx = off.getContext('2d');
-      ctx.drawImage(img, 0, 0, 512, 512);
-      const imgData = ctx.getImageData(0, 0, 512, 512);
-      const rawIntensity = new Uint8Array(512 * 512);
-      for (let i = 0; i < imgData.data.length; i += 4) {
-        rawIntensity[i / 4] = Math.round(
-          0.299 * imgData.data[i] +
-          0.587 * imgData.data[i + 1] +
-          0.114 * imgData.data[i + 2]
-        );
-      }
-      resolve(rawIntensity);
-    };
-    img.onerror = () => {
-      resolve(null);
-    };
-  });
 }

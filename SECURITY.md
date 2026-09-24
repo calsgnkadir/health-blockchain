@@ -1,38 +1,57 @@
-# 🔐 Enterprise Security & Cryptographic Architecture (v5.0.0)
+# Security
 
-**VIP Health Vault** employs a zero-trust, defense-in-depth security model engineered specifically for high-confidentiality healthcare datasets (PHI / EHR) and high-profile patient records.
+Mahrem holds therapy records, so it is built in layers: if one layer fails, the next
+one still protects the data. This page is a short map; the threat model has the detail
+([docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
 
----
+## Layers
 
-## 🛡️ Core Security Architecture & Layers
+### 1. Who may see what
+- **One access policy** for every record endpoint ([ADR-0003](docs/adr/0003-one-access-policy.md)):
+  a practitioner needs the client's consent for the client's file, and for each record
+  type; client-only records never reach a practitioner, practitioner-only notes never
+  reach the client.
+- **Dual control:** administrators, auditors and security officers cannot read a
+  client's records on their own. They need a token co-signed by a second privileged
+  person, bound to one client and short-lived.
 
-### 1. Dual-Layer Cryptographic Data Encryption (AES-GCM-256)
-- **Off-Chain Encrypted Storage:** Sensitive patient data is stored off-chain using Galois/Counter Mode (**AES-256-GCM**) with random 96-bit IVs and 128-bit authentication tags.
-- **Envelope Encryption:** Key derivation uses **PBKDF2** with 600,000 iterations and 128-bit cryptographic salts.
-- **Client-Side E2EE Option:** Patient records can optionally be sealed with AES-256 client-side passwords before being sent to the server.
+### 2. Encryption
+- **At rest:** every record is encrypted with AES-256-GCM (random 96-bit nonce,
+  128-bit tag) under a per-client key derived from the KMS root. The record store
+  holds only ciphertext.
+- **Optional record password:** a record can also be locked with a password. The
+  server derives a key from it (PBKDF2, 600,000 iterations) and does not store it, so
+  the stored record cannot be read without the password. This is *not* end-to-end
+  encryption: the password reaches the server when the record is written or opened.
+- **Crypto-shredding:** destroying a client's key makes their records permanently
+  unreadable while the chain stays valid (KVKK/GDPR Art. 17).
 
-### 2. Multi-Factor Authentication & Identity Hardening
-- **Passkey / WebAuthn Hardware Auth:** Hardware-backed biometric authentication (FIDO2 / TouchID / FaceID / YubiKey) using `navigator.credentials` and secp256r1 signature verification.
-- **TOTP (RFC 6238 2FA):** Time-based One-Time Password support with 6-digit verification.
-- **Password Hashing:** **Argon2id** password hashing with high memory-cost parameters.
+### 3. Integrity and audit
+- **Signed append-only chain:** each block links to the previous hash and carries an
+  HMAC-SHA256 signature and a Merkle root ([ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md)).
+  Records are corrected by appending, never overwritten.
+- **Access ledger:** every read is a hash-linked entry; deleting or changing one
+  breaks the chain, and the client can see the ledger and its integrity verdict.
 
-### 3. Dual-Control M-of-N Approval Engine
-- **Anti-Insider Threat Protection:** System Administrators **cannot** unilaterally view or decrypt raw VIP medical records.
-- **Security Officer Co-Signature:** Privileged decryption requires an active token co-signed by an authorized Security Officer (`security_officer` role).
+### 4. Sign-in
+- Argon2id password hashing; WebAuthn/FIDO2 passkeys (ES256 signature verified on the
+  server); optional TOTP. With `MANDATORY_FIDO2=true`, an account that has a passkey
+  cannot sign in with its password alone.
+- 5 sign-in attempts per IP per minute on password login, passkey login and
+  invitation-code redemption.
+- No self-registration: accounts start from a single-use, expiring code
+  ([docs/ONBOARDING_PROTOCOL.md](docs/ONBOARDING_PROTOCOL.md)).
 
-### 4. Local Cryptographic Hash-Chain (Merkle Root Anchoring)
-- **Zero Raw PHI On-Chain:** Raw medical data is **NEVER** stored directly on any public blockchain to comply with GDPR "Right to be Forgotten" and HIPAA privacy guidelines.
-- **Merkle Tree Proofs:** Patient record blocks are hashed into a SHA-256 Merkle tree. Only the resulting **32-byte Merkle Root** is anchored into the isolated, local signed Merkle Hash-Chain (ADR-0001).
+### 5. Browser and network
+- Output encoding at every HTML sink, and a CSP of `script-src 'self'` (no inline
+  script, no `eval`), so an injected string cannot run even if encoding is missed
+  somewhere ([docs/DOM_XSS_SELF_AUDIT.md](docs/DOM_XSS_SELF_AUDIT.md)).
+- The session token is an httpOnly, SameSite=Strict cookie; state-changing requests
+  need a CSRF double-submit token.
+- `IPAllowlistMiddleware` accepts requests only from configured private networks.
 
-### 5. Application & Network Level Security
-- **Network Level Isolation:** `IPAllowlistMiddleware` blocks public internet access attempts, accepting requests exclusively from authorized CIDR subnets and private VPNs.
-- **Content-Security-Policy:** `script-src 'self'` — no inline script and no `eval`. Every interactive element declares a `data-action` resolved by a delegated dispatcher (`backend/static/js/modules/actions.js`), so an injected string cannot execute even if output encoding is ever missed somewhere. Served alongside `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy`.
-- **Output Encoding:** Clinical text is stored verbatim and HTML-escaped at the point of rendering (`escapeHtml` in the web client). Escaping on input was removed deliberately: it corrupted medical text permanently in an append-only chain, and left any unescaped sink exploitable anyway.
-- **CSRF Token Verification:** Double-Submit Cookie pattern for state-changing endpoints.
-- **Rate Limiting:** Sliding-window IP rate limiting middleware to prevent brute-force attacks.
+## Reporting a vulnerability
 
----
-
-## 📋 Security Policy & Vulnerability Reporting
-
-If you discover a potential security vulnerability within VIP Health Vault, please report findings directly to security@healthchain.org or file a private security report on GitHub.
+Please use GitHub's private vulnerability reporting on this repository
+(**Security → Report a vulnerability**). Do not open a public issue for a security
+problem.

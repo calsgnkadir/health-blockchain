@@ -2,7 +2,7 @@
 core/services/dual_control.py — Dual-Control (M-of-N Co-Approval) Engine
 ========================================================================
 Implements the Dual-Control principle to prevent insider threat abuses.
-Admins alone CANNOT decrypt VIP medical records or execute emergency overrides.
+Admins alone CANNOT decrypt client records.
 Privileged operations require an active Dual-Control Approval Token issued and
 co-signed by an authorized Security Officer.
 """

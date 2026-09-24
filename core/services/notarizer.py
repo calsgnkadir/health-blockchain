@@ -5,7 +5,7 @@ Calculates and anchors Merkle roots for patient block chains to an isolated,
 cryptographically signed local hash-chain (ADR-0001).
 
 Zero public blockchain / Web3 RPC dependencies — ensures 100% stealth and
-local tamper-evidence for VIP medical data.
+local tamper-evidence for client records.
 """
 
 import hmac
@@ -18,7 +18,7 @@ from core.security import signaturedata
 
 class BlockchainNotarizer:
     """
-    Local Merkle tree notarizer for VIP health record chains.
+    Local Merkle tree notarizer for client record chains.
     Computes cryptographic Merkle roots over patient data blocks
     and anchors them into the isolated local ledger.
     """

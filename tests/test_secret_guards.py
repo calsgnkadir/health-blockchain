@@ -54,8 +54,8 @@ class TestPseudonymSecretGuard(unittest.TestCase):
         self.assertTrue(PseudonymizationEngine())
 
     def test_a_stable_pseudonym_under_a_fixed_secret(self):
-        a = PseudonymizationEngine(secret="fixed").generate_anon_id("VIP-001")
-        b = PseudonymizationEngine(secret="fixed").generate_anon_id("VIP-001")
+        a = PseudonymizationEngine(secret="fixed").generate_anon_id("CL-001")
+        b = PseudonymizationEngine(secret="fixed").generate_anon_id("CL-001")
         self.assertEqual(a, b)
         self.assertEqual(len(a), 64)
 

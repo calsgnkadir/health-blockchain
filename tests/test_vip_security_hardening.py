@@ -40,7 +40,7 @@ class TestVIPSecurityHardening(unittest.TestCase):
         self.assertTrue(ack_success)
 
     def test_dual_control_workflow_and_security(self):
-        patient_id = "VIP-SEC-999"
+        patient_id = "CL-SEC-999"
 
         # 1. Initiate Dual Control Request
         req_res = dual_control_engine.request_dual_control_access(
@@ -84,7 +84,7 @@ class TestVIPSecurityHardening(unittest.TestCase):
         )
         app.dependency_overrides[current_user] = lambda: admin_user.to_dict()
 
-        patient_id = "VIP-ENFORCE-100"
+        patient_id = "CL-ENFORCE-100"
 
         # 1. Admin attempts to fetch records without Dual-Control token -> Blocked with 403 Forbidden
         res_blocked = self.client.get(f"/api/v1/records/{patient_id}")

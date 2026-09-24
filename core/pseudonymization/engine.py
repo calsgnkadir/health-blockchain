@@ -74,7 +74,7 @@ class PseudonymizationEngine:
         Generate a deterministic anonymous identifier for a patient.
 
         Args:
-            patient_id: Real patient identifier (e.g. "VIP-001")
+            patient_id: Real patient identifier (e.g. "CL-001")
 
         Returns:
             64-character hex string (HMAC-SHA256 digest)

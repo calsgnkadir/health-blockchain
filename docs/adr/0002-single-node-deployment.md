@@ -13,7 +13,7 @@ coordination state live **in process memory**, not in a shared store:
 - **Unit-of-work / after-commit hooks** — `database.storage.active_txn` /
   `after_commit_hooks` are `contextvars` scoped to the running task in one process.
 - **KMS provider** — `core.kms.registry` caches one provider instance per process.
-- **Break-glass recency / rate-limit fallbacks** — small in-process maps.
+- **Rate-limit fallbacks** — small in-process maps.
 
 Because FastAPI runs sync endpoints in a threadpool, concurrency **within** one
 process is safe (see `tests/test_concurrency.py`: writes to one chain serialize via

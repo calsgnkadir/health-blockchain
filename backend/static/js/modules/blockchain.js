@@ -1,5 +1,5 @@
-/* blockchain.js — VIP Health Vault UI Blockchain Module */
-import { apiFetch, patientId, formatTs, escapeHtml } from './utils.js';
+/* blockchain.js — Mahrem UI Blockchain Module */
+import { apiFetch, patientId, formatTs, escapeHtml, emptyState } from './utils.js';
 import { updateChainPill } from './dashboard.js';
 
 export async function loadChainStatus() {
@@ -7,10 +7,14 @@ export async function loadChainStatus() {
   const vis = document.getElementById('chain-visual');
   if (!box || !vis) return;
 
-  box.innerHTML = '<div class="loading-spinner">Verifying chain...</div>';
+  const pid = patientId();
   vis.innerHTML = '';
+  if (!pid) {
+    box.innerHTML = emptyState('No client selected. Choose one on the Dashboard.');
+    return;
+  }
+  box.innerHTML = '<div class="loading-spinner">Verifying chain...</div>';
   try {
-    const pid = patientId();
     const [status, records] = await Promise.all([
       apiFetch(`/api/blockchain/${pid}/status`),
       apiFetch(`/api/records/${pid}`)

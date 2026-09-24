@@ -62,26 +62,26 @@ class TestAtRestStorage(unittest.TestCase):
         os.environ["TESTING"] = "true"
         self.client = TestClient(app)
         res = self.client.post("/api/v1/auth/login",
-                               json={"username": "vip001", "password": "VIPPatient@2026!"})
+                               json={"username": "client001", "password": "Client@2026Secure!"})
         self.assertEqual(res.status_code, 200, res.text)
         self.token = res.json()["access_token"]
 
-    def _add(self, test_name):
+    def _add(self, summary):
         return self.client.post("/api/v1/records",
             headers={"Authorization": f"Bearer {self.token}"},
             json={
-                "patient_id": "VIP-001", "record_type": "lab_result",
-                "title": "Troponin panel", "doctor_name": "Dr Lab",
-                "institution": "Central Laboratory", "record_date": "2026-08-01",
+                "patient_id": "CL-001", "record_type": "session_note",
+                "title": "Session note", "doctor_name": "Dr A",
+                "institution": "Practice", "record_date": "2026-08-01",
                 "access_level": "doctor_shared", "is_confidential": False,
-                "data": {"test_name": test_name, "result_value": "0.02",
-                         "reference_range": "0-0.4", "unit": "ng/mL"},
+                "data": {"session_number": 1, "duration_min": 50,
+                         "session_format": "In-person", "summary": summary},
                 "notes": "",
             })
 
     def test_submitted_text_is_stored_verbatim(self):
         """Clinical text is preserved as written; escaping happens at render."""
-        res = self._add("Troponin I (high-sensitivity) <5 ng/L")
+        res = self._add("Anxiety score fell to <5 & sleep improved")
         self.assertEqual(res.status_code, 200, res.text)
 
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
@@ -89,9 +89,9 @@ class TestAtRestStorage(unittest.TestCase):
         from core.services.record_service import RecordService
 
         service = RecordService(LMDBBlockRepository(), AESGCMStrategy())
-        revealed = " ".join(str(v) for v in service.get_final_data("VIP-001").values())
-        self.assertIn("<5 ng/L", revealed)
-        self.assertNotIn("&lt;5 ng/L", revealed)
+        revealed = " ".join(str(v) for v in service.get_final_data("CL-001").values())
+        self.assertIn("<5 & sleep", revealed)
+        self.assertNotIn("&lt;5", revealed)
 
     def test_records_are_ciphertext_on_disk(self):
         """The raw chain store must not hold plaintext clinical text."""
@@ -99,7 +99,7 @@ class TestAtRestStorage(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
 
         from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository
-        blocks = LMDBBlockRepository().load_all_blocks(project_name_for("VIP-001"))
+        blocks = LMDBBlockRepository().load_all_blocks(project_name_for("CL-001"))
         on_disk = " ".join(str(b.data) for b in blocks)
         self.assertNotIn("SECRET-MARKER-XYZ", on_disk)
 
@@ -123,14 +123,14 @@ class TestMetadataDisclosure(unittest.TestCase):
         return res.json()["access_token"]
 
     def test_patient_cannot_read_another_chain_status(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-999/status",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-999/status",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 403)
 
     def test_patient_can_read_their_own_chain_status(self):
-        token = self._token("vip001", "VIPPatient@2026!")
-        res = self.client.get("/api/v1/blockchain/VIP-001/status",
+        token = self._token("client001", "Client@2026Secure!")
+        res = self.client.get("/api/v1/blockchain/CL-001/status",
                               headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200)
 

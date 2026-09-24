@@ -18,7 +18,7 @@ class BlockFactory:
             timestamp=ts,
             data={
                 "type": "genesis",
-                "message": "VIP Health Vault — Genesis Block",
+                "message": "Mahrem — Genesis Block",
                 "created_by": "system",
                 "device_id": device,
             },

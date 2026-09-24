@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -10,7 +11,17 @@ from infrastructure.repositories.sql_repositories import _to_placeholder
 logger = logging.getLogger("vhv.ratelimiter")
 
 RATE_LIMIT_WINDOW = 60   # seconds
-RATE_LIMIT_MAX = 5       # max 5 login attempts per minute
+RATE_LIMIT_MAX = 5       # max 5 sign-in attempts per IP per minute
+
+# Every endpoint that accepts a secret without a session: the password and
+# passkey logins, and redeeming an enrollment / invitation code. This used to
+# match "/api/auth/login" only — a path that does not exist (the API lives under
+# /api/v1) — so the limit never applied and passwords could be guessed freely.
+RATE_LIMITED_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/webauthn/login",
+    "/api/v1/onboarding/redeem",
+}
 
 def _check_rate_limit(ip: str) -> bool:
     """Returns True if allowed, False if rate limit exceeded using SQL persistence."""
@@ -50,7 +61,12 @@ def _check_rate_limit(ip: str) -> bool:
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.method == "POST" and request.url.path == "/api/auth/login":
+        # The test suite signs in hundreds of times from one address; like the
+        # CSRF check, the limit is off while TESTING is set (tests/test_rate_limit.py
+        # switches it back on).
+        is_testing = os.getenv("TESTING", "false").lower() == "true"
+        if (request.method == "POST" and request.url.path in RATE_LIMITED_PATHS
+                and not is_testing):
             client_ip = _get_client_ip(request)
             if not _check_rate_limit(client_ip):
                 return JSONResponse(

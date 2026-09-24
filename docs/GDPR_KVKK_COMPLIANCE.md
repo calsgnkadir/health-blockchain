@@ -1,8 +1,8 @@
 # KVKK & GDPR Uyumluluk Beyanı
-# VIP Health Vault — Veri Koruma Çerçevesi v5.0.0
+# Mahrem — Veri Koruma Çerçevesi (v6.0.0)
 
 > **Belge Türü:** Kişisel Veri İşleme Envanteri ve Uyum Beyanı  
-> **Kapsam:** VIP Health Vault platformunda işlenen kişisel ve özel nitelikli tıbbi veriler  
+> **Kapsam:** Mahrem'de işlenen kişisel veriler ve özel nitelikli sağlık verileri (psikolojik danışmanlık kayıtları)  
 > **Güncelleme:** 2026-07-28  
 > **Referans Mevzuat:** 6698 sayılı KVKK · GDPR (AB) 2016/679 · ISO/IEC 27701:2019 · ISO 27001
 
@@ -12,7 +12,7 @@
 
 | Alan | Bilgi |
 |------|-------|
-| **Ünvan** | VIP Health Vault İşletmecisi |
+| **Ünvan** | Mahrem'i kullanan psikoloji muayenehanesi (veri sorumlusu) |
 | **Teknik Mimarisi** | Isolated Single-Tenant Architecture, Clean Architecture, CQRS |
 | **Veri İşleme Modeli** | Off-chain şifreli depolama + Local Signed Merkle Hash-Chain |
 
@@ -45,9 +45,9 @@
    - Klinik zincir deposu, ham `patient_id` yerine deterministik `anon_id` (HMAC) ile anahtarlanır (`core/pseudonymization/service.py::project_name_for`); diskteki depo yalnızca opak takma kimlikler tutar.
    - Yetkili yönetici `patient_id ↔ anon_id` eşlemesini çözebilir; yazma yolu bu eşlemeyi kalıcılaştırır.
 2. **Çift Onaylı Yetki İlkesi (Dual-Control)**:
-   - Sistem Yöneticisi (Admin) dahi VIP hastanın ham şifreli verisini tek başına çözemez. Güvenlik Görevlisi (`security_officer`) co-signature (çift onay) şarttır.
+   - Sistem Yöneticisi (Admin) dahi danışanın kayıtlarını tek başına okuyamaz. Güvenlik Görevlisi (`security_officer`) co-signature (çift onay) şarttır.
 3. **Zaman Sınırlı Rıza ve Otomatik Süre Dolumu**:
-   - Doktor rızaları saat ve gün bazlı tanımlanır. Süresi dolduğu anda erişim otomatik kapanır ve `CONSENT_EXPIRED` logu atılır.
+   - Danışanın uzmana verdiği rızalar kayıt türü, saat ve gün bazında tanımlanır. Süresi dolduğu anda erişim otomatik kapanır ve `CONSENT_EXPIRED` logu atılır.
 4. **Network Level Isolation (Ağ İzolasyonu)**:
    - `IPAllowlistMiddleware` ile varsayılan olarak kamuya kapalıdır; sadece kurum VPN ve yetkili IP bloklarına açık tutulur.
 5. **Diskte Şifreleme (KVKK M.12 & GDPR Art. 32)**:

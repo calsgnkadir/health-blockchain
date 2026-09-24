@@ -5,12 +5,12 @@
 
 ## What the key does
 
-VIP Health Vault runs on one root secret, the *signing key*
+Mahrem runs on one root secret, the *signing key*
 (`SoftwareKMSProvider.get_signing_key()`). It has two jobs:
 
 1. **Integrity** — it is the HMAC key that signs every block, so the hash-chain
    can detect tampering (`core/security.py`).
-2. **Confidentiality** — it derives the AES-256-GCM at-rest key for each patient
+2. **Confidentiality** — it derives the AES-256-GCM at-rest key for each client
    via `derive_rest_secret("rest-v1:{patient_id}")` (`core/security.py:185`).
 
 Because (2) is derived deterministically from the signing key, there is no
@@ -68,11 +68,11 @@ The vault is in "production" whenever `ENVIRONMENT` is not `development` and
 
 Rotation is deliberately not automatic, because the at-rest key is derived from
 the signing key: rotating the signing key changes the derived key for **every**
-patient, so all existing records must be re-encrypted under the new key in the
+client, so all existing records must be re-encrypted under the new key in the
 same operation. The supported procedure is:
 
 1. Stand up the new key as `HEALTH_BLOCKCHAIN_KEY_NEXT` (out of band).
-2. For each patient chain, decrypt each block payload with the current key and
+2. For each client chain, decrypt each block payload with the current key and
    re-encrypt with the next key, appending the re-encrypted blocks (the chain is
    append-only — originals stay, superseded).
 3. Promote `HEALTH_BLOCKCHAIN_KEY_NEXT` to `HEALTH_BLOCKCHAIN_KEY`.

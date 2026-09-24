@@ -4,8 +4,8 @@ tests/test_consent_authorization.py — Consent is the patient's decision alone
 Guards the authorization boundary around /api/v1/consent:
 
 * A practitioner must not be able to grant themselves access to a chart, nor
-  revoke a permission the patient set — that would make the consent model
-  decorative and let a doctor silently bypass Break-Glass auditing.
+  revoke a permission the client set — that would make the consent model
+  decorative.
 * An administrator must not be able to do it either, since that would route
   around the Dual-Control policy keeping admins out of raw records.
 """
@@ -21,12 +21,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.main import app
 from database.sql_db import default_sql_db
 
-PATIENT_ID = "VIP-001"
-DOCTOR = "dr.smith"
+PATIENT_ID = "CL-001"
+DOCTOR = "psk.elif"
 
 ACCOUNTS = {
-    "patient": ("vip001", "VIPPatient@2026!"),
-    "doctor": (DOCTOR, "Doctor@2026Secure!"),
+    "patient": ("client001", "Client@2026Secure!"),
+    "doctor": (DOCTOR, "Practitioner@2026!"),
     "admin": ("admin", "Admin@2026Secure!"),
 }
 
@@ -69,8 +69,8 @@ class TestConsentAuthorization(unittest.TestCase):
         )
 
     def test_patient_can_grant_and_revoke_own_consent(self):
-        self.assertEqual(self._grant("patient", "lab_result").status_code, 200)
-        self.assertEqual(self._revoke("patient", "lab_result").status_code, 200)
+        self.assertEqual(self._grant("patient", "assessment").status_code, 200)
+        self.assertEqual(self._revoke("patient", "assessment").status_code, 200)
 
     def test_doctor_cannot_grant_consent_to_themselves(self):
         res = self._grant("doctor")
@@ -78,16 +78,16 @@ class TestConsentAuthorization(unittest.TestCase):
         self.assertIn("Consent Policy Violation", res.json()["detail"])
 
     def test_doctor_cannot_revoke_patient_consent(self):
-        self.assertEqual(self._grant("patient", "imaging").status_code, 200)
-        self.assertEqual(self._revoke("doctor", "imaging").status_code, 403)
+        self.assertEqual(self._grant("patient", "document").status_code, 200)
+        self.assertEqual(self._revoke("doctor", "document").status_code, 403)
         # The patient's decision must survive the attempt.
         consents = self.client.get(
             f"/api/v1/consent/{PATIENT_ID}", headers=self._headers("patient")
         ).json()["consents"]
         self.assertTrue(
-            any(c["doctor_username"] == DOCTOR and c["record_type"] == "imaging" for c in consents)
+            any(c["doctor_username"] == DOCTOR and c["record_type"] == "document" for c in consents)
         )
-        self._revoke("patient", "imaging")
+        self._revoke("patient", "document")
 
     def test_admin_cannot_grant_consent(self):
         self.assertEqual(self._grant("admin").status_code, 403)
@@ -96,12 +96,12 @@ class TestConsentAuthorization(unittest.TestCase):
         self.assertEqual(self._revoke("admin").status_code, 403)
 
     def test_doctor_only_sees_permissions_granted_to_them(self):
-        self.assertEqual(self._grant("patient", "diagnosis").status_code, 200)
+        self.assertEqual(self._grant("patient", "session_note").status_code, 200)
         visible = self.client.get(
             f"/api/v1/consent/{PATIENT_ID}", headers=self._headers("doctor")
         ).json()["consents"]
         self.assertTrue(all(c["doctor_username"] == DOCTOR for c in visible))
-        self._revoke("patient", "diagnosis")
+        self._revoke("patient", "session_note")
 
 
 if __name__ == "__main__":

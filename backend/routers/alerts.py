@@ -2,7 +2,7 @@
 backend/routers/alerts.py — Security Alerts & Dual-Control API Router
 ======================================================================
 Endpoints for viewing real-time security alerts and executing Dual-Control
-co-approvals for VIP vault management.
+co-approvals for vault management.
 """
 
 from typing import Optional
@@ -58,7 +58,7 @@ def create_dual_control_request(
     req: DualControlReq,
     u: dict = Depends(current_user)
 ):
-    if u["role"] not in ("admin", "doctor"):
+    if u["role"] not in ("admin", "practitioner"):
         raise HTTPException(403, "Only Administrators or Doctors can initiate dual-control requests.")
 
     result = dual_control_engine.request_dual_control_access(
@@ -73,7 +73,7 @@ def create_dual_control_request(
         alert_type="DUAL_CONTROL_REQUESTED",
         severity="HIGH",
         title=f"Dual-Control Request for {req.target_patient_id}",
-        description=f"User {u['username']} requested {req.request_type} for patient {req.target_patient_id}. Reason: {req.reason}",
+        description=f"User {u['username']} requested {req.request_type} for client {req.target_patient_id}. Reason: {req.reason}",
         username=u["username"],
         extra=result
     )
@@ -86,7 +86,7 @@ def get_dual_control_status(
     token_id: str,
     u: dict = Depends(current_user)
 ):
-    if u["role"] not in ("admin", "security_officer", "auditor", "doctor"):
+    if u["role"] not in ("admin", "security_officer", "auditor", "practitioner"):
         raise HTTPException(403, "Only privileged operators can inspect dual-control requests.")
 
     info = dual_control_engine.get_request(token_id)

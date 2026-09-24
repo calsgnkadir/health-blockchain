@@ -11,9 +11,9 @@ History (see docs/DOM_XSS_SELF_AUDIT.md):
     written then was a DENYLIST of three exact strings (`${query}`,
     `${e.message}`, `${err.message}`).
   * Round 2 found four more sinks that denylist could never catch: the
-    decrypted-record view, the attachment view (file name / type / data), the
-    dashboard's vital-signs fallback table, and `${e.message || 'Unknown error'}`
-    on the dashboard — the same error text, written slightly differently.
+    decrypted-record view, the attachment view (file name / type / data), and
+    `${e.message || 'Unknown error'}` on the dashboard — the same error text,
+    written slightly differently.
 
 This guard is therefore a RULE, not a list of known bugs: any `${...}` that
 reads from an untrusted source (error text, a record/user/log field, a file
@@ -58,7 +58,7 @@ NOT_AN_HTML_SINK = re.compile(
 # Touch an untrusted name but cannot carry markup. Each one reviewed by hand.
 REVIEWED_SAFE = {
     # ternaries that only ever yield constant strings
-    "u.role==='admin'?'admin':u.role==='doctor'?'doctor':'vip'",
+    "u.role==='admin'?'admin':u.role==='practitioner'?'practitioner':'client'",
     "d.integrity.count === 1 ? 'y' : 'ies'",
     "item.type === 'nav' ? '🧭' : item.type === 'action' ? '⚡' : '📄'",
     "n.read ? 'color: var(--muted);' : 'font-weight: 500;'",

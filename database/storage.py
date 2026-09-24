@@ -1,5 +1,5 @@
 """
-database/storage.py — VIP Health Vault · LMDB Storage Layer Facade
+database/storage.py — Mahrem · LMDB Storage Layer Facade
 =====================================================================
 Acts as a backward-compatible facade routing user database and audit
 operations to dedicated split persistence modules.
@@ -203,6 +203,30 @@ def load_block_pwd_hash(project_name: str, block_index: int, db_manager: Optiona
         if val:
             return val.decode("utf-8")
         return None
+
+# A protected block's audience. Under the "meta_" prefix, which load_all_blocks()
+# already skips — it is not a block.
+def save_block_access(project_name: str, block_index: int, access: dict,
+                      db_manager: Optional[LMDBConnectionManager] = None) -> None:
+    manager = db_manager or default_db_manager
+    def txn_block(txn):
+        key = f"meta_access_{block_index:010d}".encode("utf-8")
+        txn.put(key, json.dumps(access, sort_keys=True).encode("utf-8"))
+    manager.run_write_transaction(project_name, txn_block)
+
+
+def load_block_access(project_name: str, block_index: int,
+                      db_manager: Optional[LMDBConnectionManager] = None) -> Optional[dict]:
+    manager = db_manager or default_db_manager
+    env = manager.open_db(project_name)
+    with env.begin(write=False) as txn:
+        val = txn.get(f"meta_access_{block_index:010d}".encode("utf-8"))
+        if not val:
+            return None
+        try:
+            return json.loads(val.decode("utf-8"))
+        except ValueError:
+            return None
 
 # ──────────────────────────────────────────────
 # DYNAMIC ROUTING & FACADE INTEGRATIONS

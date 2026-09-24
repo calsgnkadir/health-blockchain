@@ -1,197 +1,221 @@
-# VIP Health Vault
+# Mahrem
 
-> A single-tenant **FastAPI health-records vault** built around real security
-> engineering — **FIDO2/WebAuthn passkeys, dual-control (M-of-N) access,
-> AES-256-GCM encryption at rest, a tamper-evident hash-linked audit ledger, and
-> crypto-shredding erasure (GDPR/KVKK Art. 17)** — with **182 passing tests**.
+> Confidential client records for independent psychologists. A FastAPI backend
+> built around security engineering: **client-owned consent, one access policy on
+> every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
+> a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
+> Art. 17)**, with **263 passing tests**.
 
-*The scenario — a private, isolated vault for a small number of high-sensitivity
-individuals — is flavor. The security engineering is the point.*
+*Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
+project, *VIP Health Vault*. The security core stayed; the domain became something
+concrete: a psychologist in private practice and their clients.
 
-## 🔐 Security engineering at a glance
+## The problem
 
-| Primitive | Implementation (verifiable in code) |
+A therapist's notes are some of the most sensitive data a person has. Three things
+matter:
+
+1. **The client decides** what their practitioner may see, per record type and for a
+   limited time — and can take it back.
+2. **The practitioner's own process notes are theirs**; the client's private journal
+   is the client's. Neither leaks to the other.
+3. **Nobody reads records on their own authority** — not an administrator, not an
+   auditor. Every read is recorded where it cannot be quietly deleted.
+
+## Roles
+
+| Role | What they can do |
 | :-- | :-- |
-| **Passwordless / MFA** | WebAuthn/FIDO2 assertion verification (ES256 / secp256r1): single-use challenge, origin + rpId binding, User-Present flag, sign-counter clone detection — [`core/webauthn.py`](core/webauthn.py) |
-| **Encryption at rest** | AES-256-GCM, a fresh 96-bit nonce per write, KMS-derived per-patient key — [`core/kms/software_provider.py`](core/kms/software_provider.py) |
-| **Passwords** | Argon2id (bcrypt / PBKDF2 fallback), all salted — [`core/security.py`](core/security.py) |
-| **Integrity** | Per-block HMAC-SHA256 signature + Merkle root, `previous_hash → prior block's hash`, verified on every block — [`core/services/record_service.py`](core/services/record_service.py) |
-| **Access control** | Server-side role checks (role re-loaded from the DB, never trusted from token claims) + patient-owned consent — [`backend/dependencies.py`](backend/dependencies.py) |
-| **Dual-Control** | M-of-N co-signature gates raw record access for non-clinical operators — [`core/services/dual_control.py`](core/services/dual_control.py) |
-| **Audit** | Hash-linked, tamper-evident access ledger — deleting or altering an entry breaks the chain — [`database/audit_storage.py`](database/audit_storage.py) |
-| **Right to erasure** | Crypto-shredding: destroy a per-patient key → records permanently undecryptable, chain intact (GDPR/KVKK Art. 17) — [`core/services/erasure_service.py`](core/services/erasure_service.py) |
-| **Externally-held key** | Optional HashiCorp Vault Transit — the signing key never enters the app — [`core/kms/vault_provider.py`](core/kms/vault_provider.py) |
+| **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Joins with an invitation code from their practitioner. |
+| **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Writes shared notes and practitioner-only process notes. |
+| **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. |
 
-## 🏗️ Architecture
+## Access model
+
+One module decides who sees what: [`core/services/access_policy.py`](core/services/access_policy.py)
+([ADR-0003](docs/adr/0003-one-access-policy.md)). Every record endpoint calls it.
+
+**File level.** A practitioner without any active consent from a client gets `403` for
+everything in that client's file — the same answer as for a client who does not exist,
+so client IDs cannot be probed.
+
+**Record level.**
+
+| Access level | Client | Practitioner |
+| :-- | :-- | :-- |
+| Client + Practitioner | ✅ | with consent for the record's type |
+| Client Only | ✅ | never |
+| Practitioner Only | never | only the author, with consent |
+
+A password-protected record needs consent for *all* records, because its type is
+unknown until it is decrypted; who may see it is stored outside the ciphertext, so a
+client's locked journal is not even listed for the practitioner. Writing a record needs the same consent as reading it.
+An invitation grants nothing: the client gives consent themselves.
+
+## Security engineering at a glance
+
+| Primitive | Implementation |
+| :-- | :-- |
+| **Access policy** | Pure functions, unit-tested without a database; file-level and record-level rules — [`core/services/access_policy.py`](core/services/access_policy.py) |
+| **Consent** | Client-owned, per record type, time-bound, revocable — [`backend/routers/consent.py`](backend/routers/consent.py) |
+| **Encryption at rest** | AES-256-GCM, fresh 96-bit nonce per write, KMS-derived per-client key — [`core/kms/software_provider.py`](core/kms/software_provider.py) |
+| **Integrity** | Append-only chain: each block links to the previous hash and carries an HMAC-SHA256 signature and Merkle root — [`core/services/record_service.py`](core/services/record_service.py) |
+| **Corrections** | A record is never overwritten; a correction is a new block and the original stays readable — [`backend/routers/records.py`](backend/routers/records.py) |
+| **Access ledger** | Hash-linked, tamper-evident log of every read; the client sees it — [`database/audit_storage.py`](database/audit_storage.py) |
+| **Dual control** | M-of-N co-signature before any operator reads a record — [`core/services/dual_control.py`](core/services/dual_control.py) |
+| **Sign-in** | Argon2id passwords, WebAuthn/FIDO2 passkeys, TOTP, 5 attempts per IP per minute — [`core/webauthn.py`](core/webauthn.py), [`backend/middleware/rate_limiter.py`](backend/middleware/rate_limiter.py) |
+| **Onboarding** | No self-registration: single-use, expiring invitation codes stored only as a hash — [`backend/routers/onboarding.py`](backend/routers/onboarding.py) |
+| **Pseudonymization** | The record store is keyed by an HMAC pseudonym, never the client ID — [`core/pseudonymization/service.py`](core/pseudonymization/service.py) |
+| **Right to erasure** | Crypto-shredding: destroying a client's key makes their records unreadable while the chain stays valid — [`core/services/erasure_service.py`](core/services/erasure_service.py) |
+| **Browser** | Output encoding at every HTML sink, strict CSP without inline script, httpOnly cookies, CSRF double-submit — [`docs/DOM_XSS_SELF_AUDIT.md`](docs/DOM_XSS_SELF_AUDIT.md) |
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    Client["Browser SPA<br/>httpOnly cookie auth<br/>strict CSP + CSRF token"]
+    Browser["Browser SPA<br/>httpOnly cookie auth<br/>strict CSP + CSRF token"]
 
     subgraph API["FastAPI"]
       direction TB
       MW["Middleware<br/>IP allowlist · CSRF · rate limit · security headers"]
-      R["Routers<br/>auth · records · consent · erasure · dual-control"]
+      R["Routers<br/>auth · onboarding · records · consent · practitioner · erasure"]
+      P["Access policy<br/>file level + record level"]
       S["Services<br/>record · consent · dual-control · notarizer · erasure"]
-      MW --> R --> S
+      MW --> R --> P --> S
     end
 
-    Client -->|HTTPS / private VPC| MW
+    Browser -->|HTTPS / private network| MW
     S --> LMDB["LMDB<br/>append-only signed hash-chain<br/>(AES-256-GCM ciphertext only)"]
-    S --> SQL["SQLite<br/>users · consent · tokens<br/>pseudonym map · erasure keys"]
+    S --> SQL["SQLite<br/>users · invitations · pseudonym map · erasure keys"]
     S --> LEDGER["Access ledger<br/>hash-linked, tamper-evident"]
     S -->|sign / derive, key never leaves| KMS["KMS<br/>software · or Vault Transit"]
 ```
 
----
+Why a local signed hash-chain and not a public blockchain: one practice, one trust
+boundary, and confidentiality as the goal. A public chain would make the data
+permanent and often public — the opposite of what therapy notes need
+([ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md)). The app runs as a
+single node on purpose ([ADR-0002](docs/adr/0002-single-node-deployment.md)).
 
-## 📸 Interface
+## Interface
 
-Captured from a running instance seeded by demo mode — the chart, the trends and the
-hashes below are what the application actually produces.
+Captured from the Docker demo. The practitioner, then the client, then an
+administrator who cannot read anything on their own. Every frame is captioned.
 
-### 90-second walkthrough
+![Walkthrough](docs/screenshots/walkthrough.gif)
 
-Sign in → dashboard → AES-encrypted record → access ledger → chain verification →
-and the governance side: even an admin gets no patient data without an M-of-N
-dual-control co-signature. Every frame is self-captioned.
-
-![Security walkthrough](docs/screenshots/walkthrough.gif)
-
-### Detail shots
-
-| Stealth login | VIP patient dashboard (vitals, allergy banner, chain integrity) |
+| Sign in | Practitioner dashboard (clients, progress chart) |
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
 
-| Medical records (encrypted, access-scoped) | Tamper-evident access ledger |
+| Client records (access-scoped, encrypted) | Tamper-evident access ledger |
 | :---: | :---: |
 | ![Records](docs/screenshots/03_records.png) | ![Access ledger](docs/screenshots/04_access_ledger.png) |
 
----
+## Bugs I found and fixed
 
-> 💡 **Public Ingress Architecture Note**: By security design, **VIP Health Vault** enforces strict private subnet CIDR isolation (`IPAllowlistMiddleware`) and per-device hardware passkeys. As a consequence, the application cannot and should not be hosted on public SaaS URLs (`0.0.0.0/0`) — it is intended to be run locally or inside a private VPC. See [Quick Start](#-quick-start) to bring the vault up on your own machine.
+Each one was reproduced first, then fixed with a test that fails on the old code. The
+full history is in the [CHANGELOG](CHANGELOG.md).
 
----
+- **IDOR on the single-record endpoint.** `GET /records/{client}/{block}` only checked
+  that a client stayed in their own file, so any practitioner could read any client's
+  unprotected records by walking block numbers — with no consent at all. The access
+  rules had been copied into each endpoint and the copies drifted apart. Fixed by moving
+  every rule into one policy module that all endpoints call.
+- **The sign-in rate limit never applied.** It matched `/api/auth/login`, but the API
+  lives under `/api/v1`, so passwords could be guessed without limit. It now covers
+  password login, passkey login and invitation codes.
+- **Practitioners could write into any client's file** without consent, and read any
+  client's chain status and notifications.
+- **A client's locked journal showed up in the practitioner's list** as an "ENCRYPTED
+  RECORD" row: its access level was inside the ciphertext, so the list could not tell
+  it apart. The audience is now stored outside the ciphertext.
+- **`MANDATORY_FIDO2` enforced nothing.** It returned a flag no code read, and only for
+  admins and clients; every password login still worked. Now an account with a passkey
+  must use it, for every role, and one without is taken straight to enrolment.
+- **CI had not run the tests for a month.** Since 21 August a lint error failed the
+  first step, so every later step was skipped; a red build that "always fails" hid that
+  nothing was being tested.
+- **Stored XSS** in the confidential-record and attachment views (a crafted file name,
+  or a quote in the file type inside `<img src="data:…">`), found in a second,
+  line-by-line self-audit after a first one had missed them. The CI guard changed from
+  a denylist to a rule: every untrusted `${…}` must be escaped or explicitly reviewed.
+- **Reflected DOM XSS** in the command palette's search box.
+- **Passkey login accepted any known credential** without verifying the assertion.
+- **A fake "anchor"** — a random number presented as a transaction hash — replaced by a
+  real HMAC signature of the Merkle root.
+- **Silent audit-log overwrite**: ledger entries were keyed on `time.time_ns()`, whose
+  resolution on Windows is ~15.6 ms, so two reads in one tick overwrote each other.
+- **Clinical detail in a plaintext notification**, readable from the SQL store without
+  the chain key. Notifications no longer carry clinical content.
 
-## 🛡️ Feature Implementation & Security Defense Matrix
+**Honest limits.** The design assumes the attacker knows the code and can reach the
+service. Within that, keys can live on the app host, tampering is *detected* rather
+than prevented, there is no high availability, and there has been no external
+penetration test. The full list is in
+[THREAT_MODEL.md](docs/THREAT_MODEL.md#4-trust-assumptions--residual-risk).
 
-To maintain 100% technical honesty during code reviews and security audits, the system explicitly distinguishes between **natively working code implementations** and **pluggable enterprise abstractions**:
+## Quick start
 
-| Security Component | Implementation Status | Enforcing Class / File | Technical Guarantee |
-| :--- | :---: | :--- | :--- |
-| **Local Merkle Hash-Chain** | **LIVE / WORKING** | `core.services.notarizer.BlockchainNotarizer` | Local Merkle-root hash-chain (`ADR-0001`), re-anchored after every committed write. The anchor is an **HMAC-SHA256 signature of the Merkle root** under the server's KMS key — a verifiable commitment only the key-holder can produce, deliberately not a public-chain transaction hash. Verification recomputes and checks that signature, so a tampered block fails as "Anchor signature invalid." Zero Web3/RPC dependencies. Per-record inclusion proofs are verifiable from the record view (`GET /api/v1/records/proof/{patient_id}/{block_index}`). |
-| **Passkey / FIDO2 Auth** | **LIVE / WORKING** | `core.webauthn.verify_assertion` | Native browser WebAuthn API + `secp256r1` (ES256) assertion verification in Python: single-use challenge, origin and rpId binding, User Present flag, and signature-counter clone detection. No credential is ever pre-seeded. |
-| **Out-of-Band Onboarding** | **LIVE / WORKING** | `backend.routers.onboarding` | No account is self-registered. A privileged operator provisions a vetted account (`PENDING_ONBOARDING`); it cannot log in until the holder redeems a single-use, expiring enrollment token delivered out of band. The token is stored only as a hash, and login is refused for any non-`ACTIVE_ENROLLED` account. |
-| **Right-to-be-Forgotten (Crypto-Shred)** | **LIVE / WORKING** | `backend.routers.erasure` / `core.services.erasure_service` | GDPR/KVKK Art. 17 on an append-only chain: the at-rest key is derived from the KMS root AND a per-patient secret, so `POST /api/v1/erasure/{patient_id}` destroys that secret — every record encrypted under it becomes permanently undecryptable (read-back returns an "erased" marker) while the chain and its signatures stay valid. Privileged + Dual-Control gated; irreversible. |
-| **Encryption at Rest** | **LIVE / WORKING** | `core.services.record_service._encrypt_at_rest` | Every clinical payload is AES-256-GCM encrypted on disk under a KMS-derived, patient-scoped key (`core.security.derive_rest_secret`). The chain store holds only ciphertext — a stolen `projects/` backup cannot be read **as long as the signing key is kept out of that backup** (env var or OS keyring, not the on-disk `.private_key` file). Production refuses to boot with an unconfigured key rather than silently minting one. The server decrypts for authorized sessions; a per-record password layer adds server-blind confidentiality on top. Key backup & rotation: [KEY_MANAGEMENT.md](docs/KEY_MANAGEMENT.md). |
-| **Tamper-Evident Access Ledger** | **LIVE / WORKING** | `database.audit_storage.append_access_log` / `verify_access_log_integrity` | Every read and clinician view is a hash-linked entry carrying `seq` + `prev_hash` + `hash`. Deleting or altering any past access event breaks the chain and is reported by sequence number. The record owner reads their own trail and its integrity verdict — you cannot silently erase having looked at a VIP's chart. |
-| **Append-Only Medical Correction** | **LIVE / WORKING** | `POST /api/v1/records/{patient_id}/{block_index}/correct` | A record is never overwritten. A correction is appended as a new block referencing the original; both versions stay on the chain, the record carries the correction's author and reason, and the superseded content is still retrievable (`?version=original`). This is why append-only fits medicine — a clinical record is corrected, not rewritten. |
-| **Patient-Controlled Consent** | **LIVE / WORKING** | `backend.routers.consent._require_consent_owner` | Only the patient who owns the chart may grant or revoke clinical access — practitioners and administrators cannot self-authorize; they must use the audited Break-Glass override. |
-| **Dual-Control M-of-N Engine** | **LIVE / WORKING** | `core.services.dual_control.DualControlEngine` | Blocks raw record access by every non-clinical operator role — admin, auditor, security officer — with `403 Forbidden` until a *different* privileged principal co-signs. Self-approval is rejected; tokens are bound to one patient and expire. Drivable from the Dual-Control Access screen. |
-| **Network IP Allowlist** | **LIVE / WORKING** | `backend.middleware.ip_allowlist.resolve_secure_client_ip` | Direct socket peer host verification. Prevents `X-Forwarded-For` header spoofing. |
-| **Immutable Decrypt Access Log** | **LIVE / WORKING** | `backend.routers.records.decrypt_record` | Writes immutable `RECORD_DECRYPTED` log entry to LMDB and SQLite access logs. |
-| **Hardware Passkey Revocation** | **LIVE / WORKING** | `POST /api/v1/auth/webauthn/revoke` | Revokes stolen hardware credentials with Dual-Control authorization. |
-| **XSS Defence in Depth** | **LIVE / WORKING** | `backend.middleware.xss_protection` / `static.js.modules.actions` | Clinical text is stored verbatim and escaped at render; the CSP then forbids inline script outright (`script-src 'self'`, no `unsafe-inline`, no `unsafe-eval`), so encoding and execution are two independent layers. |
-| **Encrypted File Attachments** | **LIVE / WORKING** | `core.services.attachment_store.AttachmentStore` | Record attachments (e.g. imaging/DICOM) are AES-encrypted, then kept in the same LMDB store as the chain, content-addressed by the SHA-256 of the ciphertext. No external service, no network egress — the blob sits on the same disk as the records it belongs to. |
-| **Externally-Held Signing Key** | **LIVE / WORKING** | `core.kms.vault_provider.VaultTransitKMSProvider` | Every key use is a MAC through `KMSProvider.mac()`, so the signing key can live outside this process. With `KMS_PROVIDER=vault` the MAC is computed by HashiCorp Vault's Transit engine (`/transit/hmac`) — the key never enters the app, closing the "a rogue admin has both the store and the key" gap. Fails closed if Vault is unreachable (never signs locally). The default software provider keeps the key on-host; AWS KMS is stubbed. |
-
----
-
-## 🧠 Engineering decisions & bugs I found and fixed
-
-**Why a local HMAC-signed Merkle hash-chain, not a public blockchain** ([ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md)) — one institution, one trust boundary, and confidentiality as the core goal. A public chain has no one to reach consensus with, charges gas, and writes data that is permanent and often publicly readable — the opposite of what health data needs. So tamper-evidence comes from a **local, signed, append-only hash-chain** (each block links `previous_hash → prior hash`, with an HMAC-SHA256 signature and Merkle root) over **AES-256-GCM ciphertext held off-chain** in LMDB. Integrity is a hash chain; authenticity is a keyed signature; both are verified on every block. See also [ADR-0002](docs/adr/0002-single-node-deployment.md) on the deliberate single-node posture.
-
-**Real bugs found and fixed** (each reproduced against a running instance, then covered by a regression test — see the [CHANGELOG](CHANGELOG.md)):
-
-- **FIDO2 enrolment deadlock** — `MANDATORY_FIDO2=true` refused every password login without a passkey, but a passkey can only be enrolled *after* logging in → a fresh account was permanently locked out. Fixed with a one-time enrolment grace.
-- **Passkey login accepted any known credential** — the WebAuthn login endpoint issued a session token without verifying the assertion (challenge, signature, origin, rpId, counter). Now cryptographically verified before any token is issued; the seeded demo credential is deleted on startup.
-- **Fake notarizer anchor** — the "anchor" was `secrets.token_hex(32)` (a random number dressed up as a transaction hash). Replaced with a real HMAC-SHA256 signature of the Merkle root, verified in constant time.
-- **PHI leak in a plaintext notification** — a new-prescription notification embedded the medication name, and notifications live in the SQL store in plaintext — leaking a drug the chain had encrypted. Notifications now carry no clinical content.
-- **Silent audit-log overwrite** — the tamper-evident access ledger keyed entries on `time.time_ns()`, whose resolution on Windows is ~15.6 ms; two reads in the same tick overwrote each other. Re-keyed on a monotonic sequence number.
-- **Privileged dashboard hardcoded one patient** — admin/clinician views defaulted to `VIP-001` and hit the Dual-Control gate on login. Replaced with a patient selector.
-- **Reflected DOM XSS in the search box** — a source→sink self-audit of the frontend found the command palette wrote the raw search value into `innerHTML` on its "no results" branch (`<img src=x onerror=…>` typed into search executed in the victim's session; httpOnly cookies narrow but don't remove the impact). Fixed with contextual output encoding, hardened seven more error sinks the same way, and added a static CI guard so it can't regress — see [DOM_XSS_SELF_AUDIT.md](docs/DOM_XSS_SELF_AUDIT.md).
-- **XSS round 2: what the first audit missed** — reading every template line by line (not only those reached from the obvious sources) found stored XSS in the confidential-record view and the attachment view (a crafted file name, or a quote in the file type inside `<img src="data:…">`), plus an error-message variant the first guard could not match. All escaped at the point they are built; the server now validates attachment fields and runs corrections through the same validation as new records. The CI guard went from a denylist of known strings to a rule: every untrusted `${…}` must be escaped or explicitly reviewed.
-
-**Security assumptions & residual risk (honest limits).** The design assumes the attacker knows the whole system (the code is public) and can reach the service — security does not rely on staying hidden. Under that assumption, dual-control, at-rest encryption, pseudonymization, the signed hash-chain and crypto-shred still protect the data. The build also has deliberate limits for its tier: keys can live on the app host, tampering is *detected* rather than *blocked*, there is no high-availability/DoS protection, and no external penetration test. These are scope boundaries, not defects — the full list, and what a real production deployment would add, is in [THREAT_MODEL.md](docs/THREAT_MODEL.md#4-trust-assumptions--residual-risk).
-
-## ⚡ Quick Start
-
-### Prerequisites
-- Python 3.10+
-- Virtualenv (`python -m venv venv`)
-
-### Installation & Run
+Requires Python 3.10+.
 
 ```bash
-# 1. Clone repository
 git clone https://github.com/calsgnkadir/health-blockchain.git
 cd health-blockchain
-
-# 2. Install dependencies
 pip install -r requirements.txt
-
-# 3. Launch application server in demo mode
-ENVIRONMENT=development VHV_DEMO_MODE=true   python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+ENVIRONMENT=development VHV_DEMO_MODE=true python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Access the Stealth Vault Web Console at: `http://127.0.0.1:8000`
+Or with Docker:
 
-### Demo Mode
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+```
 
-`VHV_DEMO_MODE=true` seeds four demo accounts and one worked example chart for
-patient `VIP-001` — four weeks of a cardiology follow-up with vital sign trends, a
-severe allergy, a prescription, a vaccination and one AES-256 encrypted record — so
-a first run opens on a working vault rather than eight empty panels. Nothing is
-seeded in any other configuration, and an existing chart is never overwritten.
+Then open `http://127.0.0.1:8000`.
+
+### Demo accounts
+
+Demo mode seeds these accounts and one example file: client `CL-001`, five weeks of
+CBT for anxiety. The GAD-7 score falls from 16 to 7. The file also holds a
+practitioner-only process note and the client's password-protected journal entry
+(password `DemoRecord@2026!`). Nothing is seeded outside demo mode, and an existing
+file is never overwritten.
 
 | Account | Password | Shows |
 | :--- | :--- | :--- |
-| `vip001` | `VIPPatient@2026!` | the patient's own chart, consent grants, passkey enrolment |
-| `dr.smith` | `Doctor@2026Secure!` | consented clinical access and the Break-Glass override |
-| `admin` | `Admin@2026Secure!` | records locked by Dual-Control until a second principal co-signs |
-| `sec.officer` | `SecOfficer@2026!` | the co-signing side of Dual-Control |
+| `psk.elif` | `Practitioner@2026!` | the practitioner dashboard, client invitations, consent-scoped records |
+| `client001` | `Client@2026Secure!` | the client's own file, consent, who accessed my records |
+| `admin` | `Admin@2026Secure!` | records locked by dual control until a second person co-signs |
+| `sec.officer` | `SecOfficer@2026!` | the co-signing side of dual control |
 
-The encrypted demo record opens with `DemoRecord@2026!`.
+The app is meant for a private network. Demo mode relaxes that (IP allowlist off,
+auto-generated key), so never use it for real records — see
+[PRIVATE_VPC_DEPLOYMENT.md](docs/PRIVATE_VPC_DEPLOYMENT.md).
 
-Optional environment variables: `VHV_WEBAUTHN_RP_ID` / `VHV_WEBAUTHN_ORIGINS`
-pin passkey verification to a specific host — see `.env.example`.
-
----
-
-## 🧪 Running Automated Test Suite
+## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
----
+CI runs Ruff, Bandit and the full suite on Python 3.10 and 3.11.
 
-## ⚖️ Compliance & Governance
+## Documentation
 
-- **GDPR / KVKK (live)**: Local data sovereignty (records never leave the private deployment), time-bound consent with automatic expiry, and a full cryptographic access audit trail.
-- **GDPR / KVKK (live)**: Identity pseudonymization is wired into the write path — the clinical chain store is keyed by a deterministic `anon_id` (HMAC of the patient id), never the raw identifier, so the block store holds only opaque pseudonyms; an authorized admin resolves the mapping, and it is verifiable end-to-end.
-- **GDPR / KVKK (live)**: Key-destruction erasure (right to be forgotten) is wired — `POST /api/v1/erasure/{patient_id}` crypto-shreds a patient by destroying their per-patient key, leaving the append-only chain intact; see `docs/GDPR_KVKK_COMPLIANCE.md`.
-- **ISO 27001 / INFOSEC**: Cryptographic access audit logs and Dual-Control co-signatures for privileged operations.
-- **Institutional Gate**: Satisfies Private VPC isolation and out-of-band identity onboarding requirements ([PRIVATE_VPC_DEPLOYMENT.md](docs/PRIVATE_VPC_DEPLOYMENT.md)).
+- [Threat model](docs/THREAT_MODEL.md) · [Consent flow](docs/CONSENT_FLOW.md) · [DOM XSS self-audit](docs/DOM_XSS_SELF_AUDIT.md)
+- [KVKK / GDPR compliance](docs/GDPR_KVKK_COMPLIANCE.md) · [DPIA](docs/DPIA.md)
+- [Key management](docs/KEY_MANAGEMENT.md) · [Key rotation runbook](docs/KEY_ROTATION_RUNBOOK.md)
+- Decisions: [ADR-0001](docs/adr/0001-offchain-storage-onchain-anchoring.md) · [ADR-0002](docs/adr/0002-single-node-deployment.md) · [ADR-0003](docs/adr/0003-one-access-policy.md)
 
----
+## Roadmap
 
-## 🧭 Roadmap
-
-The vault stands on two pillars: a **tamper-evident chain** (integrity) and
-**confidentiality** for VIP health records. Work is sequenced so each step is
-independently shippable with the test suite green.
-
-| Status | Item | Pillar |
-| :---: | :--- | :--- |
-| ✅ done | Signed, append-only hash-chain with per-block Merkle inclusion proofs | Integrity |
-| ✅ done | Passkey/FIDO2 auth, patient-owned consent, Dual-Control for operators | Confidentiality |
-| ✅ done | Verified WebAuthn, render-time output encoding, strict CSP | Confidentiality |
-| ✅ done | **Encryption at rest** — every clinical payload AES-256-GCM encrypted on disk with a KMS-derived, patient-scoped key (server decrypts for authorized sessions); optional password layer on top for extra-sensitive records | Confidentiality |
-| ✅ done | **Tamper-evident access trail** — every read is a hash-linked ledger entry (`seq` + `prev_hash` + `hash`); deleting or altering one breaks the chain. The patient sees who accessed their records and a live integrity verdict under *Who Accessed My Records* | Both |
-| ✅ done | **Medical correction flow** — a record is never overwritten; a correction is appended as a new block. The current and original versions both stay on the chain, the record is flagged with the correction's author and reason, and `?version=original` returns the superseded content | Integrity |
-| ✅ done | **Identity pseudonymization** — the clinical chain store is keyed by a deterministic `anon_id` (HMAC of the patient id), never the raw identifier; the write path persists the mapping so an authorized admin can resolve it | Confidentiality |
-| ✅ done | **Key-destruction erasure** — GDPR/KVKK Art. 17 by crypto-shredding: destroying a patient's per-patient key makes their records permanently undecryptable while the append-only chain and its signatures stay intact | Confidentiality |
-| ✅ done | **Externally-held signing key** — with `KMS_PROVIDER=vault` the signing key lives in HashiCorp Vault's Transit engine and never enters the app; all signing/derivation goes through `KMSProvider.mac()` | Integrity |
-| 📋 planned | External Merkle-root anchoring (RFC 3161 / signed daily root) | Integrity |
+| Status | Item |
+| :---: | :--- |
+| ✅ | One access policy; practitioner-only notes; client-only records |
+| ✅ | Client invitations; practitioner dashboard with outcome-measure progress |
+| ✅ | Encryption at rest, signed hash-chain, access ledger, crypto-shred erasure |
+| 📋 | Client journal entries written from the client's own screen |
+| 📋 | Faster reads on long files (one key derivation per request instead of per block) |
+| 📋 | External anchoring of the Merkle root (RFC 3161 timestamp) |

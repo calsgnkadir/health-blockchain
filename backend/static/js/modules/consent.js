@@ -1,33 +1,38 @@
-/* consent.js — VIP Health Vault UI Consent Management Module */
-import { apiFetch, patientId, getCurrentUser, escapeHtml } from './utils.js';
+/* consent.js — Mahrem UI Consent Management Module */
+import { apiFetch, patientId, getCurrentUser, escapeHtml, emptyState, roleText } from './utils.js';
 import { addNotification } from './notifications.js';
 
 export async function loadConsents() {
   const container = document.getElementById('consents-list');
   if (!container) return;
+  const pid = patientId();
+  if (!pid) {
+    container.innerHTML = emptyState('No client selected. Choose one on the Dashboard.');
+    return;
+  }
   container.innerHTML = '<div class="loading-spinner">Loading consent rules...</div>';
 
   try {
-    const pid = patientId();
     const res = await apiFetch(`/api/consent/${pid}`);
     const consents = res.consents || [];
 
     if (consents.length === 0) {
-      container.innerHTML = `<div class="empty-state"><p>No active consent permissions granted for your healthcare providers.</p></div>`;
+      container.innerHTML = emptyState(roleText('consent-empty'));
       return;
     }
 
     // Revocation is a patient-only action; the server enforces the same rule.
     const currentUser = getCurrentUser();
-    const canRevoke = !!currentUser && currentUser.role === 'vip_patient' && currentUser.patient_id === pid;
+    const canRevoke = !!currentUser && currentUser.role === 'client' && currentUser.patient_id === pid;
 
     const typeLabels = {
       all: 'All Records',
-      diagnosis: 'Diagnosis',
-      lab_result: 'Lab Result',
-      prescription: 'Prescription',
-      imaging: 'Imaging (MRI/CT/X-Ray)',
-      vital_signs: 'Vital Signs',
+      session_note: 'Session Notes',
+      assessment: 'Assessments',
+      treatment_plan: 'Treatment Plans',
+      homework: 'Homework',
+      consent_form: 'Consent Forms',
+      document: 'Documents',
       other: 'Other'
     };
 
@@ -46,7 +51,7 @@ export async function loadConsents() {
           return `
             <div class="gantt-row">
               <div class="gantt-label">
-                <div style="font-weight:700;color:#fff;">Dr. ${escapeHtml(c.doctor_username)}</div>
+                <div style="font-weight:700;color:#fff;">${escapeHtml(c.doctor_username)}</div>
                 <div style="font-size:10px;color:var(--accent-ledger);font-weight:600;text-transform:uppercase;">${escapeHtml(typeLabels[c.record_type] || c.record_type)}</div>
               </div>
               <div style="display:flex;flex-direction:column;gap:6px;">
@@ -82,7 +87,7 @@ export async function grantConsent(event) {
 
   if (!doctor) {
     if (errEl) {
-      errEl.textContent = 'Doctor username is required.';
+      errEl.textContent = 'Practitioner username is required.';
       errEl.style.display = 'block';
     }
     return;
@@ -101,11 +106,11 @@ export async function grantConsent(event) {
     });
 
     if (succEl) {
-      succEl.textContent = `Consent successfully granted to Dr. ${doctor} for ${recordType} records.`;
+      succEl.textContent = `Consent granted to ${doctor} for ${recordType} records.`;
       succEl.style.display = 'block';
     }
 
-    addNotification('Consent Granted', `Granted access to Dr. ${doctor} for ${recordType} records.`, 'success');
+    addNotification('Consent Granted', `Granted access to ${doctor} for ${recordType} records.`, 'success');
     document.getElementById('consent-grant-form').reset();
     document.getElementById('consent-duration').value = 30;
     loadConsents();
@@ -118,7 +123,7 @@ export async function grantConsent(event) {
 }
 
 export async function revokeConsent(doctorUsername, recordType) {
-  if (!confirm(`Are you sure you want to revoke Dr. ${doctorUsername}'s access to your ${recordType} records?`)) return;
+  if (!confirm(`Are you sure you want to revoke ${doctorUsername}'s access to your ${recordType} records?`)) return;
 
   try {
     const pid = patientId();
@@ -126,51 +131,9 @@ export async function revokeConsent(doctorUsername, recordType) {
       method: 'DELETE'
     });
 
-    addNotification('Consent Revoked', `Revoked Dr. ${doctorUsername}'s access to ${recordType} records.`, 'info');
+    addNotification('Consent Revoked', `Revoked ${doctorUsername}'s access to ${recordType} records.`, 'info');
     loadConsents();
   } catch (e) {
     alert("Failed to revoke consent: " + e.message);
-  }
-}
-
-export async function triggerBreakGlass(event) {
-  if (event) event.preventDefault();
-  const errEl = document.getElementById('break-glass-error');
-  const succEl = document.getElementById('break-glass-success');
-  if (errEl) errEl.style.display = 'none';
-  if (succEl) succEl.style.display = 'none';
-
-  const reason = document.getElementById('break-glass-reason').value.trim();
-  if (!reason) {
-    if (errEl) {
-      errEl.textContent = 'Please provide a justification reason for the break-glass override.';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
-
-  try {
-    const pid = patientId();
-    const res = await apiFetch(`/api/consent/${pid}/break-glass`, {
-      method: 'POST',
-      body: JSON.stringify({ reason })
-    });
-
-    if (succEl) {
-      succEl.textContent = res.message || 'Emergency bypass executed successfully.';
-      succEl.style.display = 'block';
-    }
-
-    addNotification('Break-Glass Invoked', `Emergency override executed for patient ${pid}. Reason: ${reason}`, 'warning');
-    document.getElementById('break-glass-form').reset();
-    
-    // Refresh records if the physician is viewing them
-    if (window.loadRecords) window.loadRecords();
-    if (window.loadDashboard) window.loadDashboard();
-  } catch (e) {
-    if (errEl) {
-      errEl.textContent = e.message;
-      errEl.style.display = 'block';
-    }
   }
 }

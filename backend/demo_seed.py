@@ -1,28 +1,29 @@
 """
-backend/demo_seed.py — Demonstration chart for the bundled VIP patient
-=====================================================================
-A freshly cloned vault starts with an empty chain, so the dashboard, the vital
-sign trends, the allergy banner, the vaccine passport and the medication list all
-render as empty states — the running application looks broken rather than idle.
+backend/demo_seed.py — Demonstration file for the bundled demo client
+====================================================================
+A freshly cloned vault starts with an empty chain, so every screen renders as an
+empty state — the running application looks broken rather than idle.
 
-This module writes a small, clinically coherent chart for the demo patient so a
-first run shows the system doing its job. It only ever runs alongside the demo
-accounts (development or VHV_DEMO_MODE), and only when the patient has no records
-yet, so it can never touch a real deployment or overwrite a real chain.
+This module writes a small, clinically coherent therapy file for the demo client
+(a CBT course for anxiety) so a first run shows the system doing its job. It only
+ever runs alongside the demo accounts (development or VHV_DEMO_MODE), and only
+when the client has no records yet, so it can never touch a real deployment or
+overwrite a real chain.
 """
 
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List
 
-DEMO_PATIENT_ID = "VIP-001"
-DEMO_DOCTOR = "dr.smith"
+DEMO_PATIENT_ID = "CL-001"
+DEMO_DOCTOR = "psk.elif"
+DEMO_CLIENT = "client001"
 
 # Documented in the README and shown on the login screen's demo panel.
 DEMO_RECORD_PASSWORD = "DemoRecord@2026!"
 
-_DOCTOR_NAME = "Prof. Dr. James Smith"
-_INSTITUTION = "VIP Medical Center"
+_DOCTOR_NAME = "Uzm. Psk. Elif Yılmaz"
+_INSTITUTION = "Mahrem Psychology Practice"
 
 
 def _day(offset: int) -> str:
@@ -53,56 +54,74 @@ def _record(record_type: str, title: str, data: dict, days_ago: int,
 
 
 def _demo_chart() -> List[dict]:
-    """Four weeks of a plausible cardiology follow-up."""
+    """Five weeks of a CBT course for anxiety. The GAD-7 score (max 21) falls
+    from 16 to 7, so the file shows the therapy working."""
     return [
-        _record("vital_signs", "Routine vitals — week 1", {
-            "blood_pressure": "148/94", "heart_rate": "88",
-            "temperature": "36.7", "oxygen_sat": "97",
+        _record("consent_form", "KVKK explicit consent & therapy agreement", {
+            "form_type": "KVKK explicit consent + therapy agreement",
+            "signed_date": _day(35),
+        }, days_ago=35),
+
+        _record("assessment", "Intake GAD-7", {
+            "instrument": "GAD-7", "score": "16", "max_score": "21",
+            "interpretation": "Severe anxiety",
+        }, days_ago=35, notes="Frequent panic episodes on the morning commute."),
+
+        _record("treatment_plan", "CBT plan for panic and generalised anxiety", {
+            "goals": "Fewer panic episodes; commute to work without avoidance",
+            "approach": "Cognitive Behavioural Therapy (CBT)",
+            "planned_sessions": "12",
+        }, days_ago=34),
+
+        _record("session_note", "Session 1 — psychoeducation", {
+            "session_number": "1", "duration_min": "50", "session_format": "In-person",
+            "summary": "Explained the anxiety cycle; practised paced breathing.",
+        }, days_ago=28),
+
+        _record("homework", "Daily thought record", {
+            "task": "Write down 3 anxious thoughts a day and the evidence for and against each.",
+            "due_date": _day(21),
+        }, days_ago=28),
+
+        _record("session_note", "Session 2 — cognitive restructuring", {
+            "session_number": "2", "duration_min": "50", "session_format": "In-person",
+            "summary": "Reviewed the thought record; challenged catastrophic predictions.",
         }, days_ago=21),
 
-        _record("allergy", "Penicillin allergy", {
-            "allergen": "Penicillin", "reaction": "Anaphylaxis",
-            "severity": "Severe", "onset_date": "2019-05-02",
-        }, days_ago=20, notes="Documented after an emergency admission in 2019."),
-
-        _record("lab_result", "Lipid panel", {
-            "test_name": "LDL cholesterol", "result_value": "168",
-            "reference_range": "0-130", "unit": "mg/dL",
-        }, days_ago=18, notes="Above reference range; statin therapy discussed."),
-
-        _record("diagnosis", "Essential hypertension", {
-            "icd_code": "I10", "severity": "Moderate",
-            "symptoms": "Morning headaches, occasional dizziness",
+        _record("assessment", "Follow-up GAD-7", {
+            "instrument": "GAD-7", "score": "11", "max_score": "21",
+            "interpretation": "Moderate anxiety",
         }, days_ago=14),
 
-        _record("prescription", "Ramipril 5 mg", {
-            "medication": "Ramipril", "dose": "5 mg",
-            "frequency": "1x daily (morning)", "duration": "90",
-        }, days_ago=14, notes="Review blood pressure at the next visit."),
+        _record("session_note", "Session 3 — graded exposure", {
+            "session_number": "3", "duration_min": "50", "session_format": "Online",
+            "summary": "Built an exposure ladder for the commute; first step agreed.",
+        }, days_ago=14),
 
-        _record("vital_signs", "Follow-up vitals — week 3", {
-            "blood_pressure": "138/88", "heart_rate": "79",
-            "temperature": "36.5", "oxygen_sat": "98",
-        }, days_ago=7),
-
-        _record("vaccination", "Influenza vaccination", {
-            "vaccine_name": "Influenza (quadrivalent)", "lot_number": "FLU-2026-0442",
-            "dose_number": "1", "next_dose": _day(-365),
-        }, days_ago=5),
-
-        _record("vital_signs", "Follow-up vitals — week 4", {
-            "blood_pressure": "129/82", "heart_rate": "74",
-            "temperature": "36.6", "oxygen_sat": "98",
+        _record("assessment", "Follow-up GAD-7", {
+            "instrument": "GAD-7", "score": "7", "max_score": "21",
+            "interpretation": "Mild anxiety",
         }, days_ago=1, notes="Responding well to therapy."),
     ]
 
 
-def _confidential_record() -> dict:
-    record = _record("psychology", "Confidential consultation note", {
-        "summary": "Stress management consultation",
-        "clinician": "Dr. Elif Aydın",
-    }, days_ago=10, access_level="private")
-    record["is_confidential"] = True
+def _process_note() -> dict:
+    # A process note: the therapist's own reflections. Only the practitioner who
+    # wrote it can see it — the client's view of their file leaves it out.
+    return _record("session_note", "Process note — session 3", {
+        "session_number": "3", "duration_min": "50", "session_format": "Online",
+        "summary": "Own reflections on transference; not for the client file.",
+    }, days_ago=14, access_level="practitioner_only")
+
+
+def _client_journal() -> dict:
+    # The client's own journal entry: client-only, and locked with an extra
+    # password on top of the at-rest encryption. The practitioner never sees it.
+    record = _record("other", "My journal — after the first exposure step", {},
+                     days_ago=10, access_level="private",
+                     notes="Took the bus two stops. Heart racing, but I stayed on.")
+    record.update({"doctor_name": "", "institution": "",
+                   "created_by": DEMO_CLIENT, "is_confidential": True})
     return record
 
 
@@ -133,8 +152,12 @@ def seed_demo_chart() -> bool:
         ))
 
     handler.handle_add_record(AddRecordCommand(
-        patient_id=DEMO_PATIENT_ID, data=_confidential_record(),
-        is_protected=True, protection_password=DEMO_RECORD_PASSWORD, username=DEMO_DOCTOR,
+        patient_id=DEMO_PATIENT_ID, data=_process_note(),
+        is_protected=False, protection_password=None, username=DEMO_DOCTOR,
+    ))
+    handler.handle_add_record(AddRecordCommand(
+        patient_id=DEMO_PATIENT_ID, data=_client_journal(),
+        is_protected=True, protection_password=DEMO_RECORD_PASSWORD, username=DEMO_CLIENT,
     ))
 
     # Without a consent grant the demo doctor signs in to an empty chart, which
@@ -142,7 +165,7 @@ def seed_demo_chart() -> bool:
     handler.handle_grant_consent(GrantConsentCommand(
         patient_id=DEMO_PATIENT_ID, doctor_username=DEMO_DOCTOR,
         record_type="all", duration_days=90, duration_hours=None,
-        username="vip001",
+        username=DEMO_CLIENT,
     ))
     return True
 

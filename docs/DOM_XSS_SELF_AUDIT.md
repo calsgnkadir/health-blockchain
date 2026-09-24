@@ -67,15 +67,14 @@ class, and inconsistent with the rest of the file. All now go through
 
 ## Round 2: what round 1 missed
 
-Round 1 was not complete. Reading every template in the web UI line by line —
-not only the ones reached from the obvious sources — turned up more sinks that
-round 1 had passed over:
+Round 1 was not complete. While removing the medical-only views (DICOM, FHIR,
+vitals) from the records module, I read every template line by line and found
+four more sinks that round 1 had passed over:
 
 | Sink | What reached `innerHTML` raw | Impact |
 |---|---|---|
 | Decrypted-record view (`decryptRecord`) | title, notes, doctor, institution, date, created-by of a **confidential** record | Stored XSS in whoever decrypts the record — the plain record view escaped these fields, the confidential one did not |
 | Attachment view (`renderAttachmentHtml`) | file **name**, **type** and **data** | Stored XSS through a crafted file name; the type and data sat inside `<img src="data:TYPE;base64,DATA">`, where a `"` breaks out of the attribute |
-| Dashboard vital-signs fallback table | temperature, heart rate, SpO2, blood pressure | New records are schema-checked, but corrections were not (see below), so a correction could plant markup that this table rendered |
 | Dashboard error panel | `${e.message \|\| 'Unknown error'}` | The same error text round 1 fixed, written slightly differently — so the round-1 guard never matched it |
 | `emptyState(msg)` helper | `msg` | Only called with constants today; escaped anyway so a future dynamic caller is safe |
 

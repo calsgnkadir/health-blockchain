@@ -37,7 +37,9 @@ export function addNotification(title, text, type = 'info') {
 
 export async function fetchBackendNotifications() {
   const currentUser = getCurrentUser();
-  if (!currentUser) return [];
+  // Server notifications are messages to the client; other roles only have
+  // the local ones this browser created.
+  if (!currentUser || currentUser.role !== 'client') return [];
   try {
     const pid = patientId();
     const res = await apiFetch(`/api/notifications/${pid}`);
@@ -170,7 +172,7 @@ export async function markAllAsRead() {
   // Mark backend as read
   const pid = patientId();
   for (const n of localNotificationsCache) {
-    if (!n.read) {
+    if (!n.read && !n.is_local) {
       try {
         await apiFetch(`/api/notifications/${pid}/${n.id}/read`, { method: 'POST' });
       } catch (e) {
