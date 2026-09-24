@@ -63,6 +63,14 @@ def resolve_secure_client_ip(request: Request) -> str:
     return peer_ip
 
 
+def ip_allowlist_enabled() -> bool:
+    """VHV_IP_ALLOWLIST_ENABLED, like the other VHV_ settings. The old name,
+    VIP_IP_ALLOWLIST_ENABLED, is still read, so a deployment that set it keeps
+    its setting. On unless explicitly turned off."""
+    value = os.getenv("VHV_IP_ALLOWLIST_ENABLED", os.getenv("VIP_IP_ALLOWLIST_ENABLED", "true"))
+    return value.lower() in ("true", "1", "yes")
+
+
 class IPAllowlistMiddleware(BaseHTTPMiddleware):
     """
     Middleware enforcing IP allowlisting for network-level isolation.
@@ -70,7 +78,7 @@ class IPAllowlistMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app):
         super().__init__(app)
-        self.enabled = os.getenv("VIP_IP_ALLOWLIST_ENABLED", "true").lower() in ("true", "1", "yes")
+        self.enabled = ip_allowlist_enabled()
 
         custom_networks = os.getenv("ALLOWLISTED_NETWORKS", "").strip()
         subnet_strings = [s.strip() for s in custom_networks.split(",") if s.strip()] if custom_networks else DEFAULT_ALLOWED_SUBNETS

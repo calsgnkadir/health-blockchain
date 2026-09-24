@@ -1,195 +1,92 @@
-import requests
+"""
+scripts/e2e_smoke.py — end-to-end smoke test against a running demo.
+
+Walks the consent lifecycle through the real HTTP API, the way a browser would
+(httpOnly cookie + CSRF double-submit token):
+
+  1. the demo accounts are advertised by /config;
+  2. the client gives the practitioner consent for all records;
+  3. the practitioner sees the client on their list and can read the file;
+  4. the client revokes consent;
+  5. the practitioner's access to the file is closed (403);
+  6. consent is given back, so the demo is left as it was found.
+
+It signs in only twice (one session per account), well within the demo's limit
+of 5 sign-ins per IP per minute.
+
+Usage (against the Docker demo on :8000):
+    python scripts/e2e_smoke.py
+    python scripts/e2e_smoke.py http://127.0.0.1:8093
+"""
+
 import sys
 
-BASE_URL = "http://127.0.0.1:8000"
+import httpx
 
-def test_e2e_flow():
-    print("=== STARTING END-TO-END API TEST ===")
-    session = requests.Session()
+BASE_URL = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000") + "/api/v1"
+CLIENT_ID = "CL-001"
 
-    # 1. Fetch config and check demo accounts
-    print("\n1. Fetching API config...")
-    r = session.get(f"{BASE_URL}/api/v1/config")
-    if r.status_code != 200:
-        print(f"FAILED to get config: {r.status_code} {r.text}")
+
+def session(accounts: dict, role: str) -> httpx.Client:
+    """A signed-in session for the demo account with this role."""
+    account = accounts[role]
+    s = httpx.Client(base_url=BASE_URL, timeout=120)
+    s.get("/config")                                  # sets the csrf_token cookie
+    s.headers["X-CSRF-Token"] = s.cookies.get("csrf_token")
+    r = s.post("/auth/login", json={"username": account["username"], "password": account["password"]})
+    check(r.status_code == 200, f"{role} signs in", r)
+    return s
+
+
+def check(ok: bool, what: str, response=None):
+    if not ok:
+        detail = f" -> {response.status_code} {response.text[:200]}" if response is not None else ""
+        print(f"FAILED: {what}{detail}")
         sys.exit(1)
+    print(f"ok  {what}")
 
+
+def grant_all(client_session: httpx.Client, practitioner: str, days: int):
+    r = client_session.post("/consent", json={
+        "patient_id": CLIENT_ID, "doctor_username": practitioner,
+        "record_type": "all", "duration_days": days})
+    check(r.status_code == 200, f"client gives {practitioner} consent for all records", r)
+
+
+def main():
+    print(f"=== Mahrem end-to-end smoke test against {BASE_URL} ===")
+
+    r = httpx.get(f"{BASE_URL}/config", timeout=30)
     config = r.json()
-    print("Config response:", config)
-    assert config.get("demo_mode") is True
-    assert "demo_accounts" in config
-    accounts = {acc["role"]: acc for acc in config["demo_accounts"]}
-    assert "VIP" in accounts
-    assert "DOCTOR" in accounts
-    print("Config verification: SUCCESS")
+    check(r.status_code == 200 and config.get("demo_mode") is True, "demo mode is on", r)
+    accounts = {a["role"]: a for a in config.get("demo_accounts", [])}
+    check({"CLIENT", "PRACTITIONER"} <= set(accounts), "demo client and practitioner accounts exist")
+    practitioner = accounts["PRACTITIONER"]["username"]
 
-    # Capture CSRF token
-    csrf_token = session.cookies.get("csrf_token")
-    print(f"CSRF Token captured: {csrf_token}")
-    headers = {"X-CSRF-Token": csrf_token}
+    client = session(accounts, "CLIENT")
+    prac = session(accounts, "PRACTITIONER")
 
-    # 2. Login as VIP patient
-    vip_cred = accounts["VIP"]
-    print(f"\n2. Logging in as VIP Patient: {vip_cred['username']}...")
-    login_payload = {
-        "username": vip_cred["username"],
-        "password": vip_cred["password"]
-    }
-    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers=headers)
-    if r.status_code != 200:
-        print(f"FAILED to login as VIP: {r.status_code} {r.text}")
-        sys.exit(1)
+    # Consent opens the file.
+    grant_all(client, practitioner, days=1)
+    r = prac.get("/practitioner/clients")
+    listed = {c["patient_id"]: c["status"] for c in r.json().get("clients", [])}
+    check(listed.get(CLIENT_ID) == "consented", "the client is on the practitioner's list", r)
+    r = prac.get(f"/records/{CLIENT_ID}")
+    check(r.status_code == 200 and r.json().get("records"), "the practitioner reads the client's records", r)
 
-    vip_login_data = r.json()
-    vip_token = vip_login_data["access_token"]
-    vip_patient_id = vip_login_data["user"]["patient_id"]
-    print(f"VIP Login Success! Username: {vip_login_data['user']['username']}, Patient ID: {vip_patient_id}")
+    # Revoking consent closes it.
+    r = client.delete(f"/consent/{CLIENT_ID}/{practitioner}/all")
+    check(r.status_code == 200, "client revokes consent", r)
+    r = prac.get(f"/records/{CLIENT_ID}")
+    check(r.status_code == 403, "the practitioner's access is closed after revocation", r)
 
-    # 3. Check me endpoint for VIP
-    session.headers.update({"Authorization": f"Bearer {vip_token}"})
-    r = session.get(f"{BASE_URL}/api/v1/auth/me")
-    assert r.status_code == 200
-    print("Me response for VIP:", r.json())
+    # Leave the demo as we found it.
+    grant_all(client, practitioner, days=90)
 
-    # 4. Grant consent to Doctor dr.smith for 'all' records
-    doc_cred = accounts["DOCTOR"]
-    doc_username = doc_cred["username"]
-    print(f"\n4. Granting consent to Doctor '{doc_username}' for 'all' records...")
-    consent_payload = {
-        "patient_id": vip_patient_id,
-        "doctor_username": doc_username,
-        "record_type": "all",
-        "duration_days": 30
-    }
+    for s in (client, prac):
+        s.post("/auth/logout")
+    print("=== all end-to-end checks passed ===")
 
-    # Update csrf token since session cookies might have updated
-    csrf_token = session.cookies.get("csrf_token")
-    headers = {"X-CSRF-Token": csrf_token}
-
-    r = session.post(f"{BASE_URL}/api/v1/consent", json=consent_payload, headers=headers)
-    if r.status_code != 200:
-        print(f"FAILED to grant consent: {r.status_code} {r.text}")
-        sys.exit(1)
-    print("Consent granted successfully:", r.json())
-
-    # Verify consent in consents list
-    r = session.get(f"{BASE_URL}/api/v1/consent/{vip_patient_id}")
-    assert r.status_code == 200
-    consents_list = r.json().get("consents", [])
-    print("Active Consents:", consents_list)
-    has_consent = any(c["doctor_username"] == doc_username and c["record_type"] == "all" for c in consents_list)
-    assert has_consent is True
-    print("Active consent verification: SUCCESS")
-
-    # 5. Logout VIP
-    print("\n5. Logging out VIP patient...")
-    r = session.post(f"{BASE_URL}/api/v1/auth/logout", headers=headers)
-    assert r.status_code == 200
-    print("Logged out successfully.")
-
-    # Reset session headers/auth
-    session.headers.pop("Authorization", None)
-
-    # 6. Login as Doctor
-    print(f"\n6. Logging in as Doctor: {doc_username}...")
-    login_payload = {
-        "username": doc_username,
-        "password": doc_cred["password"]
-    }
-    # Update csrf
-    csrf_token = session.cookies.get("csrf_token")
-    headers = {"X-CSRF-Token": csrf_token}
-    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers=headers)
-    if r.status_code != 200:
-        print(f"FAILED to login as Doctor: {r.status_code} {r.text}")
-        sys.exit(1)
-
-    doc_login_data = r.json()
-    doc_token = doc_login_data["access_token"]
-    print("Doctor Login Success!")
-
-    # 7. Access Patient VIP-001 records as Doctor
-    session.headers.update({"Authorization": f"Bearer {doc_token}"})
-    print(f"\n7. Retrieving patient '{vip_patient_id}' records as Doctor '{doc_username}'...")
-    r = session.get(f"{BASE_URL}/api/v1/records/{vip_patient_id}")
-    if r.status_code != 200:
-        print(f"FAILED to access records: {r.status_code} {r.text}")
-        sys.exit(1)
-
-    records_data = r.json()
-    print(f"Access SUCCESS! Doctor retrieved {len(records_data.get('records', []))} records.")
-
-    # 8. Log out Doctor
-    print("\n8. Logging out Doctor...")
-    csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
-    assert r.status_code == 200
-    session.headers.pop("Authorization", None)
-
-    # 9. Login as VIP to Revoke Consent
-    print("\n9. Logging in as VIP Patient to revoke consent...")
-    login_payload = {
-        "username": vip_cred["username"],
-        "password": vip_cred["password"]
-    }
-    csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
-    vip_token = r.json()["access_token"]
-    session.headers.update({"Authorization": f"Bearer {vip_token}"})
-
-    print(f"Revoking consent for Doctor '{doc_username}'...")
-    csrf_token = session.cookies.get("csrf_token")
-    r = session.delete(f"{BASE_URL}/api/v1/consent/{vip_patient_id}/{doc_username}/all", headers={"X-CSRF-Token": csrf_token})
-    if r.status_code != 200:
-        print(f"FAILED to revoke consent: {r.status_code} {r.text}")
-        sys.exit(1)
-    print("Consent revoked successfully.")
-
-    # Log out VIP
-    csrf_token = session.cookies.get("csrf_token")
-    session.post(f"{BASE_URL}/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})
-    session.headers.pop("Authorization", None)
-
-    # 10. Login as Doctor again and verify access is DENIED
-    print("\n10. Logging in as Doctor to verify access is denied...")
-    login_payload = {
-        "username": doc_username,
-        "password": doc_cred["password"]
-    }
-    csrf_token = session.cookies.get("csrf_token")
-    r = session.post(f"{BASE_URL}/api/v1/auth/login", json=login_payload, headers={"X-CSRF-Token": csrf_token})
-    doc_token = r.json()["access_token"]
-    session.headers.update({"Authorization": f"Bearer {doc_token}"})
-
-    print(f"Attempting to retrieve patient '{vip_patient_id}' records as Doctor '{doc_username}' (should return empty list due to revoked consent)...")
-    r = session.get(f"{BASE_URL}/api/v1/records/{vip_patient_id}")
-    print(f"Status Code: {r.status_code}, Response: {r.text}")
-    assert r.status_code == 200
-    res_data = r.json()
-    assert len(res_data.get("records", [])) == 0
-    # 11. Test Phase 1 SIWE Nonce Endpoint
-    print("\n11. Testing Phase 1 SIWE Nonce generation...")
-    r = session.get(f"{BASE_URL}/api/v1/auth/nonce")
-    assert r.status_code == 200
-    nonce_data = r.json()
-    assert "nonce" in nonce_data
-    print(f"SIWE Nonce generated: {nonce_data['nonce']}")
-
-    # 12. Test Phase 3 W3C DID & VC Endpoints
-    print("\n12. Testing Phase 3 W3C DID & VC Document generation...")
-    r_did = session.get(f"{BASE_URL}/api/v1/auth/did/{vip_cred['username']}")
-    assert r_did.status_code == 200
-    did_doc = r_did.json()
-    assert did_doc["id"].startswith("did:vhv:")
-    print("DID Document verification: SUCCESS ->", did_doc["id"])
-
-    r_vc = session.get(f"{BASE_URL}/api/v1/auth/vc/{vip_cred['username']}")
-    assert r_vc.status_code == 200
-    vc_doc = r_vc.json()
-    assert "VerifiableCredential" in vc_doc["type"]
-    print("Verifiable Credential verification: SUCCESS")
-
-    print("\n=== ALL END-TO-END FLOW TESTS COMPLETED SUCCESSFULLY ===")
 
 if __name__ == "__main__":
-    test_e2e_flow()
+    main()

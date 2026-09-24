@@ -43,7 +43,7 @@ Public cloud free-tier PaaS environments feature ephemeral containers where loca
 ```env
 ENVIRONMENT=production
 VHV_DEMO_MODE=false
-VIP_IP_ALLOWLIST_ENABLED=true
+VHV_IP_ALLOWLIST_ENABLED=true
 TRUST_PROXIES=true
 TRUSTED_PROXIES=10.0.0.1,10.0.0.2
 JWT_PRIVATE_KEY_PATH=/etc/vhv/keys/jwt_private.pem

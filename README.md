@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **263 passing tests**.
+> Art. 17)**, with **267 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -160,8 +160,8 @@ penetration test. The full list is in
 Requires Python 3.10+.
 
 ```bash
-git clone https://github.com/calsgnkadir/health-blockchain.git
-cd health-blockchain
+git clone https://github.com/calsgnkadir/mahrem.git
+cd mahrem
 pip install -r requirements.txt
 ENVIRONMENT=development VHV_DEMO_MODE=true python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
