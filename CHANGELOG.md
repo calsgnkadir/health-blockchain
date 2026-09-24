@@ -1,4 +1,47 @@
-# Changelog — VIP Health Vault
+# Changelog — Mahrem (formerly VIP Health Vault)
+
+## [6.0.0] - 2026-09-24
+
+### 🔄 Pivot: VIP Health Vault → Mahrem
+
+The vault became a client-records system for independent psychologists. The
+security core (encryption at rest, signed chain, access ledger, dual control,
+crypto-shred) stayed; the domain changed around it.
+
+- **Roles**: `doctor` → `practitioner`, `vip_patient` → `client` (migrated in
+  place); client IDs are `CL-###`. Old demo accounts are disabled.
+- **Record types** for therapy: session notes, assessments (GAD-7, PHQ-9, …),
+  treatment plans, homework, consent forms. Medical views (vitals, allergies,
+  prescriptions) were removed.
+- **Break-glass removed.** A private practice has no emergency-access need that
+  would justify a path around consent.
+
+### 🛡️ Fixed — access control
+
+- **IDOR on `GET /records/{client}/{block}`**: any practitioner could read any
+  client's unprotected records by walking block numbers, with no consent. The
+  rules had been copied into each endpoint and drifted apart; they now live in
+  one module, `core/services/access_policy.py` (ADR-0003), called by every
+  record endpoint.
+- **No consent, no file**: a practitioner without consent gets the same `403`
+  for a client's records, chain status and proofs as for a client who does not
+  exist. Writing a record needs consent too; notifications are client-only.
+- **The sign-in rate limit never applied**: it matched `/api/auth/login`, not the
+  real `/api/v1/auth/login`. It now covers password login, passkey login and
+  invitation codes.
+- **CI had skipped the tests since 21 August**: a lint error failed the first
+  step. Fixed; lint, Bandit and the suite pass.
+
+### ✨ Added
+
+- **Practitioner-only notes** (process notes): visible to their author, never to
+  the client.
+- **Client invitations**: a practitioner invites a client by name; the system
+  picks the next free `CL-###` (never one that still has a chain) and returns a
+  single-use code. The invitation grants no access.
+- **Practitioner dashboard**: the practitioner's own clients (consented or
+  invited), and a progress chart of outcome measures over time.
+- **Role-aware wording** from one table (`ROLE_TEXTS`).
 
 ## [5.10.0] - 2026-08-23
 
