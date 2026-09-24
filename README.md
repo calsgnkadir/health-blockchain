@@ -160,8 +160,8 @@ penetration test. The full list is in
 Requires Python 3.10+.
 
 ```bash
-git clone https://github.com/calsgnkadir/health-blockchain.git
-cd health-blockchain
+git clone https://github.com/calsgnkadir/mahrem.git
+cd mahrem
 pip install -r requirements.txt
 ENVIRONMENT=development VHV_DEMO_MODE=true python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
