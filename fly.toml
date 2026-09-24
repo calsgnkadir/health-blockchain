@@ -8,7 +8,7 @@
 #
 # `app` must be globally unique on Fly — `fly launch` sets it for you, or edit it.
 
-app = "CHANGE-ME-vip-health-vault-demo"
+app = "CHANGE-ME-mahrem-demo"
 primary_region = "fra"          # Frankfurt (close to TR); pick any with `fly platform regions`
 
 [build]
@@ -18,7 +18,7 @@ primary_region = "fra"          # Frankfurt (close to TR); pick any with `fly pl
   # Demo posture — matches docker-compose.demo.yml. NOT production.
   ENVIRONMENT = "development"
   VHV_DEMO_MODE = "true"
-  VIP_IP_ALLOWLIST_ENABLED = "false"   # allow public reach for the demo
+  VHV_IP_ALLOWLIST_ENABLED = "false"   # allow public reach for the demo
   VHV_ALLOW_GENERATED_KEY = "true"     # throwaway key; fine because data is fake
   VHV_BIND_HOST = "0.0.0.0"            # REQUIRED on Fly or the proxy can't connect
   PORT = "8080"

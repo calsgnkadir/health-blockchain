@@ -1,5 +1,22 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.0.1] - 2026-09-25
+
+### 🧹 Leftovers of the old name
+
+- **`scripts/e2e_smoke.py` had been broken**: it signed in as the removed `VIP`
+  account and called SIWE and DID/VC endpoints that no longer exist. Rewritten for
+  Mahrem: the client gives consent, the practitioner reads the file, the client
+  revokes it, the practitioner's access closes — then the demo is restored. It signs
+  in only twice, within the sign-in rate limit.
+- **Docker**: the service is `mahrem` and the container `mahrem_app`; the obsolete
+  compose `version` key (a warning on every command) is gone. Volumes keep their
+  names, so existing demo data carries over.
+- **`VHV_IP_ALLOWLIST_ENABLED`** replaces `VIP_IP_ALLOWLIST_ENABLED`, like the other
+  `VHV_` settings. The old name is still read, so deployments keep their setting.
+- `isVip` → `isClient` in the web client; `test_vip_security_hardening.py` →
+  `test_security_hardening.py`; the Fly app placeholder is `CHANGE-ME-mahrem-demo`.
+
 ## [6.0.0] - 2026-09-24
 
 ### 🔄 Pivot: VIP Health Vault → Mahrem

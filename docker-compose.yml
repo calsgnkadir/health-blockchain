@@ -1,18 +1,16 @@
-version: '3.8'
-
 services:
-  vip-health-vault:
+  mahrem:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: vip_health_vault_app
+    container_name: mahrem_app
     restart: always
     ports:
       - "8000:8000"
     environment:
       - ENVIRONMENT=production
       - VHV_DEMO_MODE=false
-      - VIP_IP_ALLOWLIST_ENABLED=true
+      - VHV_IP_ALLOWLIST_ENABLED=true
       - TRUST_PROXIES=true
       - TRUSTED_PROXIES=127.0.0.1,10.0.0.1
       - PORT=8000

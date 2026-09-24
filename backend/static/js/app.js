@@ -53,19 +53,19 @@ window.enterApp = function(options = {}) {
   // Use centralized state manager
   appState.updateUser(currentUser);
 
-  const isVip = currentUser.role === 'client';
+  const isClient = currentUser.role === 'client';
 
   // Privileged operators pick which client to view; clients are scoped to
   // their own record and never see the selector.
   const selector = document.getElementById('patient-selector');
-  if (selector) selector.hidden = isVip;
+  if (selector) selector.hidden = isClient;
   const selInput = document.getElementById('patient-selector-input');
-  if (selInput && !isVip) selInput.value = getSelectedPatient() || '';
+  if (selInput && !isClient) selInput.value = getSelectedPatient() || '';
 
   // Pre-fill the "add record" patient field
   const recPatId = document.getElementById('rec-patient-id');
   if (recPatId) {
-    if (isVip) {
+    if (isClient) {
       recPatId.value = currentUser.patient_id || '';
       recPatId.readOnly = true;
     } else {

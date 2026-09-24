@@ -1,6 +1,6 @@
 """
-tests/test_vip_security_hardening.py — Tests for VIP Security Hardening
-========================================================================
+tests/test_security_hardening.py — Tests for security hardening
+===============================================================
 Covering:
 1. Network IP Allowlisting Middleware (IP restriction, block public IPs)
 2. Real-Time Security Alert Service & Anomaly Engine
@@ -14,7 +14,7 @@ from core.services.alert_service import alert_service
 from core.services.dual_control import dual_control_engine
 
 
-class TestVIPSecurityHardening(unittest.TestCase):
+class TestSecurityHardening(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient(app)
@@ -126,7 +126,7 @@ class TestVIPSecurityHardening(unittest.TestCase):
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO webauthn_credentials (credential_id, username, public_key, created_at) VALUES (?, ?, ?, ?)",
-                ("cred_to_revoke_123", "vip_revoke_user", "pubkey_test", time.time())
+                ("cred_to_revoke_123", "revoke_test_user", "pubkey_test", time.time())
             )
             conn.commit()
 
@@ -140,7 +140,7 @@ class TestVIPSecurityHardening(unittest.TestCase):
         app.dependency_overrides[current_user] = lambda: sec_user.to_dict()
 
         res = self.client.post("/api/v1/auth/webauthn/revoke", json={
-            "username": "vip_revoke_user",
+            "username": "revoke_test_user",
             "credential_id": "cred_to_revoke_123"
         })
         self.assertEqual(res.status_code, 200)
