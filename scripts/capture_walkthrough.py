@@ -90,7 +90,8 @@ def capture(raw_dir):
         pg.click('button[type="submit"]')
         pg.wait_for_timeout(3800)
         pg.screenshot(path=os.path.join(raw_dir, "03.png"))
-        pg.click('[data-page="records"]'); pg.wait_for_timeout(2200)
+        pg.click('[data-page="records"]')
+        pg.wait_for_timeout(2200)
         pg.screenshot(path=os.path.join(raw_dir, "04.png"))
         # open the encrypted record via a real bubbling click on the delegated handler
         pg.evaluate("""() => {
@@ -105,9 +106,11 @@ def capture(raw_dir):
         pg.evaluate("() => { const o = document.getElementById('modal-overlay');"
                     " if (o) o.classList.remove('open'); }")
         pg.wait_for_timeout(400)
-        pg.click('[data-page="my-access"]'); pg.wait_for_timeout(2000)
+        pg.click('[data-page="my-access"]')
+        pg.wait_for_timeout(2000)
         pg.screenshot(path=os.path.join(raw_dir, "06.png"))
-        pg.click('[data-page="chain-status"]'); pg.wait_for_timeout(2000)
+        pg.click('[data-page="chain-status"]')
+        pg.wait_for_timeout(2000)
         pg.screenshot(path=os.path.join(raw_dir, "07.png"))
 
         # Act 2 — governance (admin cannot self-authorize)
@@ -115,9 +118,11 @@ def capture(raw_dir):
         pg2.goto(BASE, wait_until="networkidle")
         pg2.fill('input[placeholder="username"]', ADMIN[0])
         pg2.fill('input[type="password"]', ADMIN[1])
-        pg2.click('button[type="submit"]'); pg2.wait_for_timeout(3800)
+        pg2.click('button[type="submit"]')
+        pg2.wait_for_timeout(3800)
         pg2.screenshot(path=os.path.join(raw_dir, "08.png"))
-        pg2.click('[data-page="dual-control"]'); pg2.wait_for_timeout(1800)
+        pg2.click('[data-page="dual-control"]')
+        pg2.wait_for_timeout(1800)
         pg2.screenshot(path=os.path.join(raw_dir, "09.png"))
 
         b.close()
@@ -148,7 +153,8 @@ def compose(raw_dir):
         d.text((34, 44), cap, font=cf, fill=FG)
         d.rounded_rectangle([px - 14, 26, W - 20, 60], 10, fill=(24, 29, 38), outline=(52, 60, 72))
         d.text((px, 32), step, font=f_step, fill=ACC)
-        frames.append(canvas); durs.append(dur)
+        frames.append(canvas)
+        durs.append(dur)
 
     pal = frames[2].convert("P", palette=Image.ADAPTIVE, colors=256)
     q = [fr.quantize(palette=pal, dither=Image.NONE) for fr in frames]

@@ -8,7 +8,6 @@ practitioner access: the client's file stays closed until the client consents.
 """
 
 import os
-import re
 import sys
 import unittest
 from unittest import mock

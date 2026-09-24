@@ -53,7 +53,10 @@ class QueryHandler:
         chain = self.record_service.get_chain(patient_id)
         final_data = self.record_service.get_final_data(patient_id)
         corrections = self.record_service.get_corrections_index(patient_id)
-        has_consent = lambda record_type: self.consent_validator.has_consent(patient_id, username, record_type)
+
+        def has_consent(record_type: str) -> bool:
+            return self.consent_validator.has_consent(patient_id, username, record_type)
+
         records = []
 
         for block in chain:

@@ -8,7 +8,7 @@ Removed: Appointment booking, AI Triage chatbot, and FHIR export bridges.
 import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends
 from backend.dependencies import (
     current_user, require_role, get_record_service, get_audit_service,
     get_query_handler, get_db_manager, get_blockchain_notarizer,

@@ -20,7 +20,6 @@ from core.services.auth_service import AuthService
 from infrastructure.repositories.lmdb_repositories import LMDBBlockRepository, LMDBUserRepository
 from infrastructure.repositories.sql_repositories import SQLNotificationRepository
 from infrastructure.cryptography.crypto_strategies import AESGCMStrategy
-import database.storage as storage
 
 
 class TestTimeBoundConsent(unittest.TestCase):
