@@ -122,13 +122,15 @@ export function renderAllRecords() {
 export function renderRecordCard(r) {
   const type = r.record_type || 'unknown';
   const typeAbbr = (TYPE_LABELS[type] || type).substring(0, 3).toUpperCase();
-  const al = r.access_level || 'private';
+  // A password-protected record's access level is inside the ciphertext, so the
+  // list does not know it. Show no badge rather than guess one.
+  const al = r.access_level || '';
   const date = r.record_date ? new Date(r.record_date).toLocaleDateString('en-GB') : formatTs(r.timestamp);
   const encBadge = r.is_protected ? '<span class="badge badge-encrypted">ENCRYPTED</span>' : '';
   const corrBadge = r.is_correction ? '<span class="badge badge-private">CORRECTION</span>' : '';
   const correctedBadge = r.is_corrected ? '<span class="badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)">CORRECTED</span>' : '';
   const typLabel = escapeHtml(recordTypes.find(t => t.value === type)?.label || TYPE_LABELS[type] || type);
-  const alBadge = `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>`;
+  const alBadge = al ? `<span class="badge ${ACCESS_COLORS[al]||''}">${escapeHtml(ACCESS_LABELS[al]||al)}</span>` : '';
   return `
   <div class="record-card ${r.is_protected?'is-encrypted':''} ${r.is_correction?'is-correction':''}"
        data-action="open-record" data-arg="${r.block_index}">
