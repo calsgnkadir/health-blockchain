@@ -41,7 +41,14 @@ probed.
 
 - An unknown level (such as the old `admin_only`) is closed, never read as shared.
 - A password-protected record's type is unknown until it is decrypted, so a
-  practitioner needs consent for **all** records to see it at all.
+  practitioner needs consent for **all** records to see it at all. Its audience
+  (access level and author) is kept outside the ciphertext, so a locked
+  client-only record is not even listed for the practitioner, nor a locked
+  practitioner-only note for the client. (Before this, a practitioner with
+  consent for all records saw a client's locked journal as an "ENCRYPTED
+  RECORD" row.) The audience is not part of the signed block: changing it can
+  only change which placeholder is listed, never what is decrypted — the real
+  level inside the ciphertext is checked again after decryption.
 - Chain bookkeeping blocks (genesis, audit, correction wrappers) are not shown
   to practitioners.
 - A record the user may not see gets `404`, as if it did not exist — the list

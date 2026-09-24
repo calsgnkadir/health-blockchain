@@ -84,15 +84,25 @@ def can_create(role: str, access_level: str, record_type: str, has_consent: HasC
 BOOKKEEPING_TYPES = ("genesis", "audit", "correction")
 
 
-def can_view_stored(role: str, username: str, data, has_consent: HasConsent) -> bool:
+def can_view_stored(role: str, username: str, data, has_consent: HasConsent,
+                    protected_access: Optional[dict] = None) -> bool:
     """can_view() for a block as it is stored, before any password is given.
 
-    A password-protected block is still a string here: its type and access level
-    are unknown until it is decrypted, so a practitioner needs consent for all
-    records even to know it is there. Bookkeeping blocks (genesis, audit,
-    correction wrappers) say who did what and when — the client and operators
-    may see them, a practitioner may not."""
+    A password-protected block is still a string here. Its record type is unknown
+    until it is decrypted, so a practitioner needs consent for all records to see
+    it at all. Its audience is kept outside the ciphertext (`protected_access`:
+    access_level and created_by), so a client's private journal is not even
+    listed for the practitioner, nor a practitioner's locked note for the client.
+    Blocks written before that was recorded have no `protected_access`; they
+    fall back to the consent-for-all rule alone.
+
+    Bookkeeping blocks (genesis, audit, correction wrappers) say who did what and
+    when — the client and operators may see them, a practitioner may not."""
     if isinstance(data, str):
+        if protected_access:
+            # The type stays unknown, so "all" stands in for it.
+            record = dict(protected_access, record_type="all")
+            return can_view(role, username, record, has_consent)
         return role != "practitioner" or has_consent("all")
     if isinstance(data, dict) and data.get("type") in BOOKKEEPING_TYPES:
         return role != "practitioner"

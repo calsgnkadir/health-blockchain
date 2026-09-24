@@ -78,6 +78,21 @@ class TestCanViewStored(unittest.TestCase):
             self.assertFalse(can_view_stored("practitioner", ME, data, consent_for("all")))
             self.assertTrue(can_view_stored("client", "client001", data, consent_for()))
 
+    def test_locked_record_audience_is_known_from_outside_the_ciphertext(self):
+        journal = {"access_level": "private", "created_by": "client001"}
+        self.assertFalse(can_view_stored("practitioner", ME, "ciphertext", consent_for("all"), journal))
+        self.assertTrue(can_view_stored("client", "client001", "ciphertext", consent_for(), journal))
+
+        note = {"access_level": "practitioner_only", "created_by": ME}
+        self.assertTrue(can_view_stored("practitioner", ME, "ciphertext", consent_for("all"), note))
+        self.assertFalse(can_view_stored("practitioner", OTHER, "ciphertext", consent_for("all"), note))
+        self.assertFalse(can_view_stored("client", "client001", "ciphertext", consent_for(), note))
+
+    def test_locked_shared_record_needs_consent_for_all(self):
+        shared = {"access_level": "doctor_shared", "created_by": "client001"}
+        self.assertFalse(can_view_stored("practitioner", ME, "ciphertext", consent_for("session_note"), shared))
+        self.assertTrue(can_view_stored("practitioner", ME, "ciphertext", consent_for("all"), shared))
+
     def test_ordinary_record_uses_can_view(self):
         self.assertFalse(can_view_stored("practitioner", ME, record("private"), consent_for("all")))
         self.assertTrue(can_view_stored("practitioner", ME, record("doctor_shared"), consent_for("all")))

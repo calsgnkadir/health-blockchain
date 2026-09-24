@@ -78,7 +78,9 @@ class QueryHandler:
             # The shared access policy decides (core/services/access_policy.py).
             # Records the user may not see are left out of the list entirely
             # rather than shown as locked entries.
-            if not access_policy.can_view_stored(role, username, data, has_consent):
+            protected_access = (self.record_service.get_block_access(patient_id, block.index)
+                                if isinstance(data, str) else None)
+            if not access_policy.can_view_stored(role, username, data, has_consent, protected_access):
                 continue
 
             entry = {

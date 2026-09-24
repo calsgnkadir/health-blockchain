@@ -79,10 +79,15 @@ def _can_view(u: dict, patient_id: str, record, consent_validator: ConsentValida
                                   _consent_for(consent_validator, patient_id, u["username"]))
 
 
-def _can_view_stored(u: dict, patient_id: str, data, consent_validator: ConsentValidator) -> bool:
-    """Record level, for a block as stored (maybe still password-protected)."""
+def _can_view_stored(u: dict, patient_id: str, block_index: int, data,
+                     consent_validator: ConsentValidator, record_service: RecordService) -> bool:
+    """Record level, for a block as stored (maybe still password-protected, in
+    which case its audience is read from outside the ciphertext)."""
+    protected_access = (record_service.get_block_access(patient_id, block_index)
+                        if isinstance(data, str) else None)
     return access_policy.can_view_stored(u["role"], u["username"], data,
-                                         _consent_for(consent_validator, patient_id, u["username"]))
+                                         _consent_for(consent_validator, patient_id, u["username"]),
+                                         protected_access)
 
 # Operator roles that administer the vault but have no clinical relationship with
 # the patient. None of them may read raw records on their own authority.
@@ -307,7 +312,7 @@ def get_single_record(
         raise not_found
 
     if block.is_protected:
-        if not _can_view_stored(u, patient_id, block.data, consent_validator):
+        if not _can_view_stored(u, patient_id, block_index, block.data, consent_validator, record_service):
             raise not_found
         return {
             "block_index": block_index,
@@ -319,13 +324,13 @@ def get_single_record(
     # never modified, so both versions remain readable. Both are checked, though
     # a correction carries the original's access level over.
     original = record_service.get_original_block_data(patient_id, block_index)
-    if not _can_view_stored(u, patient_id, original, consent_validator):
+    if not _can_view_stored(u, patient_id, block_index, original, consent_validator, record_service):
         raise not_found
     if version == "original":
         data = original
     else:
         data = record_service.get_final_block_data(patient_id, block_index, password=None, username=u["username"])
-        if not _can_view_stored(u, patient_id, data, consent_validator):
+        if not _can_view_stored(u, patient_id, block_index, data, consent_validator, record_service):
             raise not_found
     return {"block_index": block_index, "is_protected": False, "version": version, "data": data}
 
@@ -508,7 +513,7 @@ def download_offchain_file(
     meta = record_service.get_block_data(patient_id, block_index, username=u["username"])
     if meta is None:
         raise HTTPException(404, "Record not found")
-    if not _can_view_stored(u, patient_id, meta, consent_validator):
+    if not _can_view_stored(u, patient_id, block_index, meta, consent_validator, record_service):
         raise denied
 
     try:
@@ -566,9 +571,9 @@ def get_merkle_proof_endpoint(
     # when the chain last changed — so it follows the same rules as reading.
     check_patient_id(patient_id)
     _require_file_access(u, patient_id, consent_validator)
-    if u["role"] == "practitioner":
+    if u["role"] in ("practitioner", "client"):
         stored = record_service.get_final_block_data(patient_id, block_index, password=None, username=u["username"])
-        if stored is None or not _can_view_stored(u, patient_id, stored, consent_validator):
+        if stored is None or not _can_view_stored(u, patient_id, block_index, stored, consent_validator, record_service):
             raise HTTPException(404, f"Block #{block_index} not found in chain for patient {patient_id}")
 
     project_name = record_service._get_project_name(patient_id)
