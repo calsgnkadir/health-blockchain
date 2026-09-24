@@ -1,13 +1,15 @@
-# VIP Health Vault — Consent Engine & Time-Bound RBAC Specification (v5.0.0)
+# Mahrem — Consent
 
 ## Overview
 
-The VIP Health Vault Consent Engine enforces time-bound, fine-grained access delegation on encrypted medical records.
+The client decides what their practitioner may see: per record type (or all records),
+for a limited time, and revocable at any moment. Nobody else can give or take back
+this consent.
 
 ## Core Flow
 
-1. **Patient Consent Grant**:
-   - Patient grants a doctor access specifying `doctor_username`, `record_type`, and explicit `duration_hours` or `duration_days`.
+1. **The client grants consent**:
+   - The client names a practitioner (`doctor_username`, a field name kept from the old vault), a `record_type` (or `all`) and a `duration_hours` or `duration_days`.
    - Engine calculates `expiry_timestamp = current_time + duration`.
 
 2. **Auto-Expiration Enforcement**:
