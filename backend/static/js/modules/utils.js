@@ -184,6 +184,51 @@ export function patientId() {
   return _selectedPatient;   // null until a privileged operator selects a patient
 }
 
+/* -- Role-aware wording --------------------------------------------
+ * The same page is seen by the client, their practitioner and operators, and
+ * "your records" means something different to each. Elements that need a
+ * different sentence per role carry data-role-text="<key>"; the text lives
+ * here, with `default` for every role not listed.
+ */
+export const ROLE_TEXTS = {
+  'records-title': {
+    client:       'My Records',
+    default:      'Client Records',
+  },
+  'consent-title': {
+    client:       'My Consents',
+    practitioner: 'Consent from this client',
+    default:      'Consent Rules',
+  },
+  'consent-sub': {
+    client:       'Decide which practitioners may see which of your records, and for how long.',
+    practitioner: 'What this client has allowed you to see, and until when. Only the client can change it.',
+    default:      "This client's consent rules. Only the client can change them.",
+  },
+  'consent-list-title': {
+    client:       'Who can see my records',
+    practitioner: 'Your access',
+    default:      'Active Access Permissions',
+  },
+  'consent-empty': {
+    client:       'You have not given any practitioner access yet.',
+    practitioner: 'This client has not given you access to any records.',
+    default:      'No active consent rules.',
+  },
+};
+
+export function roleText(key, role = (getCurrentUser() || {}).role) {
+  const texts = ROLE_TEXTS[key];
+  if (!texts) return key;
+  return texts[role] || texts.default;
+}
+
+function applyRoleTexts(role) {
+  document.querySelectorAll('[data-role-text]').forEach(el => {
+    el.textContent = roleText(el.dataset.roleText, role);
+  });
+}
+
 // Centralized UI State Manager
 export const appState = {
   currentUser: null,
@@ -241,6 +286,9 @@ export const appState = {
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       const navClients = document.getElementById('nav-clients');
       if (navClients) navClients.style.display = (this.currentUser.role === 'practitioner') ? 'flex' : 'none';
+      applyRoleTexts(this.currentUser.role);
+      const newRecordBtn = document.getElementById('dashboard-new-record');
+      if (newRecordBtn) newRecordBtn.style.display = (this.currentUser.role === 'client') ? 'none' : '';
       const navAdd = document.getElementById('nav-add');
       if (navAdd) navAdd.style.display = (this.currentUser.role === 'client') ? 'none' : 'flex';
 

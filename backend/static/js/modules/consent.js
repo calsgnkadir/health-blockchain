@@ -1,19 +1,23 @@
 /* consent.js — Mahrem UI Consent Management Module */
-import { apiFetch, patientId, getCurrentUser, escapeHtml } from './utils.js';
+import { apiFetch, patientId, getCurrentUser, escapeHtml, emptyState, roleText } from './utils.js';
 import { addNotification } from './notifications.js';
 
 export async function loadConsents() {
   const container = document.getElementById('consents-list');
   if (!container) return;
+  const pid = patientId();
+  if (!pid) {
+    container.innerHTML = emptyState('No client selected. Choose one on the Dashboard.');
+    return;
+  }
   container.innerHTML = '<div class="loading-spinner">Loading consent rules...</div>';
 
   try {
-    const pid = patientId();
     const res = await apiFetch(`/api/consent/${pid}`);
     const consents = res.consents || [];
 
     if (consents.length === 0) {
-      container.innerHTML = `<div class="empty-state"><p>No active consent permissions granted to your practitioners.</p></div>`;
+      container.innerHTML = emptyState(roleText('consent-empty'));
       return;
     }
 

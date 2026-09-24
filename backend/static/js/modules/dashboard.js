@@ -1,5 +1,5 @@
 /* dashboard.js — Mahrem UI Dashboard Module */
-import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState, getCurrentUser } from './utils.js';
+import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState, getCurrentUser, roleText } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
 import { recordTypes } from './records.js';
 
@@ -339,7 +339,7 @@ export function navigate(page) {
   
   const titles = {
     dashboard:      'Dashboard Overview',
-    records:        'Client Records',
+    records:        roleText('records-title'),
     clients:        'My Clients',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
@@ -348,7 +348,7 @@ export function navigate(page) {
     security:       'Security & 2FA Settings',
     'dual-control': 'Dual-Control Access',
     'my-access':    'Who Accessed My Records',
-    consent:        'Consent Management',
+    consent:        roleText('consent-title'),
   };
   
   document.getElementById('topbar-title').textContent = titles[page] || page;
