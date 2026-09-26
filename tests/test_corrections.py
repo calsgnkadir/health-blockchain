@@ -1,6 +1,6 @@
 """
-tests/test_corrections.py — a medical record is corrected, never overwritten
-============================================================================
+tests/test_corrections.py — a client record is corrected, never overwritten
+===========================================================================
 A correction appends a new block that supersedes the original. Both remain on the
 chain: the current view shows the corrected content, `?version=original` still
 returns the superseded content, and the record is flagged with the correction's
@@ -41,8 +41,8 @@ class TestCorrectionFlow(unittest.TestCase):
     def _add_assessment(self):
         res = self.client.post("/api/v1/records", headers=self._auth(), json={
             "patient_id": "CL-001", "record_type": "assessment",
-            "title": "Original assessment", "doctor_name": "Dr A",
-            "institution": "Clinic", "record_date": "2026-08-01",
+            "title": "Original assessment", "doctor_name": "Psk. A",
+            "institution": "Practice", "record_date": "2026-08-01",
             "access_level": "doctor_shared", "is_confidential": False,
             "data": {"instrument": "GAD-7", "score": 8, "max_score": 21,
                      "interpretation": "Mild anxiety"},
@@ -56,7 +56,7 @@ class TestCorrectionFlow(unittest.TestCase):
             f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(token),
             json={"reason": reason, "corrected_data": {
                 "title": "Corrected assessment", "record_type": "assessment",
-                "doctor_name": "Dr A", "institution": "Clinic",
+                "doctor_name": "Psk. A", "institution": "Practice",
                 "record_date": "2026-08-01", "access_level": "doctor_shared",
                 "data": {"instrument": "GAD-7", "score": 16, "max_score": 21,
                          "interpretation": interpretation},
@@ -132,7 +132,7 @@ class TestCorrectionFlow(unittest.TestCase):
         idx = self._add_assessment()
         # Clear any consent leftover from other tests in the shared default store
         # so this exercises the genuine no-consent case (CSRF is off under TESTING).
-        for rt in ("all", "diagnosis"):
+        for rt in ("all", "session_note"):
             self.client.delete(f"/api/v1/consent/CL-001/psk.elif/{rt}", headers=self._auth())
         doctor = self._login("psk.elif", "Practitioner@2026!")
         res = self._correct(idx, token=doctor)

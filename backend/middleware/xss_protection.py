@@ -11,7 +11,7 @@ backend/middleware/xss_protection.py — Security & XSS Protection Middleware
 
 Note on layering: clinical text is stored verbatim (see backend.schemas.requests)
 and escaped where it is rendered, so this module deliberately does not rewrite
-request payloads. Escaping on the way in corrupts medical records permanently and
+request payloads. Escaping on the way in corrupts client records permanently and
 still leaves any unescaped sink exploitable.
 """
 

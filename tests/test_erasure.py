@@ -65,7 +65,7 @@ class TestErasure(unittest.TestCase):
     def _write_two_records(self):
         for sev in ("Mild", "Severe"):
             self.svc.add_record(self.patient, {
-                "record_type": "diagnosis", "title": "Essential hypertension",
+                "record_type": "session_note", "title": "Session 1",
                 "data": {"icd_code": "I10", "severity": sev, "note": "SENSITIVE-MARKER"},
             }, username="psk.elif")
 

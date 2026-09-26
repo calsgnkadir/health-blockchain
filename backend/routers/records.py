@@ -403,7 +403,7 @@ def correct_record(
     db_manager: LMDBConnectionManager = Depends(get_db_manager),
 ):
     """
-    Append a correction. The original block is never modified — a medical record
+    Append a correction. The original block is never modified — a client record
     is not overwritten, it is superseded by a correction, and both remain on the
     chain. The same access gates as reading apply, since correcting requires
     seeing the record first.

@@ -1,6 +1,6 @@
 import json
 from typing import Any, Optional
-from core.domain.entities import User, Block
+from core.domain.entities import Block
 from core.ports.repositories import IBlockRepository
 from infrastructure.repositories.lmdb_unit_of_work import LMDBUnitOfWork
 from core.services.record_service import RecordService
@@ -39,26 +39,6 @@ class AddCorrectionCommand:
         self.username = username
         self.reason = reason
 
-class CreateUserCommand:
-    def __init__(
-        self,
-        username: str,
-        password: str,
-        role: str,
-        full_name: str,
-        patient_id: Optional[str] = None,
-        specialty: Optional[str] = None,
-        institution: Optional[str] = None,
-        creator_username: str = "system",
-    ):
-        self.username = username
-        self.password = password
-        self.role = role
-        self.full_name = full_name
-        self.patient_id = patient_id
-        self.specialty = specialty
-        self.institution = institution
-        self.creator_username = creator_username
 
 class GrantConsentCommand:
     def __init__(
@@ -125,18 +105,6 @@ class CommandHandler:
                 reason=cmd.reason,
             )
 
-    def handle_create_user(self, cmd: CreateUserCommand) -> User:
-        with LMDBUnitOfWork("__users__"):
-            return self.auth_service.create_user(
-                username=cmd.username,
-                password=cmd.password,
-                role=cmd.role,
-                full_name=cmd.full_name,
-                patient_id=cmd.patient_id,
-                specialty=cmd.specialty,
-                institution=cmd.institution,
-                creator_username=cmd.creator_username,
-            )
 
     def handle_grant_consent(self, cmd: GrantConsentCommand) -> None:
         import time

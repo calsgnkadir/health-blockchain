@@ -1,24 +1,26 @@
-# VIP Health Vault - Baslatma Scripti
-Write-Host "VIP Health Vault baslatiliyor..." -ForegroundColor Cyan
+# Mahrem — start the demo on Windows (PowerShell).
+# Same as the README quick start: demo mode, loopback only, port 8000.
+Write-Host "Starting Mahrem (demo mode)..." -ForegroundColor Cyan
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$backend = Join-Path $root "backend"
+Set-Location $root
 
-Write-Host "Gereksinimler yukleniyor..." -ForegroundColor Yellow
-pip install fastapi uvicorn[standard] pyjwt cryptography lmdb keyring wmi pyotp qrcode pillow --quiet
+Write-Host "Installing requirements..." -ForegroundColor Yellow
+python -m pip install -r requirements.txt --quiet
 
-Write-Host "Sunucu baslatiliyor..." -ForegroundColor Green
-Write-Host "   URL: http://localhost:8090" -ForegroundColor White
-Write-Host "   API: http://localhost:8090/docs" -ForegroundColor White
 Write-Host ""
-Write-Host 'Demo Hesaplar:' -ForegroundColor Yellow
-Write-Host '  Admin  : admin / Admin@2026Secure!'
-Write-Host '  Doktor : dr.smith / Doctor@2026Secure!'
-Write-Host '  VIP    : vip001 / VIPPatient@2026!'
-Write-Host '  SecOff : sec.officer / SecOfficer@2026!   (co-signs Dual-Control requests)'
+Write-Host "  App: http://127.0.0.1:8000" -ForegroundColor White
+Write-Host "  API: http://127.0.0.1:8000/api/v1/docs" -ForegroundColor White
+Write-Host ""
+Write-Host "Demo accounts:" -ForegroundColor Yellow
+Write-Host "  Practitioner : psk.elif / Practitioner@2026!"
+Write-Host "  Client       : client001 / Client@2026Secure!"
+Write-Host "  Admin        : admin / Admin@2026Secure!"
+Write-Host "  KVKK officer : sec.officer / SecOfficer@2026!   (co-signs dual-control requests)"
 Write-Host ""
 
-$env:ENVIRONMENT="development"
-$env:VHV_DEMO_MODE="true"
-Set-Location $backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8090 --reload
+$env:ENVIRONMENT = "development"
+$env:VHV_DEMO_MODE = "true"
+# Loopback only: the demo accounts' passwords are public, so the demo must not
+# be reachable from the local network.
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000

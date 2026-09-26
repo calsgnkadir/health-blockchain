@@ -69,7 +69,7 @@ class TestSoftwareKMSEncryption(unittest.TestCase):
         self.kms = SoftwareKMSProvider(iterations=1000)
 
     def test_encrypt_decrypt_roundtrip(self):
-        original = "Top secret VIP medical record: blood type A+"
+        original = "Top secret session note: panic on the commute"
         ciphertext, salt = self.kms.encrypt(original, "vault-password")
         decrypted = self.kms.decrypt(ciphertext, "vault-password", salt)
         self.assertEqual(original, decrypted)
@@ -99,7 +99,7 @@ class TestSoftwareKMSEncryption(unittest.TestCase):
         self.assertEqual("", decrypted)
 
     def test_unicode_roundtrip(self):
-        original = "VIP hasta kaydı: 日本語テスト 🏥🔐"
+        original = "Danışan kaydı: 日本語テスト 🏥🔐"
         ciphertext, salt = self.kms.encrypt(original, "unicode-pass")
         decrypted = self.kms.decrypt(ciphertext, "unicode-pass", salt)
         self.assertEqual(original, decrypted)

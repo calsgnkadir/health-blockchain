@@ -33,9 +33,9 @@
 - Güvenlik (Argon2id şifre hash, TOTP sırrı)
 
 ### 2.2 Özel Nitelikli Kişisel Veriler (Sağlık Verileri)
-- Tıbbi Tanı (ICD-10, doktor notları)
-- Vital Bulgular (Tansiyon, nabız, SpO2)
-- Reçete, Laboratuvar, Alerji, Ameliyat kayıtları
+- Seans notları ve uzmanın kendi süreç notları
+- Ölçek sonuçları (GAD-7, PHQ-9 vb.) ve tedavi planları
+- Ödevler, danışanın kişisel günlüğü ve ekler (ör. taranmış onam formu)
 
 ---
 
@@ -51,13 +51,13 @@
 4. **Network Level Isolation (Ağ İzolasyonu)**:
    - `IPAllowlistMiddleware` ile varsayılan olarak kamuya kapalıdır; sadece kurum VPN ve yetkili IP bloklarına açık tutulur.
 5. **Diskte Şifreleme (KVKK M.12 & GDPR Art. 32)**:
-   - Her klinik yük, KMS'ten türeyen ve hastaya özel bir anahtarla AES-256-GCM ile diskte şifrelenir (`core/services/record_service.py::_encrypt_at_rest`).
+   - Her klinik yük, KMS'ten türeyen ve danışana özel bir anahtarla AES-256-GCM ile diskte şifrelenir (`core/services/record_service.py::_encrypt_at_rest`).
    - Zincir deposu yalnızca şifreli metin tutar; imzalama anahtarı zincir deposunun dışında (ortam değişkeni / OS keyring) yaşadığından, tek başına çalınan bir `projects/` yedeği çözülemez.
 6. **Tamper-Evident Erişim Defteri (ISO 27001 A.12.4 & KVKK M.12)**:
    - Her okuma ve klinisyen görüntülemesi, `seq` + `prev_hash` + `hash` taşıyan hash-bağlı bir kayıttır (`database/audit_storage.py`).
-   - Geçmiş bir erişim olayını silmek veya değiştirmek zinciri kırar ve `verify_access_log_integrity` tarafından sıra numarasıyla raporlanır. Hasta, kendi kayıtlarına kimin eriştiğini ve defterin bütünlük durumunu **Who Accessed My Records** ekranından görür.
+   - Geçmiş bir erişim olayını silmek veya değiştirmek zinciri kırar ve `verify_access_log_integrity` tarafından sıra numarasıyla raporlanır. Danışan, kendi kayıtlarına kimin eriştiğini ve defterin bütünlük durumunu **Who Accessed My Records** ekranından görür.
 7. **Anahtar İmhası ile Silme — Unutulma Hakkı (GDPR Art. 17 & KVKK M.7)** — ✅ *canlı*:
-   - At-rest anahtarı, KMS kökü **ve** hastaya özel bir gizli anahtardan türetilir. `POST /api/v1/erasure/{patient_id}` bu gizli anahtarı imha eder; onun altında şifrelenmiş her kayıt kalıcı olarak çözülemez hale gelir (crypto-shredding).
+   - At-rest anahtarı, KMS kökü **ve** danışana özel bir gizli anahtardan türetilir. `POST /api/v1/erasure/{patient_id}` bu gizli anahtarı imha eder; onun altında şifrelenmiş her kayıt kalıcı olarak çözülemez hale gelir (crypto-shredding).
    - Append-only zincir ve imzaları **bozulmaz** (bütünlük kanıtı korunur); işlem yetkili rol + Dual-Control ile korunur ve geri döndürülemezdir.
 8. **Dışarıda Tutulan İmza Anahtarı (GDPR Art. 32)** — ✅ *canlı (opsiyonel)*:
    - `KMS_PROVIDER=vault` ile imza anahtarı HashiCorp Vault Transit içinde yaşar ve uygulamaya hiç girmez; host + `projects/` deposunu ele geçiren bir operatör dahi imza veya at-rest anahtarı üretemez.

@@ -40,7 +40,7 @@ class TestConcurrentWrites(unittest.TestCase):
         barrier.wait()  # release all threads together to maximise overlap
         self.handler.handle_add_record(AddRecordCommand(
             patient_id=self.patient,
-            data={"record_type": "diagnosis", "title": f"dx-{i}",
+            data={"record_type": "session_note", "title": f"dx-{i}",
                   "data": {"icd_code": "I10", "n": i}},
             is_protected=False, protection_password=None, username="dr.concurrent",
         ))

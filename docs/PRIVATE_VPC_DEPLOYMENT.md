@@ -52,16 +52,16 @@ JWT_PUBLIC_KEY_PATH=/etc/vhv/keys/jwt_public.pem
 
 ---
 
-## 4. KVKK Article 9 & Cross-Border Compliance
+## 4. KVKK Article 9: keeping the data in the country
 
-Under **KVKK Article 9 (Transfer of Personal Data Abroad)**, special category health data of Turkish citizens/officials cannot be transferred to foreign cloud jurisdictions without explicit consent or statutory authorization. Operating the vault inside a sovereign local VPC guarantees **100% compliance** with Turkish data sovereignty laws.
+**KVKK Article 9** restricts transferring personal data abroad, and health data is special category data. Running Mahrem on the practice's own server or in a private cloud located in Türkiye avoids a cross-border transfer in the first place. This is one part of compliance, not all of it: the practice's duties as data controller (section 5) still apply.
 
 ---
 
-## 5. Institutional Deployment Gate & Legal Scope
+## 5. Before the first real client
 
 Before the first real client is enrolled, the following must be in place:
 
 1. **Data controller duties:** the practice, as data controller under KVKK, completes its registration and information notices, and a KVKK-compliant explicit consent is collected from each client.
-2. **KMS Enterprise Integration:** Transitioning from local PBKDF2 key envelopes to an institutional Hardware Security Module (HSM) or HashiCorp Vault instance.
-3. **Designated Security Officers:** Formal appointment of dual-control co-signers (`security_officer` role) by institutional security authorities.
+2. **Keys off the app host:** move the signing key to a Hardware Security Module (HSM) or HashiCorp Vault Transit (`KMS_PROVIDER=vault`).
+3. **A second person for dual control:** name who co-signs operator access (`security_officer` role) — for a small practice, for example, its IT provider.

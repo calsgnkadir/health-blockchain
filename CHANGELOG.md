@@ -1,5 +1,32 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.0.2] - 2026-09-26
+
+### 🔒 Removed a way around onboarding
+
+- **`POST /api/v1/admin/users` let an admin create an active account with a password
+  directly**, skipping the pending state and the single-use code that README, SECURITY
+  and the onboarding doc describe as the only way in. Nothing in the UI used it. The
+  endpoint, its `UserCreate` schema (which also still allowed a `nurse` role) and the
+  command/service/factory behind it are removed; `tests/test_onboarding.py` pins that
+  the route is gone.
+
+### 🧹 Removed what the old vault left behind
+
+- **CSS**: 45 rules for views that no longer exist (AI triage, appointments, vaccines,
+  medications, wearables, ECG status, old sidebar categories) — 296 lines.
+- **`start_web.ps1`** showed the removed demo accounts and bound the demo to `0.0.0.0`,
+  exposing accounts with public passwords to the local network, and ran from the
+  `backend/` folder, so it minted its own keys there. It now matches the README:
+  loopback only, port 8000, current demo accounts.
+- **CI**: the `VHV_LIS_API_KEY` setting for the laboratory gateway removed long ago.
+- **Docs**: `PRIVATE_VPC_DEPLOYMENT.md` claimed that hosting in Türkiye "guarantees
+  100% compliance" with KVKK; it now says what it actually covers (no cross-border
+  transfer) and what it does not. The KVKK data inventory lists therapy records instead
+  of vital signs, prescriptions and lab results.
+- **Wording**: theme names ("Stealth Dark", "Command Center"), code comments and test
+  sample data (prescriptions, lab results, cardiology) now fit a psychology practice.
+
 ## [6.0.1] - 2026-09-25
 
 ### 🧹 Leftovers of the old name

@@ -1,8 +1,6 @@
 """
-backend/routers/misc.py — Miscellaneous System, Notification, & Audit Endpoints
-================================================================================
-Mahrem v5.0.0.
-Removed: Appointment booking, AI Triage chatbot, and FHIR export bridges.
+backend/routers/misc.py — notifications, chain status, audit logs and system config
+===================================================================================
 """
 
 import os

@@ -22,9 +22,6 @@ jobs:
       TESTING: "true"
       ENVIRONMENT: development
       VHV_DEMO_MODE: "true"
-      # The laboratory gateway fails closed without a key; its tests override
-      # this per case to exercise both sides.
-      VHV_LIS_API_KEY: ci-gateway-key
 
     steps:
     - name: Checkout Repository

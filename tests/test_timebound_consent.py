@@ -55,13 +55,13 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="vital_signs",
+            record_type="assessment",
             duration_days=1.0,
-            username="vip_owner"
+            username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd)
 
-        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "vital_signs")
+        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "assessment")
         self.assertTrue(has_access, "Consent granted for 1 day should be active")
 
     def test_grant_consent_hours_active(self):
@@ -69,14 +69,14 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="vital_signs",
+            record_type="assessment",
             duration_days=1.0,
             duration_hours=2.0,
-            username="vip_owner"
+            username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd)
 
-        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "vital_signs")
+        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "assessment")
         self.assertTrue(has_access, "Consent granted for 2 hours should be active")
 
     def test_grant_consent_expired_denies_access(self):
@@ -85,14 +85,14 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="lab_result",
+            record_type="treatment_plan",
             duration_days=1.0,
             duration_hours=-1.0,  # Expired 1 hour ago
-            username="vip_owner"
+            username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd)
 
-        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "lab_result")
+        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "treatment_plan")
         self.assertFalse(has_access, "Expired consent should deny access")
 
     def test_revoke_consent_immediately_revokes(self):
@@ -100,46 +100,46 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd_grant = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="prescription",
+            record_type="homework",
             duration_days=7.0,
-            username="vip_owner"
+            username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd_grant)
-        self.assertTrue(self.consent_validator.has_consent(self.patient_id, self.doctor, "prescription"))
+        self.assertTrue(self.consent_validator.has_consent(self.patient_id, self.doctor, "homework"))
 
         cmd_revoke = RevokeConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="prescription",
-            username="vip_owner"
+            record_type="homework",
+            username="client_owner"
         )
         self.command_handler.handle_revoke_consent(cmd_revoke)
-        self.assertFalse(self.consent_validator.has_consent(self.patient_id, self.doctor, "prescription"))
+        self.assertFalse(self.consent_validator.has_consent(self.patient_id, self.doctor, "homework"))
 
     def test_doctor_record_filtering_by_consent(self):
         """Doctor should only see records for which active consent is granted."""
         proj_name = self.record_service._get_project_name(self.patient_id)
         self.block_repo.reset_db(proj_name)
 
-        # Add two records: one vital_signs, one lab_result
+        # Add two records: one assessment, one treatment_plan
         self.record_service.add_record(
             patient_id=self.patient_id,
-            data={"record_type": "vital_signs", "title": "BP Reading"},
+            data={"record_type": "assessment", "title": "BP Reading"},
             username="system"
         )
         self.record_service.add_record(
             patient_id=self.patient_id,
-            data={"record_type": "lab_result", "title": "Blood Test"},
+            data={"record_type": "treatment_plan", "title": "CBT plan"},
             username="system"
         )
 
-        # Grant consent ONLY for vital_signs
+        # Grant consent ONLY for assessment
         self.command_handler.handle_grant_consent(GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="vital_signs",
+            record_type="assessment",
             duration_days=1.0,
-            username="vip_owner"
+            username="client_owner"
         ))
 
         query = GetPatientRecordsQuery(

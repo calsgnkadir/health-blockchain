@@ -55,45 +55,45 @@ class TestSQLHybrid(unittest.TestCase):
     def test_user_repository(self):
         user = User(
             id="USR-TEST-99",
-            username="dr.sqltest",
+            username="psk.sqltest",
             password_hash="hashed_password",
             role="practitioner",
             full_name="Dr. SQL Test",
             specialty="Pediatrics",
-            institution="SQL Medical Center",
+            institution="SQL Psychology Practice",
             totp_enabled=False
         )
 
         # 1. Save user
         self.user_repo.save_user(user)
-        self.assertTrue(self.user_repo.user_exists("dr.sqltest"))
+        self.assertTrue(self.user_repo.user_exists("psk.sqltest"))
 
         # 2. Load user
-        loaded = self.user_repo.load_user("dr.sqltest")
+        loaded = self.user_repo.load_user("psk.sqltest")
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded.full_name, "Dr. SQL Test")
         self.assertEqual(loaded.specialty, "Pediatrics")
-        self.assertEqual(loaded.institution, "SQL Medical Center")
+        self.assertEqual(loaded.institution, "SQL Psychology Practice")
         self.assertFalse(loaded.totp_enabled)
 
         # 3. Update user
         loaded.totp_enabled = True
-        loaded.specialty = "Cardiology"
+        loaded.specialty = "Clinical Psychology"
         self.user_repo.save_user(loaded)
 
-        updated = self.user_repo.load_user("dr.sqltest")
+        updated = self.user_repo.load_user("psk.sqltest")
         self.assertTrue(updated.totp_enabled)
-        self.assertEqual(updated.specialty, "Cardiology")
+        self.assertEqual(updated.specialty, "Clinical Psychology")
 
         # 4. Load all
         all_users = self.user_repo.load_all_users()
         self.assertEqual(len(all_users), 1)
-        self.assertEqual(all_users[0].username, "dr.sqltest")
+        self.assertEqual(all_users[0].username, "psk.sqltest")
 
         # 5. Delete user
-        deleted = self.user_repo.delete_user("dr.sqltest")
+        deleted = self.user_repo.delete_user("psk.sqltest")
         self.assertTrue(deleted)
-        self.assertFalse(self.user_repo.user_exists("dr.sqltest"))
+        self.assertFalse(self.user_repo.user_exists("psk.sqltest"))
 
 
 
