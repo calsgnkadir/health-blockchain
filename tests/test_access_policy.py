@@ -115,5 +115,35 @@ class TestCanCreate(unittest.TestCase):
         self.assertTrue(can_create("practitioner", "doctor_shared", "session_note", consent_for("session_note")))
 
 
+class TestUnknownRolesAreDenied(unittest.TestCase):
+    """The policy used to allow every role other than client and practitioner,
+    assuming the rest were operators gated by dual control. A new role — the
+    practice secretary — would have read every record. Unknown now means no."""
+
+    ROLES = ("secretary", "nurse", "", "ADMIN")
+
+    def test_cannot_view_any_record(self):
+        for role in self.ROLES:
+            for level in ("doctor_shared", "private", "practitioner_only"):
+                with self.subTest(role=role, level=level):
+                    self.assertFalse(can_view(role, "x", record(level, created_by="x"), consent_for("all")))
+
+    def test_cannot_see_locked_or_bookkeeping_blocks(self):
+        for role in self.ROLES:
+            with self.subTest(role=role):
+                self.assertFalse(can_view_stored(role, "x", "ciphertext", consent_for("all")))
+                self.assertFalse(can_view_stored(role, "x", {"type": "audit"}, consent_for("all")))
+
+    def test_cannot_create(self):
+        for role in self.ROLES:
+            with self.subTest(role=role):
+                self.assertFalse(can_create(role, "doctor_shared", "session_note", consent_for("all")))
+
+    def test_operators_still_pass_the_policy(self):
+        # They are stopped earlier, by dual control, not here.
+        for role in ("admin", "auditor", "security_officer"):
+            self.assertTrue(can_view(role, "x", record("private"), consent_for()))
+
+
 if __name__ == "__main__":
     unittest.main()
