@@ -242,6 +242,33 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # KVKK: which version of the privacy notice (aydınlatma metni) each
+            # client accepted, with their explicit consent, and when.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS kvkk_notice_acceptances (
+                    username       VARCHAR(100) NOT NULL,
+                    notice_version VARCHAR(20) NOT NULL,
+                    accepted_at    {double_type} NOT NULL,
+                    client_ip      VARCHAR(64),
+                    PRIMARY KEY (username, notice_version)
+                )
+            """)
+
+            # KVKK: a client's request to have their data erased. An operator
+            # carries it out with the dual-control-gated crypto-shred, then
+            # closes the request.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS erasure_requests (
+                    id           VARCHAR(40) PRIMARY KEY,
+                    patient_id   VARCHAR(100) NOT NULL,
+                    requested_by VARCHAR(100) NOT NULL,
+                    requested_at {double_type} NOT NULL,
+                    status       VARCHAR(20) NOT NULL,
+                    handled_by   VARCHAR(100),
+                    handled_at   {double_type}
+                )
+            """)
+
             # Mahrem renamed two role ids (doctor -> practitioner,
             # vip_patient -> client). Rewrite existing rows in place so an old
             # database keeps working. Safe to run on every start.

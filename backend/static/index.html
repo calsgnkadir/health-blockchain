@@ -242,6 +242,21 @@
               <span>Who Accessed My Records</span>
             </a>
 
+            <a class="nav-item" data-page="mydata" id="nav-mydata" data-action="navigate" data-arg="mydata" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>My Data (KVKK)</span>
+            </a>
+
+            <a class="nav-item" data-page="erasure-requests" id="nav-erasure-requests" data-action="navigate" data-arg="erasure-requests" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
+              <span>KVKK Requests</span>
+            </a>
+
+            <a class="nav-item" data-page="alerts" id="nav-alerts" data-action="navigate" data-arg="alerts" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <span>Security Alerts</span>
+            </a>
+
             <a class="nav-item" data-page="dual-control" id="nav-dual-control" data-action="navigate" data-arg="dual-control" style="display:none">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
               <span>Dual-Control Access</span>
@@ -616,6 +631,49 @@
 
 
 
+        <!-- MY DATA (client, KVKK) -->
+        <section id="view-mydata" class="view">
+          <div class="view-header">
+            <h2>My Data (KVKK)</h2>
+            <p class="view-sub">Your rights under KVKK Art. 11: get a copy of your data, and ask for it to be erased.</p>
+          </div>
+          <div id="mydata-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+          <div id="mydata-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
+          <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 10px;">A copy of your data</h3>
+              <p class="appt-muted" style="margin-bottom:14px;">Your records (locked ones stay locked), appointments, invoices, the consents you gave and who accessed your records, in one file.</p>
+              <p id="mydata-notice" class="appt-muted" style="margin-bottom:14px;"></p>
+              <button type="button" class="btn btn-gold btn-full" data-action="kvkk-export">Download my data</button>
+            </div>
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 10px;">Erase my data</h3>
+              <p class="appt-muted" style="margin-bottom:14px;">The practice reviews the request. Where the law does not require it to keep your records, they are made permanently unreadable.</p>
+              <div id="mydata-requests" style="margin-bottom:14px;"></div>
+              <button type="button" class="btn btn-error btn-full" id="mydata-erase-btn" data-action="kvkk-request-erasure">Request erasure</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- KVKK ERASURE REQUESTS (admin, KVKK officer) -->
+        <section id="view-erasure-requests" class="view">
+          <div class="view-header">
+            <h2>KVKK Erasure Requests</h2>
+            <p class="view-sub">Erasing a client crypto-shreds their key and cannot be undone. It needs an active dual-control token for that client (Dual-Control Access). A request can be marked done only after the erasure.</p>
+          </div>
+          <div id="erasure-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+          <div id="erasure-requests-list" class="records-list"></div>
+        </section>
+
+        <!-- SECURITY ALERTS (admin, KVKK officer) -->
+        <section id="view-alerts" class="view">
+          <div class="view-header">
+            <h2>Security Alerts</h2>
+            <p class="view-sub">Raised by the system — for example an operator trying to read records without dual control.</p>
+          </div>
+          <div id="alerts-list" class="records-list"></div>
+        </section>
+
         <!-- INVOICES (practitioner, secretary, client) -->
         <section id="view-invoices" class="view">
           <div class="view-header">
@@ -865,6 +923,25 @@
             </div>
           </div>
         </section>
+
+        <!-- KVKK privacy notice: a client accepts it before using the app -->
+        <div id="kvkk-notice-overlay" class="invoice-overlay" hidden>
+          <div class="kvkk-sheet glass">
+            <h3 style="color: var(--gold); margin-bottom: 4px;">Privacy notice (Aydınlatma Metni)</h3>
+            <p class="appt-muted" style="margin-bottom: 12px;">Version <span id="kvkk-notice-version"></span></p>
+            <div id="kvkk-notice-text" class="kvkk-text"></div>
+            <div id="kvkk-notice-error" class="alert alert-error" style="display:none; margin-top:12px;"></div>
+            <label class="checkbox-label" style="margin-top: 16px;">
+              <input type="checkbox" id="kvkk-consent-check">
+              <span class="checkbox-custom"></span>
+              <span>I have read the notice and give my explicit consent to the processing of my health data.</span>
+            </label>
+            <div class="invoice-actions">
+              <button type="button" class="btn btn-ghost btn-sm" data-action="logout">Sign out</button>
+              <button type="button" class="btn btn-gold btn-sm" data-action="kvkk-accept">Accept</button>
+            </div>
+          </div>
+        </div>
 
         <!-- One invoice, printable -->
         <div id="invoice-overlay" class="invoice-overlay" hidden>

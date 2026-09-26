@@ -1386,8 +1386,8 @@ select option { background: #0f0f23; color: var(--text); }
 /* ── Appointment book ── */
 .appt-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
 .appt-section-title { color: var(--gold); font-size: 14px; margin: 18px 0 10px; }
-.appt-row { display: flex; align-items: center; gap: 12px; }
-.appt-row .record-main { flex: 1; }
+.appt-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.appt-row .record-main { flex: 1; min-width: 220px; }
 .appt-actions { display: flex; gap: 6px; align-items: center; }
 .appt-muted { color: var(--muted); font-size: 12px; }
 .appt-upcoming { padding: 14px 18px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px; }
@@ -1422,3 +1422,8 @@ select option { background: #0f0f23; color: var(--text); }
   .invoice-sheet { max-height: none; box-shadow: none; padding: 0; }
   .invoice-actions { display: none !important; }
 }
+
+/* ── KVKK privacy notice ── */
+.kvkk-sheet { width: 100%; max-width: 680px; max-height: 90vh; overflow: auto; padding: 28px; border-radius: 12px; }
+.kvkk-text { white-space: pre-wrap; font-size: 13px; line-height: 1.55; max-height: 45vh; overflow: auto;
+  padding: 14px; border: 1px solid var(--border); border-radius: 8px; }

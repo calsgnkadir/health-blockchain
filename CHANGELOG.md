@@ -1,5 +1,24 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.4.0] - 2026-09-27
+
+### ✨ Added — KVKK screens
+
+- **Privacy notice and explicit consent**: a client reads the notice (aydınlatma metni) and
+  gives explicit consent before using the app; the accepted version, time and IP are
+  recorded, and a new notice version asks again. The text is a template for the practice
+  to replace.
+- **My Data**: a client downloads a copy of their data (KVKK Art. 11) — the records they
+  can see (locked ones stay locked), appointments, invoices, consents and who accessed
+  their records — and can request erasure.
+- **Erasure requests** (admin, KVKK officer): the request erases nothing by itself. The
+  operator erases the client with the existing crypto-shred, which needs dual control, and
+  can close the request as done only once the key is really gone; otherwise reject it
+  (e.g. a legal duty to keep records).
+- **Security alerts** (admin, KVKK officer): the alerts the system already raised — such
+  as an operator trying to read records without dual control — are now on a screen, with
+  acknowledge.
+
 ## [6.3.0] - 2026-09-27
 
 ### ✨ Added — invoices for completed sessions

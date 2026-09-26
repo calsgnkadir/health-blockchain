@@ -297,6 +297,12 @@ export const appState = {
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       // The appointment book: practitioners, their secretaries and clients.
+      const kvkkNav = { 'nav-mydata': ['client'], 'nav-erasure-requests': ['admin', 'security_officer'],
+                        'nav-alerts': ['admin', 'security_officer'] };
+      Object.entries(kvkkNav).forEach(([id, roles]) => {
+        const item = document.getElementById(id);
+        if (item) item.style.display = roles.includes(this.currentUser.role) ? 'flex' : 'none';
+      });
       ['nav-appointments', 'nav-invoices'].forEach(id => {
         const item = document.getElementById(id);
         if (item) {

@@ -264,6 +264,9 @@ export function navigate(page) {
     clients:        'My Clients',
     appointments:   'Appointments',
     invoices:       'Invoices',
+    mydata:         'My Data (KVKK)',
+    'erasure-requests': 'KVKK Erasure Requests',
+    alerts:         'Security Alerts',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
     users:          'User Management',
@@ -281,6 +284,9 @@ export function navigate(page) {
   if (page === 'clients')       if (window.loadClients) window.loadClients();
   if (page === 'appointments')  if (window.loadAppointments) window.loadAppointments();
   if (page === 'invoices')      if (window.loadInvoices) window.loadInvoices();
+  if (page === 'mydata')        if (window.loadMyData) window.loadMyData();
+  if (page === 'erasure-requests') if (window.loadErasureRequests) window.loadErasureRequests();
+  if (page === 'alerts')        if (window.loadSecurityAlerts) window.loadSecurityAlerts();
   if (page === 'chain-status')  if (window.loadChainStatus) window.loadChainStatus();
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');

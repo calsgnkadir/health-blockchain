@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **298 passing tests**.
+> Art. 17)**, with **307 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -26,10 +26,10 @@ matter:
 
 | Role | What they can do |
 | :-- | :-- |
-| **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Joins with an invitation code from their practitioner. |
+| **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Accepts the KVKK privacy notice, downloads a copy of their data and can request erasure. Joins with an invitation code from their practitioner. |
 | **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Keeps the client profile, session notes and transcripts — a transcript is always practitioner-only. Runs an appointment book. |
 | **Secretary** | Runs one practitioner's appointment book: books, moves and cancels sessions, and invoices completed ones. Sees clients' names, IDs and appointment times — never a record, a consent or a note. Invited by the practitioner. |
-| **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. |
+| **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. Handle KVKK erasure requests and see the security alerts. |
 
 ## Access model
 
@@ -68,6 +68,7 @@ An invitation grants nothing: the client gives consent themselves.
 | **Invoices** | One per completed session, numbered per practitioner and year, integer kuruş (no floats), a fixed service line and no free text — nothing clinical leaves the practice on an invoice; no payment tracking — [`core/services/invoicing.py`](core/services/invoicing.py) |
 | **Onboarding** | No self-registration: single-use, expiring invitation codes stored only as a hash — [`backend/routers/onboarding.py`](backend/routers/onboarding.py) |
 | **Pseudonymization** | The record store is keyed by an HMAC pseudonym, never the client ID — [`core/pseudonymization/service.py`](core/pseudonymization/service.py) |
+| **KVKK screens** | Privacy notice with recorded explicit consent (per version), data export (Art. 11), erasure requests that can be closed as done only after the key is really destroyed — [`backend/routers/kvkk.py`](backend/routers/kvkk.py) |
 | **Right to erasure** | Crypto-shredding: destroying a client's key makes their records unreadable while the chain stays valid — [`core/services/erasure_service.py`](core/services/erasure_service.py) |
 | **Browser** | Output encoding at every HTML sink, strict CSP without inline script, httpOnly cookies, CSRF double-submit — [`docs/DOM_XSS_SELF_AUDIT.md`](docs/DOM_XSS_SELF_AUDIT.md) |
 
@@ -229,6 +230,7 @@ CI runs Ruff, Bandit and the full suite on Python 3.10 and 3.11.
 | ✅ | Client invitations; practitioner dashboard with the client list |
 | ✅ | Appointment book with a secretary role that never sees records |
 | ✅ | Invoices for completed sessions, printable / PDF |
+| ✅ | KVKK screens: privacy notice and consent, data export, erasure requests, security alerts |
 | ✅ | Encryption at rest, signed hash-chain, access ledger, crypto-shred erasure |
 | 📋 | Client journal entries written from the client's own screen |
 | 📋 | Faster reads on long files (one key derivation per request instead of per block) |
