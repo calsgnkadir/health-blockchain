@@ -1,5 +1,20 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.3.0] - 2026-09-27
+
+### ✨ Added — invoices for completed sessions
+
+- A practitioner or their secretary invoices a completed session from the appointment
+  book: net amount and VAT rate (0, 1, 10 or 20%); the invoice gets the next number for
+  that practitioner and year (`2026-0001`, ...). One invoice per session; only a
+  completed session can be invoiced.
+- Nothing clinical on an invoice: the service line is a fixed text and there is no
+  free-text field. Names are copied in when it is issued, so it never changes afterwards.
+  Amounts are integer kuruş, never floats. No payment tracking, by design.
+- A client sees and prints their own invoices. A printable view prints only the invoice
+  ("Print / save as PDF").
+- Demo: two of the completed demo sessions are invoiced.
+
 ## [6.2.0] - 2026-09-27
 
 ### Record types: what a practitioner actually keeps

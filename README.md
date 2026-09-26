@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **288 passing tests**.
+> Art. 17)**, with **298 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -28,7 +28,7 @@ matter:
 | :-- | :-- |
 | **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Joins with an invitation code from their practitioner. |
 | **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Keeps the client profile, session notes and transcripts — a transcript is always practitioner-only. Runs an appointment book. |
-| **Secretary** | Runs one practitioner's appointment book: books, moves and cancels sessions. Sees clients' names, IDs and appointment times — never a record, a consent or a note. Invited by the practitioner. |
+| **Secretary** | Runs one practitioner's appointment book: books, moves and cancels sessions, and invoices completed ones. Sees clients' names, IDs and appointment times — never a record, a consent or a note. Invited by the practitioner. |
 | **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. |
 
 ## Access model
@@ -65,6 +65,7 @@ An invitation grants nothing: the client gives consent themselves.
 | **Access ledger** | Hash-linked, tamper-evident log of every read; the client sees it — [`database/audit_storage.py`](database/audit_storage.py) |
 | **Dual control** | M-of-N co-signature before any operator reads a record — [`core/services/dual_control.py`](core/services/dual_control.py) |
 | **Sign-in** | Argon2id passwords, WebAuthn/FIDO2 passkeys, TOTP, 5 attempts per IP per minute — [`core/webauthn.py`](core/webauthn.py), [`backend/middleware/rate_limiter.py`](backend/middleware/rate_limiter.py) |
+| **Invoices** | One per completed session, numbered per practitioner and year, integer kuruş (no floats), a fixed service line and no free text — nothing clinical leaves the practice on an invoice; no payment tracking — [`core/services/invoicing.py`](core/services/invoicing.py) |
 | **Onboarding** | No self-registration: single-use, expiring invitation codes stored only as a hash — [`backend/routers/onboarding.py`](backend/routers/onboarding.py) |
 | **Pseudonymization** | The record store is keyed by an HMAC pseudonym, never the client ID — [`core/pseudonymization/service.py`](core/pseudonymization/service.py) |
 | **Right to erasure** | Crypto-shredding: destroying a client's key makes their records unreadable while the chain stays valid — [`core/services/erasure_service.py`](core/services/erasure_service.py) |
@@ -197,7 +198,8 @@ file is never overwritten.
 | `sec.officer` | `SecOfficer@2026!` | the co-signing side of dual control |
 
 Appointments: the demo file's weekly sessions are in the book (three completed, one
-missed) with two upcoming, booked by the secretary.
+missed) with two upcoming, booked by the secretary. Two completed sessions are
+invoiced; the third is left for you to invoice.
 
 The app is meant for a private network. Demo mode relaxes that (IP allowlist off,
 auto-generated key), so never use it for real records — see
@@ -226,6 +228,7 @@ CI runs Ruff, Bandit and the full suite on Python 3.10 and 3.11.
 | ✅ | One access policy; practitioner-only notes; client-only records |
 | ✅ | Client invitations; practitioner dashboard with the client list |
 | ✅ | Appointment book with a secretary role that never sees records |
+| ✅ | Invoices for completed sessions, printable / PDF |
 | ✅ | Encryption at rest, signed hash-chain, access ledger, crypto-shred erasure |
 | 📋 | Client journal entries written from the client's own screen |
 | 📋 | Faster reads on long files (one key derivation per request instead of per block) |

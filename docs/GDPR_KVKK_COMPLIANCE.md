@@ -32,6 +32,8 @@
 - Dijital Kimlik (FIDO2 Passkey credential ID, IP Allowlist)
 - Güvenlik (Argon2id şifre hash, TOTP sırrı)
 
+- Fatura bilgileri (danışan adı ve numarası, seans tarihi, tutar). Hizmet satırı sabit bir metindir ve serbest metin alanı yoktur; faturaya teşhis veya not yazılamaz. Ödeme takibi yapılmaz. Bir faturanın varlığı, kişinin psikolojik danışmanlık aldığını gösterdiği için faturalar da uzmanın defteriyle sınırlı tutulur.
+
 ### 2.2 Özel Nitelikli Kişisel Veriler (Sağlık Verileri)
 - Danışan profili (özellikler, başvuru nedeni, sorunlar, geçmiş)
 - Seans notları, seans dökümleri (her zaman yalnızca uzman görür) ve uzmanın süreç notları

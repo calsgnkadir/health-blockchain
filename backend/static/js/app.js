@@ -6,6 +6,7 @@ import { getNotifications, addNotification, updateNotificationsUI, toggleNotific
 import { loadConsents, grantConsent, revokeConsent } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
 import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
+import { loadInvoices, openInvoice, closeInvoice, printInvoice, startInvoice, issueInvoice } from './modules/invoices.js';
 import { loadAppointments, setAppointmentStatus, startMove, saveMove, cancelMove, bookAppointment } from './modules/appointments.js';
 import { loadClients, inviteClient, inviteSecretary, renewInvite, copyField, openClient, showRedeem, showLogin, redeemInvite, checkInviteLink } from './modules/clients.js';
 
@@ -463,6 +464,7 @@ window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
 window.loadClients = loadClients;
 window.loadAppointments = loadAppointments;
+window.loadInvoices = loadInvoices;
 window.openClientInPlace = (pid) => openClient(pid, 'dashboard');
 window.renderRecordCard = renderRecordCard;
 
@@ -902,6 +904,13 @@ registerActions('click', {
   'appt-move':             (el) => startMove(arg(el)),
   'appt-move-save':        (el) => saveMove(arg(el)),
   'appt-move-cancel':      () => cancelMove(),
+
+  // invoices
+  'invoice-start':         (el) => startInvoice(arg(el)),
+  'issue-invoice':         (el) => issueInvoice(arg(el)),
+  'open-invoice':          (el) => openInvoice(arg(el)),
+  'close-invoice':         () => closeInvoice(),
+  'print-invoice':         () => printInvoice(),
   'renew-invite':          (el) => renewInvite(arg(el)),
   'copy-field':            (el) => copyField(arg(el)),
 

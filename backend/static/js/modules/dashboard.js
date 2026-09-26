@@ -263,6 +263,7 @@ export function navigate(page) {
     records:        roleText('records-title'),
     clients:        'My Clients',
     appointments:   'Appointments',
+    invoices:       'Invoices',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
     users:          'User Management',
@@ -279,6 +280,7 @@ export function navigate(page) {
   if (page === 'records')       if (window.loadRecords) window.loadRecords();
   if (page === 'clients')       if (window.loadClients) window.loadClients();
   if (page === 'appointments')  if (window.loadAppointments) window.loadAppointments();
+  if (page === 'invoices')      if (window.loadInvoices) window.loadInvoices();
   if (page === 'chain-status')  if (window.loadChainStatus) window.loadChainStatus();
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');
