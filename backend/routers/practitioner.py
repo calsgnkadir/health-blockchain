@@ -24,19 +24,17 @@ from infrastructure.repositories.sql_repositories import SQLUserRepository
 router = APIRouter(prefix="/api/v1/practitioner", tags=["practitioner"])
 
 
-@router.get("/clients", summary="My clients (practitioner)")
-def my_clients(
-    u: dict = Depends(require_role("practitioner")),
-    consent_validator: ConsentValidator = Depends(get_consent_validator),
-):
-    me = u["username"]
-    invited = {i["patient_id"]: i for i in invitations_by(me)}
+def clients_of(practitioner: str, consent_validator: ConsentValidator) -> list:
+    """The clients this practitioner works with: those who gave them an active
+    consent, and those they invited. Also the rule the appointment book uses to
+    decide whom a practitioner (or their secretary) may book."""
+    invited = {i["patient_id"]: i for i in invitations_by(practitioner)}
 
     clients = []
     for user in SQLUserRepository().load_all_users():
         if user.role != "client" or not user.patient_id or user.account_status == "DISABLED":
             continue
-        consents = consent_validator.active_consents(user.patient_id, me)
+        consents = consent_validator.active_consents(user.patient_id, practitioner)
         invitation = invited.get(user.patient_id)
         if not consents and not invitation:
             continue   # not this practitioner's client
@@ -59,4 +57,12 @@ def my_clients(
 
     # Clients the practitioner can open first, then by client ID.
     clients.sort(key=lambda c: (c["status"] != "consented", c["patient_id"]))
-    return {"clients": clients}
+    return clients
+
+
+@router.get("/clients", summary="My clients (practitioner)")
+def my_clients(
+    u: dict = Depends(require_role("practitioner")),
+    consent_validator: ConsentValidator = Depends(get_consent_validator),
+):
+    return {"clients": clients_of(u["username"], consent_validator)}
