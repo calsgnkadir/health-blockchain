@@ -177,6 +177,41 @@ class SQLDatabaseManager:
                 )
             """)
 
+            # Practice staff: which practitioner a secretary works for. A
+            # secretary sees that practitioner's appointment book and nothing
+            # else — never a client's records (see core/services/access_policy.py).
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS practice_staff (
+                    staff_username        VARCHAR(100) PRIMARY KEY,
+                    practitioner_username VARCHAR(100) NOT NULL,
+                    created_at            {double_type} NOT NULL
+                )
+            """)
+
+            # Appointments. Only scheduling facts live here — who, with whom,
+            # when, how — and deliberately no free-text field, so clinical
+            # content cannot end up in this unencrypted table by accident.
+            # Times are UTC epoch seconds.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id                    VARCHAR(40) PRIMARY KEY,
+                    practitioner_username VARCHAR(100) NOT NULL,
+                    patient_id            VARCHAR(100) NOT NULL,
+                    starts_at             {double_type} NOT NULL,
+                    duration_min          INTEGER NOT NULL,
+                    session_format        VARCHAR(20) NOT NULL,
+                    status                VARCHAR(20) NOT NULL,
+                    created_by            VARCHAR(100) NOT NULL,
+                    created_at            {double_type} NOT NULL,
+                    updated_by            VARCHAR(100),
+                    updated_at            {double_type}
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_appointments_practitioner "
+                "ON appointments (practitioner_username, starts_at)"
+            )
+
             # Mahrem renamed two role ids (doctor -> practitioner,
             # vip_patient -> client). Rewrite existing rows in place so an old
             # database keeps working. Safe to run on every start.
@@ -242,6 +277,21 @@ class SQLDatabaseManager:
                     None,
                     False
                 ),
+                # The practitioner's secretary: runs the appointment book, never
+                # sees a record. Linked to psk.elif below.
+                (
+                    "USR-SEC-001",
+                    "secretary.ayse",
+                    hash_password("Secretary@2026!"),
+                    "secretary",
+                    "Ayşe Demir",
+                    None,
+                    "Mahrem Psychology Practice",
+                    None,
+                    None,
+                    None,
+                    False
+                ),
                 # The Security Officer exists so the M-of-N Dual-Control policy is
                 # actually satisfiable: an administrator cannot co-sign their own
                 # request, so a second privileged principal is required.
@@ -282,6 +332,19 @@ class SQLDatabaseManager:
                     continue
                 cursor.execute(insert_sql, account)
                 seeded += 1
+
+            cursor.execute(
+                "SELECT 1 FROM practice_staff WHERE staff_username = %s" if self.is_postgres
+                else "SELECT 1 FROM practice_staff WHERE staff_username = ?",
+                ("secretary.ayse",),
+            )
+            if not cursor.fetchone():
+                import time
+                cursor.execute(
+                    "INSERT INTO practice_staff (staff_username, practitioner_username, created_at) "
+                    + ("VALUES (%s, %s, %s)" if self.is_postgres else "VALUES (?, ?, ?)"),
+                    ("secretary.ayse", "psk.elif", time.time()),
+                )
 
             # Demo accounts from before the Mahrem rename. Their passwords are
             # published in old READMEs, so an old database must not keep them

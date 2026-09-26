@@ -6,7 +6,7 @@ random password nobody knows, and becomes usable only when its holder redeems a
 channel the practice trusts). Login is refused for any account that is not
 `ACTIVE_ENROLLED`.
 
-There are two ways an account is created.
+There are three ways an account is created.
 
 ## 1. A practitioner invites a client
 
@@ -32,7 +32,15 @@ Limits: a practitioner sees only the clients they invited, can issue a new code 
 for their own pending clients (the old code stops working), and may hold at most 20
 open invitations.
 
-## 2. An operator provisions a staff account
+## 2. A practitioner invites a secretary
+
+A practitioner can invite the secretary who will run their appointment book
+(`POST /api/v1/onboarding/invite-secretary`, "My Clients" page). The account
+starts pending, with the same single-use 72-hour code, and is linked to that
+practitioner. A secretary sees that practitioner's appointments — clients'
+names, IDs and times — and no record, consent or note.
+
+## 3. An operator provisions a staff account
 
 Practitioners, administrators, auditors and security officers are created by an
 administrator or security officer (`POST /api/v1/onboarding/provision`) after their

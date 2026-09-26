@@ -58,6 +58,19 @@
   - **No emergency override.** Break-glass was removed: a private practice has no emergency-access need that
     would justify a path around consent.
 
+### Threat Actor 5: Curious Secretary (the appointment book as a way in)
+- **Vector:** A practice secretary, who legitimately sees the appointment book, tries to read a client's
+  records, consents or notes — or another practitioner's book.
+- **Countermeasures:**
+  - **Default deny for roles** (`access_policy.RECORD_ROLES`): the access policy lists the roles that may see
+    record content and refuses every other role. It used to allow every role except client and practitioner,
+    so a newly added role would have read everything; tests show six record endpoints answered a secretary
+    before the fix.
+  - **One book per secretary:** a secretary is linked to one practitioner (`practice_staff`) and every
+    appointment request is scoped to that practitioner's book; another book's appointments answer `404`.
+  - **No clinical text in the book:** appointments hold only who, with whom, when and how — no free-text
+    field that could carry clinical content into the unencrypted table.
+
 ---
 
 ## 3. Summary Mapping Matrix
@@ -68,6 +81,7 @@
 | Rogue Administrator | Unauthorized PHI Query | Dual-Control Co-Signature | `core.services.dual_control.DualControlEngine` |
 | Stolen Hardware Passkey | Stolen YubiKey Credential | Hardware Passkey Revocation API | `POST /api/v1/auth/webauthn/revoke` |
 | Curious Practitioner | Reading beyond consent | One access policy (file + record level) on every record endpoint | `core.services.access_policy` |
+| Curious Secretary | Reading records via the appointment book | Default-deny role list; one book per secretary | `access_policy.RECORD_ROLES`, `core.services.appointment_book` |
 
 ---
 

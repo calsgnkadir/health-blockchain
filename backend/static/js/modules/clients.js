@@ -33,6 +33,7 @@ function showError(id, message) {
 /* -- Practitioner: My Clients ---------------------------------------- */
 
 export async function loadClients() {
+  loadStaff();
   const list = document.getElementById('clients-list');
   if (!list) return;
   list.innerHTML = '<div class="loading-spinner">Loading...</div>';
@@ -117,6 +118,50 @@ export function openClient(patientId, page = 'records') {
   const recPatId = document.getElementById('rec-patient-id');
   if (recPatId) recPatId.value = patientId;
   navigate(page);
+}
+
+/* -- Practitioner: secretaries --------------------------------------- */
+
+async function loadStaff() {
+  const list = document.getElementById('staff-list');
+  if (!list) return;
+  try {
+    const d = await apiFetch('/api/onboarding/staff');
+    list.innerHTML = d.staff.length
+      ? d.staff.map(s => `
+          <div class="user-card glass">
+            <div class="user-avatar" style="background:linear-gradient(135deg,#818cf8,#4f46e5)">${escapeHtml(s.full_name.charAt(0))}</div>
+            <div style="flex:1">
+              <div style="font-weight:600">${escapeHtml(s.full_name)}</div>
+              <div style="font-size:12px;color:var(--muted)">@${escapeHtml(s.username)}</div>
+            </div>
+            <span class="badge ${s.status === 'active' ? 'badge-shared' : 'badge-private'}">${s.status === 'active' ? 'Active' : 'Invited'}</span>
+          </div>`).join('')
+      : emptyState('No secretary yet.');
+  } catch (e) {
+    list.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+export async function inviteSecretary(e) {
+  if (e) e.preventDefault();
+  showError('secretary-error', '');
+  const name = document.getElementById('secretary-full-name');
+  const username = document.getElementById('secretary-username');
+  try {
+    const d = await apiFetch('/api/onboarding/invite-secretary', {
+      method: 'POST',
+      body: JSON.stringify({ full_name: name.value, username: username.value }),
+    });
+    name.value = '';
+    username.value = '';
+    document.getElementById('secretary-result').hidden = false;
+    document.getElementById('secretary-result-username').textContent = d.username;
+    document.getElementById('secretary-result-link').value = inviteLink(d.invite_code);
+    loadStaff();
+  } catch (ex) {
+    showError('secretary-error', ex.message);
+  }
 }
 
 /* -- Client: redeem an invitation on the login screen ---------------- */

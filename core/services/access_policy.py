@@ -41,6 +41,15 @@ CREATABLE_LEVELS = {
     "practitioner": {SHARED, PRACTITIONER_ONLY},
 }
 
+# Operators run the system. They may read a client's records only with a
+# dual-control co-signature, which the routers check before this policy.
+OPERATOR_ROLES = ("admin", "security_officer", "auditor")
+
+# Every role that may be shown record content at all. Anything else — including
+# a role added later, such as a practice secretary — sees nothing: this policy
+# denies by default instead of listing the roles it forbids.
+RECORD_ROLES = ("client", "practitioner") + OPERATOR_ROLES
+
 HasConsent = Callable[[str], bool]   # record_type -> does the practitioner hold consent?
 
 
@@ -65,14 +74,16 @@ def can_view(role: str, username: str, record: Optional[dict], has_consent: HasC
             return False
         return has_consent(record.get("record_type", "other"))
 
-    # admin / auditor / security_officer: gated by dual-control upstream.
-    return True
+    # Operators are gated by dual-control upstream; every other role is denied.
+    return role in OPERATOR_ROLES
 
 
 def can_create(role: str, access_level: str, record_type: str, has_consent: HasConsent) -> bool:
     """May this user add a record with this access level and type?"""
     allowed = CREATABLE_LEVELS.get(role)
-    if allowed is not None and access_level not in allowed:
+    if allowed is None:
+        return role == "admin"
+    if access_level not in allowed:
         return False
     if role == "practitioner":
         # Writing into a client's file needs the same consent as reading it.
@@ -103,7 +114,9 @@ def can_view_stored(role: str, username: str, data, has_consent: HasConsent,
             # The type stays unknown, so "all" stands in for it.
             record = dict(protected_access, record_type="all")
             return can_view(role, username, record, has_consent)
-        return role != "practitioner" or has_consent("all")
+        if role == "practitioner":
+            return has_consent("all")
+        return role == "client" or role in OPERATOR_ROLES
     if isinstance(data, dict) and data.get("type") in BOOKKEEPING_TYPES:
-        return role != "practitioner"
+        return role == "client" or role in OPERATOR_ROLES
     return can_view(role, username, data, has_consent)

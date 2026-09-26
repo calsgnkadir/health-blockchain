@@ -2,6 +2,7 @@
 import { apiFetch, patientId, formatTs, emptyState, escapeHtml, appState, getCurrentUser, roleText } from './utils.js';
 import { addNotification, getNotifications } from './notifications.js';
 import { recordTypes } from './records.js';
+import { loadUpcomingAppointments } from './appointments.js';
 
 let activityChartInstance = null;
 let outcomeChartInstance = null;
@@ -233,6 +234,7 @@ export async function loadDashboard() {
   const activityPanel = document.getElementById('activity-chart-panel');
   if (activityPanel) activityPanel.hidden = isPractitioner;
   if (isPractitioner) {
+    loadUpcomingAppointments();
     const clients = await loadPractitionerClients(pid);
     const current = clients.find(c => c.patient_id === pid);
     if (!current) {
@@ -341,6 +343,7 @@ export function navigate(page) {
     dashboard:      'Dashboard Overview',
     records:        roleText('records-title'),
     clients:        'My Clients',
+    appointments:   'Appointments',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
     users:          'User Management',
@@ -356,6 +359,7 @@ export function navigate(page) {
   if (page === 'dashboard')     loadDashboard();
   if (page === 'records')       if (window.loadRecords) window.loadRecords();
   if (page === 'clients')       if (window.loadClients) window.loadClients();
+  if (page === 'appointments')  if (window.loadAppointments) window.loadAppointments();
   if (page === 'chain-status')  if (window.loadChainStatus) window.loadChainStatus();
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');

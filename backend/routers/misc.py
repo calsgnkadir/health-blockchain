@@ -179,6 +179,7 @@ def get_config():
             {"role": "ADMIN", "username": "admin", "password": "Admin@2026Secure!"},
             {"role": "PRACTITIONER", "username": "psk.elif", "password": "Practitioner@2026!"},
             {"role": "CLIENT", "username": "client001", "password": "Client@2026Secure!"},
+            {"role": "SECRETARY", "username": "secretary.ayse", "password": "Secretary@2026!"},
             {"role": "SECOFF", "username": "sec.officer", "password": "SecOfficer@2026!"}
         ]
     return {

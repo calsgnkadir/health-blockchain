@@ -609,6 +609,7 @@ body {
 .role-badge { padding: 4px 12px; font-size: 10px; font-weight: 700; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge-admin  { background: rgba(255, 23, 68, 0.1); color: var(--danger); border: 1px solid rgba(255, 23, 68, 0.25); }
 .badge-practitioner { background: rgba(0, 229, 255, 0.1); color: var(--info); border: 1px solid rgba(0, 229, 255, 0.25); }
+.badge-secretary    { background: rgba(129, 140, 248, 0.1); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.25); }
 .badge-client       { background: rgba(255, 179, 0, 0.1); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.25); }
 .badge-private   { background: rgba(255, 179, 0, 0.08); color: var(--accent-dash); border: 1px solid rgba(255, 179, 0, 0.15); }
 .badge-shared    { background: rgba(0, 230, 118, 0.08); color: var(--success); border: 1px solid rgba(0, 230, 118, 0.15); }
@@ -1381,3 +1382,14 @@ select option { background: #0f0f23; color: var(--text); }
   background: #27272A;
   color: #FFFFFF;
 }
+
+/* ── Appointment book ── */
+.appt-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+.appt-section-title { color: var(--gold); font-size: 14px; margin: 18px 0 10px; }
+.appt-row { display: flex; align-items: center; gap: 12px; }
+.appt-row .record-main { flex: 1; }
+.appt-actions { display: flex; gap: 6px; align-items: center; }
+.appt-muted { color: var(--muted); font-size: 12px; }
+.appt-upcoming { padding: 14px 18px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px; }
+.appt-mini { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.appt-mini span { color: var(--muted); }

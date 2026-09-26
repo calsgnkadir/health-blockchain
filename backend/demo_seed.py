@@ -167,7 +167,32 @@ def seed_demo_chart() -> bool:
         record_type="all", duration_days=90, duration_hours=None,
         username=DEMO_CLIENT,
     ))
+    _seed_appointments()
     return True
+
+
+def _seed_appointments() -> None:
+    """The weekly sessions behind the demo file, plus what comes next: past
+    appointments completed (one missed), two upcoming, booked by the practice
+    secretary. Times are 10:00 in Türkiye (UTC+3)."""
+    from core.services import appointment_book as book
+
+    tr = timezone(timedelta(hours=3))
+    today = datetime.now(tr).replace(hour=10, minute=0, second=0, microsecond=0)
+    plan = [
+        (-28, "In-person", "completed"),
+        (-21, "In-person", "completed"),
+        (-14, "Online", "completed"),
+        (-7, "In-person", "no_show"),
+        (2, "In-person", "scheduled"),
+        (9, "Online", "scheduled"),
+    ]
+    for days, session_format, status in plan:
+        book.add_existing(
+            practitioner=DEMO_DOCTOR, patient_id=DEMO_PATIENT_ID,
+            starts_at=(today + timedelta(days=days)).timestamp(), duration_min=50,
+            session_format=session_format, status=status, created_by="secretary.ayse",
+        )
 
 
 def seed_demo_chart_if_enabled() -> bool:

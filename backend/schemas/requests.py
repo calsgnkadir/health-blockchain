@@ -431,3 +431,55 @@ class InviteClientReq(BaseModel):
         if not 2 <= len(v) <= 100:
             raise ValueError("Full name must be 2-100 characters")
         return sanitize_html(v)
+
+
+class BookAppointmentReq(BaseModel):
+    """Times carry their timezone (e.g. 2026-10-01T10:00:00+03:00); they are
+    stored in UTC."""
+    patient_id: str
+    starts_at: datetime
+    duration_min: int = 50
+    session_format: str = "In-person"
+
+    @field_validator("starts_at")
+    @classmethod
+    def needs_timezone(cls, v):
+        if v.tzinfo is None:
+            raise ValueError("starts_at must include a timezone, e.g. 2026-10-01T10:00:00+03:00")
+        return v
+
+
+class UpdateAppointmentReq(BaseModel):
+    """Move an appointment (starts_at / duration_min) or change its status
+    (cancelled, completed, no_show)."""
+    starts_at: Optional[datetime] = None
+    duration_min: Optional[int] = None
+    status: Optional[str] = None
+
+    @field_validator("starts_at")
+    @classmethod
+    def needs_timezone(cls, v):
+        if v is not None and v.tzinfo is None:
+            raise ValueError("starts_at must include a timezone, e.g. 2026-10-01T10:00:00+03:00")
+        return v
+
+
+class InviteSecretaryReq(BaseModel):
+    """A practitioner invites the secretary who will run their appointment book."""
+    username: str
+    full_name: str
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v):
+        if not re.match(r"^[A-Za-z0-9._-]{3,50}$", v or ""):
+            raise ValueError("Username must be 3-50 chars: letters, digits, . _ -")
+        return v
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, v):
+        v = (v or "").strip()
+        if not 2 <= len(v) <= 100:
+            raise ValueError("Full name must be 2-100 characters")
+        return sanitize_html(v)

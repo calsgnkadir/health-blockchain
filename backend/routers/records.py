@@ -66,7 +66,10 @@ def _consent_for(consent_validator: ConsentValidator, patient_id: str, username:
 def _require_file_access(u: dict, patient_id: str, consent_validator: ConsentValidator):
     """File level: a client opens only their own file; a practitioner only the
     file of a client who has given them some active consent. The answer is the
-    same whether or not the client exists, so client IDs cannot be probed."""
+    same whether or not the client exists, so client IDs cannot be probed.
+    Any role the access policy does not know is refused outright."""
+    if u["role"] not in access_policy.RECORD_ROLES:
+        raise HTTPException(403, "This role has no access to client records.")
     if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
     if u["role"] == "practitioner" and not consent_validator.has_any_consent(patient_id, u["username"]):
@@ -91,7 +94,7 @@ def _can_view_stored(u: dict, patient_id: str, block_index: int, data,
 
 # Operator roles that administer the vault but have no clinical relationship with
 # the patient. None of them may read raw records on their own authority.
-PRIVILEGED_NON_CLINICAL_ROLES = ("admin", "security_officer", "auditor")
+PRIVILEGED_NON_CLINICAL_ROLES = access_policy.OPERATOR_ROLES
 
 
 def _enforce_privileged_dual_control(request: Request, u: dict, patient_id: str):

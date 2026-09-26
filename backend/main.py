@@ -147,6 +147,10 @@ app.include_router(onboarding_router)
 from backend.routers.practitioner import router as practitioner_router
 app.include_router(practitioner_router)
 
+# The appointment book (practitioners, their secretaries, clients)
+from backend.routers.appointments import router as appointments_router
+app.include_router(appointments_router)
+
 # GDPR/KVKK Art. 17 — crypto-shredding erasure
 from backend.routers.erasure import router as erasure_router
 app.include_router(erasure_router)

@@ -10,6 +10,7 @@ from database.connection import LMDBConnectionManager
 from infrastructure.repositories.lmdb_repositories import LMDBUserRepository
 from core.cqrs.commands import CommandHandler
 from core.pseudonymization.service import project_name_for
+from core.services import access_policy
 
 router = APIRouter(prefix="/api/v1/consent", tags=["consent"])
 
@@ -41,6 +42,10 @@ def get_consents(
     db_manager: LMDBConnectionManager = Depends(get_db_manager)
 ):
     check_patient_id(patient_id)
+    # Who may read which part of a client's file is itself sensitive; roles
+    # outside the access policy (e.g. a secretary) are refused.
+    if u["role"] not in access_policy.RECORD_ROLES:
+        raise HTTPException(403, "This role has no access to client records.")
     if u["role"] == "client" and u.get("patient_id") != patient_id:
         raise HTTPException(403, "Access denied")
 

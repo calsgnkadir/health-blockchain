@@ -1,5 +1,28 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.1.0] - 2026-09-27
+
+### 🔒 Fixed — a new role would have read every record
+
+- The access policy allowed every role other than client and practitioner, on the
+  assumption that the rest were operators stopped by dual control; the record endpoints
+  and the consent list followed the same pattern. Adding a secretary role exposed it:
+  against the old policy, six endpoints answered a secretary with record data or consent
+  lists. The policy now lists the roles that may see records (`RECORD_ROLES`) and denies
+  every other role (ADR-0003).
+
+### ✨ Added — appointment book and secretary role
+
+- **Appointments** (`/api/v1/appointments`): a practitioner and their secretary book,
+  move and cancel sessions and mark them completed or missed; a client sees their own and
+  may cancel. No double booking; no free-text field, so clinical content cannot reach the
+  unencrypted table.
+- **Secretary role**: invited by a practitioner (single-use code), linked to that
+  practitioner's book only, and refused by every record endpoint. Demo account
+  `secretary.ayse`.
+- UI: an Appointments page for all three roles, the next appointments on the
+  practitioner dashboard, and a secretary card on My Clients.
+
 ## [6.0.2] - 2026-09-26
 
 ### 🔒 Removed a way around onboarding

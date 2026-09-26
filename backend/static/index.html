@@ -190,6 +190,11 @@
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
               <span>Dashboard</span>
             </a>
+
+            <a class="nav-item" data-page="appointments" id="nav-appointments" data-action="navigate" data-arg="appointments" style="display:none">
+              <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span>Appointments</span>
+            </a>
             
             <a class="nav-item" data-page="records" data-action="navigate" data-arg="records">
               <svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
@@ -311,6 +316,12 @@
               <button class="btn btn-ghost btn-sm" data-action="navigate" data-arg="clients">+ Invite a client</button>
             </div>
             <div id="dashboard-clients" class="records-list"></div>
+
+            <div class="section-header" style="margin-top:20px;">
+              <h2 class="section-title">Next appointments</h2>
+              <button class="btn btn-ghost btn-sm" data-action="navigate" data-arg="appointments">Appointment book</button>
+            </div>
+            <div id="dashboard-upcoming" class="glass appt-upcoming"></div>
           </div>
 
           <h2 id="dashboard-client-heading" class="section-title" hidden style="margin-bottom:14px;"></h2>
@@ -603,6 +614,55 @@
 
 
 
+        <!-- APPOINTMENTS (practitioner, secretary, client) -->
+        <section id="view-appointments" class="view">
+          <div class="view-header">
+            <h2>Appointments</h2>
+            <p class="view-sub" data-role-text="appointments-sub">Your appointments.</p>
+          </div>
+
+          <div id="appt-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+          <div id="appt-success" class="alert alert-success" style="display:none; margin-bottom:12px;"></div>
+
+          <div class="glass" id="appointment-book-card" hidden style="padding: 20px; border-radius: var(--radius); margin-bottom: 24px;">
+            <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 16px;">Book an appointment</h3>
+            <form data-submit-action="book-appointment" class="appt-form">
+              <div class="field-group">
+                <label>Client</label>
+                <select id="appt-client" required></select>
+              </div>
+              <div class="field-group">
+                <label>Date</label>
+                <input type="date" id="appt-date" required />
+              </div>
+              <div class="field-group">
+                <label>Time</label>
+                <input type="time" id="appt-time" step="900" required />
+              </div>
+              <div class="field-group">
+                <label>Length</label>
+                <select id="appt-duration">
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="50" selected>50 min</option>
+                  <option value="60">60 min</option>
+                  <option value="90">90 min</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>Format</label>
+                <select id="appt-format">
+                  <option value="In-person">In-person</option>
+                  <option value="Online">Online</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-gold">Book</button>
+            </form>
+          </div>
+
+          <div id="appointments-list" class="records-list"></div>
+        </section>
+
         <!-- MY CLIENTS (practitioner): invitations -->
         <section id="view-clients" class="view">
           <div class="view-header">
@@ -648,6 +708,37 @@
 
           <h3 style="color: var(--gold); font-size: 15px; margin: 28px 0 12px;">Invited clients</h3>
           <div id="clients-list" class="records-list"></div>
+
+          <!-- The practitioner's secretary: runs the appointment book, never sees a record. -->
+          <div class="stats-grid" style="grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; margin-top: 32px;">
+            <div class="glass" style="padding: 20px; border-radius: var(--radius);">
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 8px;">Invite a secretary</h3>
+              <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px;">A secretary manages your appointment book. They see your clients' names and appointment times — never a record, a consent or a note.</p>
+              <div id="secretary-error" class="alert alert-error" style="display:none; margin-bottom:12px;"></div>
+              <form data-submit-action="invite-secretary">
+                <div class="field-group" style="margin-bottom:12px;">
+                  <label>Name</label>
+                  <input type="text" id="secretary-full-name" maxlength="100" placeholder="e.g. Ayşe Demir" required />
+                </div>
+                <div class="field-group" style="margin-bottom:16px;">
+                  <label>Username</label>
+                  <input type="text" id="secretary-username" maxlength="50" placeholder="e.g. secretary.ayse" required />
+                </div>
+                <button type="submit" class="btn btn-gold btn-full">Create invitation</button>
+              </form>
+              <div id="secretary-result" hidden style="margin-top:16px;">
+                <p style="font-size:13px; margin-bottom:8px;">Invitation for <strong id="secretary-result-username"></strong> — shown only once.</p>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="secretary-result-link" readonly style="flex:1; min-width:0;" />
+                  <button type="button" class="btn btn-ghost btn-sm" data-action="copy-field" data-arg="secretary-result-link">Copy</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 style="color: var(--gold); font-size: 15px; margin-bottom: 12px;">My secretaries</h3>
+              <div id="staff-list" class="records-list"></div>
+            </div>
+          </div>
         </section>
 
         <!-- WHO ACCESSED MY RECORDS (client transparency) -->

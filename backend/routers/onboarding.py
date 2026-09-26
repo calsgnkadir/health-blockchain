@@ -28,7 +28,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.dependencies import require_role
-from backend.schemas.requests import ProvisionAccountReq, RedeemEnrollmentReq, InviteClientReq
+from backend.schemas.requests import ProvisionAccountReq, RedeemEnrollmentReq, InviteClientReq, InviteSecretaryReq
+from core.services import appointment_book
 from core.pseudonymization.service import project_name_for
 from core.domain.entities import User
 from core.events.event_bus import event_bus, SystemAuditEvent
@@ -317,6 +318,72 @@ def renew_invitation(patient_id: str, u: dict = Depends(require_role("practition
     ))
     return {"success": True, "patient_id": patient_id, "username": username,
             "invite_code": token, "expires_at": expires_at}
+
+
+# ── PRACTICE STAFF (practitioner) ─────────────────────────────
+@router.post("/invite-secretary", summary="Invite a secretary for my appointment book (practitioner)")
+def invite_secretary(
+    req: InviteSecretaryReq,
+    u: dict = Depends(require_role("practitioner")),
+):
+    """Create a pending secretary account linked to this practitioner and return
+    a single-use code. The secretary will run this practitioner's appointment
+    book and nothing else: the "secretary" role has no access to records."""
+    repo = SQLUserRepository()
+    if repo.user_exists(req.username):
+        raise HTTPException(409, "A user with this username already exists")
+    practitioner = repo.load_user(u["username"])
+
+    db = get_sql_db()
+    conn = db.get_connection()
+    cur = conn.cursor()
+    try:
+        if _open_invitations(cur, u["username"]) >= MAX_OPEN_INVITATIONS:
+            raise HTTPException(429, "Too many open invitations. Wait for some to be used or to expire.")
+        repo.save_user(User(
+            id=f"USR-{uuid.uuid4().hex[:12].upper()}",
+            username=req.username,
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            role="secretary",
+            full_name=req.full_name,
+            specialty=None,
+            institution=practitioner.institution if practitioner else None,
+            patient_id=None,
+            clearance=None,
+            totp_secret=None,
+            totp_enabled=False,
+            account_status="PENDING_ONBOARDING",
+        ))
+        token, expires_at = _issue_token(cur, req.username, u["username"])
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+    appointment_book.link_staff(req.username, u["username"])
+
+    event_bus.publish(SystemAuditEvent(
+        project_name="__system__",
+        action="SECRETARY_INVITED",
+        username=u["username"],
+        device_id=get_device_id(),
+        extra={"secretary": req.username},
+    ))
+    return {"success": True, "username": req.username, "invite_code": token, "expires_at": expires_at}
+
+
+@router.get("/staff", summary="My secretaries (practitioner)")
+def list_staff(u: dict = Depends(require_role("practitioner"))):
+    repo = SQLUserRepository()
+    staff = []
+    for username in appointment_book.staff_of(u["username"]):
+        user = repo.load_user(username)
+        if user:
+            staff.append({
+                "username": username,
+                "full_name": user.full_name,
+                "status": "active" if user.account_status == "ACTIVE_ENROLLED" else "pending",
+            })
+    return {"staff": staff}
 
 
 @router.post("/redeem", summary="Redeem an enrollment token and activate the account")
