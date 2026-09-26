@@ -11,6 +11,8 @@ one still protects the data. This page is a short map; the threat model has the 
   a practitioner needs the client's consent for the client's file, and for each record
   type; client-only records never reach a practitioner, practitioner-only notes never
   reach the client.
+- **Default deny for roles:** the policy lists the roles that may see records; any
+  other role — the practice secretary, who runs the appointment book — sees none.
 - **Dual control:** administrators, auditors and security officers cannot read a
   client's records on their own. They need a token co-signed by a second privileged
   person, bound to one client and short-lived.

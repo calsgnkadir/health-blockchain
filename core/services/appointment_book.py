@@ -39,6 +39,14 @@ MIN_DURATION, MAX_DURATION = 15, 240
 _COLUMNS = ("id", "practitioner_username", "patient_id", "starts_at", "duration_min",
             "session_format", "status", "created_by", "created_at", "updated_by", "updated_at")
 
+# Fixed SQL text: queries are never assembled from strings, every value is a
+# bound parameter. Optional filters use "(? IS NULL OR column = ?)".
+_SELECT = ("SELECT id, practitioner_username, patient_id, starts_at, duration_min, session_format, "
+           "status, created_by, created_at, updated_by, updated_at FROM appointments")
+_INSERT = ("INSERT INTO appointments (id, practitioner_username, patient_id, starts_at, duration_min, "
+           "session_format, status, created_by, created_at, updated_by, updated_at) "
+           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+
 
 class BookingError(ValueError):
     """A request the book refuses; `status` is the HTTP status to answer with."""
@@ -97,20 +105,15 @@ def list_appointments(*, practitioner: Optional[str] = None, patient_id: Optiona
     one client — never both unscoped."""
     if not practitioner and not patient_id:
         raise ValueError("an appointment list must be scoped to a practitioner or a client")
-    where, params = ["starts_at >= ?", "starts_at < ?"], [start, end]
-    if practitioner:
-        where.append("practitioner_username = ?")
-        params.append(practitioner)
-    if patient_id:
-        where.append("patient_id = ?")
-        params.append(patient_id)
-    rows = _run(f"SELECT {', '.join(_COLUMNS)} FROM appointments WHERE {' AND '.join(where)} "
-                "ORDER BY starts_at", tuple(params), fetch="all")
+    rows = _run(_SELECT + " WHERE starts_at >= ? AND starts_at < ?"
+                " AND (? IS NULL OR practitioner_username = ?) AND (? IS NULL OR patient_id = ?)"
+                " ORDER BY starts_at",
+                (start, end, practitioner, practitioner, patient_id, patient_id), fetch="all")
     return [_row_to_dict(r) for r in rows]
 
 
 def get(appointment_id: str) -> Optional[dict]:
-    rows = _run(f"SELECT {', '.join(_COLUMNS)} FROM appointments WHERE id = ?", (appointment_id,), fetch="one")
+    rows = _run(_SELECT + " WHERE id = ?", (appointment_id,), fetch="one")
     return _row_to_dict(rows[0]) if rows and rows[0] else None
 
 
@@ -137,7 +140,7 @@ def book(*, practitioner: str, patient_id: str, starts_at: float, duration_min: 
         raise BookingError(f"Format must be one of {FORMATS}")
     _check_slot(practitioner, starts_at, duration_min)
     appointment_id = f"APT-{uuid.uuid4().hex[:12].upper()}"
-    _run(f"INSERT INTO appointments ({', '.join(_COLUMNS)}) VALUES ({', '.join('?' * len(_COLUMNS))})",
+    _run(_INSERT,
          (appointment_id, practitioner, patient_id, starts_at, duration_min, session_format,
           "scheduled", created_by, time.time(), None, None))
     return get(appointment_id)
@@ -168,6 +171,6 @@ def add_existing(*, practitioner: str, patient_id: str, starts_at: float, durati
                  session_format: str, status: str, created_by: str) -> None:
     """For the demo seed only: write an appointment as given, past ones and
     their outcome included, without the future-only and overlap rules."""
-    _run(f"INSERT INTO appointments ({', '.join(_COLUMNS)}) VALUES ({', '.join('?' * len(_COLUMNS))})",
+    _run(_INSERT,
          (f"APT-{uuid.uuid4().hex[:12].upper()}", practitioner, patient_id, starts_at, duration_min,
           session_format, status, created_by, time.time(), None, None))

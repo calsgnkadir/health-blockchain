@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **268 passing tests**.
+> Art. 17)**, with **285 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -27,7 +27,8 @@ matter:
 | Role | What they can do |
 | :-- | :-- |
 | **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Joins with an invitation code from their practitioner. |
-| **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Writes shared notes and practitioner-only process notes. |
+| **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Writes shared notes and practitioner-only process notes. Runs an appointment book. |
+| **Secretary** | Runs one practitioner's appointment book: books, moves and cancels sessions. Sees clients' names, IDs and appointment times — never a record, a consent or a note. Invited by the practitioner. |
 | **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. |
 
 ## Access model
@@ -117,6 +118,11 @@ administrator who cannot read anything on their own. Every frame is captioned.
 Each one was reproduced first, then fixed with a test that fails on the old code. The
 full history is in the [CHANGELOG](CHANGELOG.md).
 
+- **A new role would have read every record.** The access policy allowed every role
+  other than client and practitioner, on the assumption that the rest were operators
+  already stopped by dual control. Adding a secretary exposed it: before the fix, a
+  secretary got record data or consent lists from six endpoints. The policy now lists
+  the roles that may see records and denies everything else.
 - **IDOR on the single-record endpoint.** `GET /records/{client}/{block}` only checked
   that a client stayed in their own file, so any practitioner could read any client's
   unprotected records by walking block numbers — with no consent at all. The access
@@ -185,9 +191,13 @@ file is never overwritten.
 | Account | Password | Shows |
 | :--- | :--- | :--- |
 | `psk.elif` | `Practitioner@2026!` | the practitioner dashboard, client invitations, consent-scoped records |
-| `client001` | `Client@2026Secure!` | the client's own file, consent, who accessed my records |
+| `client001` | `Client@2026Secure!` | the client's own file, consent, appointments, who accessed my records |
+| `secretary.ayse` | `Secretary@2026!` | the appointment book — and nothing from any client's file |
 | `admin` | `Admin@2026Secure!` | records locked by dual control until a second person co-signs |
 | `sec.officer` | `SecOfficer@2026!` | the co-signing side of dual control |
+
+Appointments: the demo file's weekly sessions are in the book (three completed, one
+missed) with two upcoming, booked by the secretary.
 
 The app is meant for a private network. Demo mode relaxes that (IP allowlist off,
 auto-generated key), so never use it for real records — see
@@ -215,6 +225,7 @@ CI runs Ruff, Bandit and the full suite on Python 3.10 and 3.11.
 | :---: | :--- |
 | ✅ | One access policy; practitioner-only notes; client-only records |
 | ✅ | Client invitations; practitioner dashboard with outcome-measure progress |
+| ✅ | Appointment book with a secretary role that never sees records |
 | ✅ | Encryption at rest, signed hash-chain, access ledger, crypto-shred erasure |
 | 📋 | Client journal entries written from the client's own screen |
 | 📋 | Faster reads on long files (one key derivation per request instead of per block) |

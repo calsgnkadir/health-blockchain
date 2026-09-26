@@ -66,6 +66,12 @@ Administrators, auditors and security officers are outside this policy: they
 may read a client's records only with a dual-control co-signature, checked by
 the routers before the policy is consulted.
 
+**Roles are denied by default.** The policy lists the roles that may see record
+content at all — client, practitioner and those operators (`RECORD_ROLES`) —
+and refuses every other role, including locked and bookkeeping blocks. It
+first did the opposite (anything but client and practitioner passed); adding a
+practice secretary showed that a new role would have read every record.
+
 ## Consequences
 - **Positive:** one place to read, review and test the rules
   (`tests/test_access_policy.py` needs no database). The API tests in
