@@ -33,8 +33,7 @@ ACCOUNTS = {
     "client": ("client001", "Client@2026Secure!"),
     "practitioner": (PRACTITIONER, "Practitioner@2026!"),
 }
-ASSESSMENT_DATA = {"instrument": "GAD-7", "score": 7, "max_score": 21,
-                   "interpretation": "Mild anxiety"}
+PROFILE_DATA = {"presenting_problem": "Panic on the commute"}
 
 
 class TestRecordAccessRules(unittest.TestCase):
@@ -63,8 +62,8 @@ class TestRecordAccessRules(unittest.TestCase):
             "record_type": record_type, "duration_days": 1})
         self.assertEqual(res.status_code, 200, res.text)
 
-    def _add(self, record_type="assessment", access_level="doctor_shared",
-             data=ASSESSMENT_DATA, with_file=False, password=None):
+    def _add(self, record_type="client_profile", access_level="doctor_shared",
+             data=PROFILE_DATA, with_file=False, password=None):
         body = {
             "patient_id": CLIENT_ID, "record_type": record_type, "title": "Access rule test",
             "doctor_name": "Uzm. Psk. Elif Yilmaz", "institution": "Mahrem",
@@ -83,10 +82,10 @@ class TestRecordAccessRules(unittest.TestCase):
                                headers=self._headers(actor))
 
     def test_attachment_needs_consent_for_its_own_record_type(self):
-        idx = self._add("assessment", with_file=True)
+        idx = self._add("client_profile", with_file=True)
         self._grant("document")          # consent for a different type
         self.assertEqual(self._download(idx).status_code, 403)
-        self._grant("assessment")        # consent for this record's type
+        self._grant("client_profile")        # consent for this record's type
         self.assertEqual(self._download(idx).status_code, 200)
 
     def test_client_only_attachment_is_never_given_to_a_practitioner(self):

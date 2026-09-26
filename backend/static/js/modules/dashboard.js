@@ -5,7 +5,6 @@ import { recordTypes } from './records.js';
 import { loadUpcomingAppointments } from './appointments.js';
 
 let activityChartInstance = null;
-let outcomeChartInstance = null;
 
 /* -- Practitioner: client list --------------------------------------- */
 
@@ -54,83 +53,6 @@ async function loadPractitionerClients(selectedId) {
     list.innerHTML = `<div class="alert alert-error">${escapeHtml(e.message)}</div>`;
     return [];
   }
-}
-
-/* -- Outcome measures (GAD-7, PHQ-9, ...) ---------------------------- */
-
-// Scores from assessment records, grouped by instrument, oldest first.
-export function outcomeSeries(records) {
-  const byInstrument = {};
-  records
-    .filter(r => r.record_type === 'assessment' && r.data && r.data.instrument && r.record_date)
-    .forEach(r => {
-      const score = Number(r.data.score);
-      const max = Number(r.data.max_score);
-      if (!Number.isFinite(score)) return;
-      const name = String(r.data.instrument);
-      if (!byInstrument[name]) byInstrument[name] = { max: 0, points: [] };
-      if (Number.isFinite(max)) byInstrument[name].max = Math.max(byInstrument[name].max, max);
-      byInstrument[name].points.push({ date: r.record_date, score });
-    });
-  Object.values(byInstrument).forEach(s => s.points.sort((a, b) => a.date.localeCompare(b.date)));
-  return byInstrument;
-}
-
-const LINE_COLORS = ['#C9A84C', '#0ABFBC', '#E57373', '#81C784'];
-
-export function renderOutcomeChart(records) {
-  const panel = document.getElementById('outcome-chart-panel');
-  if (!panel) return;
-  const series = outcomeSeries(records);
-  const names = Object.keys(series);
-  panel.hidden = names.length === 0;
-  if (outcomeChartInstance) { outcomeChartInstance.destroy(); outcomeChartInstance = null; }
-  if (!names.length || typeof Chart === 'undefined') return;
-
-  // One line per instrument: first score → latest score.
-  document.getElementById('outcome-summary').textContent = names.map(name => {
-    const pts = series[name].points;
-    const first = pts[0].score;
-    const last = pts[pts.length - 1].score;
-    const change = last - first;
-    return pts.length > 1
-      ? `${name}: ${first} → ${last} (${change > 0 ? '+' : ''}${change})`
-      : `${name}: ${last}`;
-  }).join(' · ');
-
-  const dates = [...new Set(names.flatMap(n => series[n].points.map(p => p.date)))].sort();
-  outcomeChartInstance = new Chart(document.getElementById('outcomeChart').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: dates.map(d => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })),
-      datasets: names.map((name, i) => ({
-        label: name,
-        data: dates.map(d => {
-          const p = series[name].points.find(pt => pt.date === d);
-          return p ? p.score : null;
-        }),
-        spanGaps: true,
-        borderColor: LINE_COLORS[i % LINE_COLORS.length],
-        backgroundColor: LINE_COLORS[i % LINE_COLORS.length],
-        tension: 0.25,
-        pointRadius: 4,
-      })),
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#8892A4', font: { family: 'Inter', size: 11 } } } },
-      scales: {
-        x: { grid: { color: 'rgba(255, 255, 255, 0.03)' }, ticks: { color: '#8892A4', font: { size: 10 } } },
-        y: {
-          min: 0,
-          suggestedMax: Math.max(...names.map(n => series[n].max)) || undefined,
-          grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#8892A4', font: { size: 10 } },
-        },
-      },
-    },
-  });
 }
 
 export function updateChainPill(valid) {
@@ -222,13 +144,11 @@ export async function loadDashboard() {
     const el = document.getElementById(id);
     if (el) el.textContent = '—';
   });
-  const outcomePanel = document.getElementById('outcome-chart-panel');
-  if (outcomePanel) outcomePanel.hidden = true;
   const heading = document.getElementById('dashboard-client-heading');
   if (heading) heading.hidden = true;
 
   // A practitioner works from their client list, not from a typed client ID.
-  // The ledger activity chart is for operators; a practitioner gets progress.
+  // The ledger activity chart is for operators, not for a practitioner.
   const clientsPanel = document.getElementById('practitioner-clients-panel');
   if (clientsPanel) clientsPanel.hidden = !isPractitioner;
   const activityPanel = document.getElementById('activity-chart-panel');
@@ -305,7 +225,6 @@ export async function loadDashboard() {
       recent.length ? recent.map(r => window.renderRecordCard(r)).join('') : emptyState('No records yet');
 
     renderActivityChart(recData.records);
-    renderOutcomeChart(recData.records);
 
     // Trigger chain failure notification if broken
     if (!valid) {
@@ -344,6 +263,10 @@ export function navigate(page) {
     records:        roleText('records-title'),
     clients:        'My Clients',
     appointments:   'Appointments',
+    invoices:       'Invoices',
+    mydata:         'My Data (KVKK)',
+    'erasure-requests': 'KVKK Erasure Requests',
+    alerts:         'Security Alerts',
     'add-record':   'Add Record',
     'chain-status': 'Chain Status Verification',
     users:          'User Management',
@@ -360,6 +283,10 @@ export function navigate(page) {
   if (page === 'records')       if (window.loadRecords) window.loadRecords();
   if (page === 'clients')       if (window.loadClients) window.loadClients();
   if (page === 'appointments')  if (window.loadAppointments) window.loadAppointments();
+  if (page === 'invoices')      if (window.loadInvoices) window.loadInvoices();
+  if (page === 'mydata')        if (window.loadMyData) window.loadMyData();
+  if (page === 'erasure-requests') if (window.loadErasureRequests) window.loadErasureRequests();
+  if (page === 'alerts')        if (window.loadSecurityAlerts) window.loadSecurityAlerts();
   if (page === 'chain-status')  if (window.loadChainStatus) window.loadChainStatus();
   if (page === 'users')         if (window.loadUsers) window.loadUsers();
   if (page === 'audit')         if (window.switchLogTab) window.switchLogTab(window.currentLogTab || 'audit');

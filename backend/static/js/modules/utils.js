@@ -216,6 +216,12 @@ export const ROLE_TEXTS = {
     secretary:    "The practitioner's appointment book: names, client IDs and times only — no records.",
     default:      'Appointments.',
   },
+  'invoices-sub': {
+    client:       'Invoices for your sessions. Open one to print it or save it as a PDF.',
+    practitioner: 'Invoices for completed sessions — issue one from the appointment book. No payment tracking.',
+    secretary:    'Invoices for completed sessions — issue one from the appointment book. No payment tracking.',
+    default:      'Invoices.',
+  },
   'consent-empty': {
     client:       'You have not given any practitioner access yet.',
     practitioner: 'This client has not given you access to any records.',
@@ -291,11 +297,19 @@ export const appState = {
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
       // The appointment book: practitioners, their secretaries and clients.
-      const navAppointments = document.getElementById('nav-appointments');
-      if (navAppointments) {
-        navAppointments.style.display =
-          ['practitioner', 'secretary', 'client'].includes(this.currentUser.role) ? 'flex' : 'none';
-      }
+      const kvkkNav = { 'nav-mydata': ['client'], 'nav-erasure-requests': ['admin', 'security_officer'],
+                        'nav-alerts': ['admin', 'security_officer'] };
+      Object.entries(kvkkNav).forEach(([id, roles]) => {
+        const item = document.getElementById(id);
+        if (item) item.style.display = roles.includes(this.currentUser.role) ? 'flex' : 'none';
+      });
+      ['nav-appointments', 'nav-invoices'].forEach(id => {
+        const item = document.getElementById(id);
+        if (item) {
+          item.style.display =
+            ['practitioner', 'secretary', 'client'].includes(this.currentUser.role) ? 'flex' : 'none';
+        }
+      });
       // A secretary works only in the appointment book: every page that shows
       // record data is hidden (the server refuses them anyway).
       if (this.currentUser.role === 'secretary') {

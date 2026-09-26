@@ -32,9 +32,12 @@
 - Dijital Kimlik (FIDO2 Passkey credential ID, IP Allowlist)
 - Güvenlik (Argon2id şifre hash, TOTP sırrı)
 
+- Fatura bilgileri (danışan adı ve numarası, seans tarihi, tutar). Hizmet satırı sabit bir metindir ve serbest metin alanı yoktur; faturaya teşhis veya not yazılamaz. Ödeme takibi yapılmaz. Bir faturanın varlığı, kişinin psikolojik danışmanlık aldığını gösterdiği için faturalar da uzmanın defteriyle sınırlı tutulur.
+
 ### 2.2 Özel Nitelikli Kişisel Veriler (Sağlık Verileri)
-- Seans notları ve uzmanın kendi süreç notları
-- Ölçek sonuçları (GAD-7, PHQ-9 vb.) ve tedavi planları
+- Danışan profili (özellikler, başvuru nedeni, sorunlar, geçmiş)
+- Seans notları, seans dökümleri (her zaman yalnızca uzman görür) ve uzmanın süreç notları
+- Tedavi planları
 - Ödevler, danışanın kişisel günlüğü ve ekler (ör. taranmış onam formu)
 
 ---
@@ -59,9 +62,14 @@
 7. **Anahtar İmhası ile Silme — Unutulma Hakkı (GDPR Art. 17 & KVKK M.7)** — ✅ *canlı*:
    - At-rest anahtarı, KMS kökü **ve** danışana özel bir gizli anahtardan türetilir. `POST /api/v1/erasure/{patient_id}` bu gizli anahtarı imha eder; onun altında şifrelenmiş her kayıt kalıcı olarak çözülemez hale gelir (crypto-shredding).
    - Append-only zincir ve imzaları **bozulmaz** (bütünlük kanıtı korunur); işlem yetkili rol + Dual-Control ile korunur ve geri döndürülemezdir.
-8. **Dışarıda Tutulan İmza Anahtarı (GDPR Art. 32)** — ✅ *canlı (opsiyonel)*:
+   - **Silme talebi ekranı:** danışan "My Data" sayfasından silme talebi oluşturur. Talep kendi başına hiçbir şey silmez: yönetici veya KVKK sorumlusu silmeyi dual-control ile uygular, talep ancak anahtar gerçekten imha edildikten sonra "tamamlandı" olarak kapatılabilir. Saklama yükümlülüğü varsa talep gerekçeyle reddedilebilir.
+8. **Aydınlatma Metni ve Açık Rıza (KVKK M.5, M.6, M.10)** — ✅ *canlı*:
+   - Danışan uygulamayı kullanmadan önce aydınlatma metnini okur ve açık rızasını verir; kabul edilen metin sürümü, zamanı ve IP adresi kaydedilir. Metin değişip sürüm artırıldığında her danışandan yeniden onay istenir. Metin bir şablondur; muayenehane kendi metniyle değiştirir.
+9. **Veriye Erişim ve Kopya Alma (KVKK M.11)** — ✅ *canlı*:
+   - Danışan "Download my data" ile kendi dosyasının bir kopyasını tek bir JSON dosyası olarak indirir: görebildiği kayıtlar (kilitli kayıtlar kilitli kalır), randevular, faturalar, verdiği rızalar ve kayıtlarına kimin eriştiği.
+10. **Dışarıda Tutulan İmza Anahtarı (GDPR Art. 32)** — ✅ *canlı (opsiyonel)*:
    - `KMS_PROVIDER=vault` ile imza anahtarı HashiCorp Vault Transit içinde yaşar ve uygulamaya hiç girmez; host + `projects/` deposunu ele geçiren bir operatör dahi imza veya at-rest anahtarı üretemez.
-9. **Band-Dışı Hesap Onboarding'i** — ✅ *canlı*:
+11. **Band-Dışı Hesap Onboarding'i** — ✅ *canlı*:
    - Hiçbir hesap self-registration ile oluşmaz. Yetkili operatör kimliği doğrulanmış hesabı `PENDING_ONBOARDING` olarak açar; hesap, band-dışı teslim edilen tek-kullanımlık enrollment token redeem edilene kadar giriş yapamaz.
 
 ---

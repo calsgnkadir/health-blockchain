@@ -168,9 +168,12 @@ def set_status(appointment: dict, status: str, *, by: str) -> dict:
 
 
 def add_existing(*, practitioner: str, patient_id: str, starts_at: float, duration_min: int,
-                 session_format: str, status: str, created_by: str) -> None:
-    """For the demo seed only: write an appointment as given, past ones and
-    their outcome included, without the future-only and overlap rules."""
+                 session_format: str, status: str, created_by: str) -> str:
+    """For the demo seed (and tests) only: write an appointment as given, past
+    ones and their outcome included, without the future-only and overlap
+    rules. Returns its id."""
+    appointment_id = f"APT-{uuid.uuid4().hex[:12].upper()}"
     _run(_INSERT,
-         (f"APT-{uuid.uuid4().hex[:12].upper()}", practitioner, patient_id, starts_at, duration_min,
+         (appointment_id, practitioner, patient_id, starts_at, duration_min,
           session_format, status, created_by, time.time(), None, None))
+    return appointment_id

@@ -8,9 +8,10 @@ export let recordTypes = [];
 
 /* -- Record type labels (no icons) ------------------- */
 export const TYPE_LABELS = {
-  session_note:   'Session Note',
-  assessment:     'Assessment',
-  treatment_plan: 'Treatment Plan',
+  client_profile:     'Client Profile',
+  session_note:       'Session Note',
+  session_transcript: 'Session Transcript',
+  treatment_plan:     'Treatment Plan',
   homework:       'Homework',
   consent_form:   'Consent Form',
   document:       'Document',
@@ -494,7 +495,8 @@ export function closeModal() {
 // Must match the field names of the schemas in backend/schemas/requests.py.
 export const DYNAMIC_FIELDS = {
   session_note:   [{id:'session_number',label:'Session Number'},{id:'duration_min',label:'Duration (min)'},{id:'session_format',label:'Format (In-person/Online)'},{id:'summary',label:'Summary'}],
-  assessment:     [{id:'instrument',label:'Instrument (e.g. GAD-7, PHQ-9)'},{id:'score',label:'Score'},{id:'max_score',label:'Max Score'},{id:'interpretation',label:'Interpretation'}],
+  client_profile: [{id:'presenting_problem',label:'Presenting problem',multiline:true},{id:'characteristics',label:'Characteristics',multiline:true},{id:'background',label:'Background',multiline:true}],
+  session_transcript: [{id:'session_number',label:'Session Number'},{id:'transcript',label:'Transcript',multiline:true}],
   treatment_plan: [{id:'goals',label:'Goals'},{id:'approach',label:'Approach (e.g. CBT)'},{id:'planned_sessions',label:'Planned Sessions'}],
   homework:       [{id:'task',label:'Task'},{id:'due_date',label:'Due Date (YYYY-MM-DD)'}],
   consent_form:   [{id:'form_type',label:'Form Type'},{id:'signed_date',label:'Signed Date (YYYY-MM-DD)'}],
@@ -506,13 +508,36 @@ export function renderDynamicFields() {
   if (!container) return;
   const fields = DYNAMIC_FIELDS[type] || [];
   let html = fields.map(f =>
-    `<div class="field-group">
-      <label>${f.label}</label>
-      <input type="text" id="dyn-${f.id}" placeholder="${f.label}...">
-    </div>`
+    f.multiline
+      ? `<div class="field-group span-2">
+          <label>${f.label}</label>
+          <textarea id="dyn-${f.id}" rows="${f.id === 'transcript' ? 8 : 3}" placeholder="${f.label}..."></textarea>
+        </div>`
+      : `<div class="field-group">
+          <label>${f.label}</label>
+          <input type="text" id="dyn-${f.id}" placeholder="${f.label}...">
+        </div>`
   ).join('');
 
   container.innerHTML = html;
+  applyTranscriptRule(type);
+}
+
+// A session transcript is always practitioner-only (the server enforces it
+// too); the form locks the access level and suggests a password on top.
+function applyTranscriptRule(type) {
+  const access = document.getElementById('rec-access');
+  const hint = document.getElementById('transcript-hint');
+  const isTranscript = type === 'session_transcript';
+  if (access) {
+    if (isTranscript && [...access.options].some(o => o.value === 'practitioner_only')) {
+      access.value = 'practitioner_only';
+    } else if (!isTranscript && access.disabled) {
+      access.selectedIndex = 0;   // leaving a transcript: back to the default level
+    }
+    access.disabled = isTranscript;
+  }
+  if (hint) hint.style.display = isTranscript ? 'block' : 'none';
 }
 
 export function initRecordsListeners() {
@@ -616,6 +641,7 @@ export function initRecordsListeners() {
         const fileNameLabel = document.getElementById('file-name-label');
         if (fileNameLabel) fileNameLabel.textContent = 'No file chosen';
         document.getElementById('dynamic-fields').innerHTML = '';
+        applyTranscriptRule('');   // unlock the access level again
         if (fileInput) fileInput.value = '';
         document.getElementById('rec-confidential-password').value = '';
         document.getElementById('confidential-password-group').style.display = 'none';

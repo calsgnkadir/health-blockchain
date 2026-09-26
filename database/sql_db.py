@@ -212,6 +212,63 @@ class SQLDatabaseManager:
                 "ON appointments (practitioner_username, starts_at)"
             )
 
+            # Invoices for completed sessions. One per appointment; numbered per
+            # practitioner and year. Names are copied in when the invoice is
+            # issued, because an invoice must not change afterwards. Nothing
+            # clinical: the service line is a fixed text, there is no free-text
+            # field. Amounts are integer kuruş (1 TRY = 100), never floats.
+            # No payment tracking, by design.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS invoices (
+                    id                    VARCHAR(40) PRIMARY KEY,
+                    number                VARCHAR(20) NOT NULL,
+                    invoice_year          INTEGER NOT NULL,
+                    sequence              INTEGER NOT NULL,
+                    appointment_id        VARCHAR(40) UNIQUE NOT NULL,
+                    practitioner_username VARCHAR(100) NOT NULL,
+                    patient_id            VARCHAR(100) NOT NULL,
+                    client_name           VARCHAR(100) NOT NULL,
+                    practitioner_name     VARCHAR(100) NOT NULL,
+                    practice_name         VARCHAR(100),
+                    session_date          {double_type} NOT NULL,
+                    duration_min          INTEGER NOT NULL,
+                    net_kurus             INTEGER NOT NULL,
+                    vat_rate              INTEGER NOT NULL,
+                    vat_kurus             INTEGER NOT NULL,
+                    total_kurus           INTEGER NOT NULL,
+                    issued_by             VARCHAR(100) NOT NULL,
+                    issued_at             {double_type} NOT NULL,
+                    UNIQUE (practitioner_username, invoice_year, sequence)
+                )
+            """)
+
+            # KVKK: which version of the privacy notice (aydınlatma metni) each
+            # client accepted, with their explicit consent, and when.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS kvkk_notice_acceptances (
+                    username       VARCHAR(100) NOT NULL,
+                    notice_version VARCHAR(20) NOT NULL,
+                    accepted_at    {double_type} NOT NULL,
+                    client_ip      VARCHAR(64),
+                    PRIMARY KEY (username, notice_version)
+                )
+            """)
+
+            # KVKK: a client's request to have their data erased. An operator
+            # carries it out with the dual-control-gated crypto-shred, then
+            # closes the request.
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS erasure_requests (
+                    id           VARCHAR(40) PRIMARY KEY,
+                    patient_id   VARCHAR(100) NOT NULL,
+                    requested_by VARCHAR(100) NOT NULL,
+                    requested_at {double_type} NOT NULL,
+                    status       VARCHAR(20) NOT NULL,
+                    handled_by   VARCHAR(100),
+                    handled_at   {double_type}
+                )
+            """)
+
             # Mahrem renamed two role ids (doctor -> practitioner,
             # vip_patient -> client). Rewrite existing rows in place so an old
             # database keeps working. Safe to run on every start.

@@ -58,7 +58,7 @@ class TestBlockchainNotarizer(unittest.TestCase):
         project_name = self.record_service._get_project_name(patient_id)
 
         # Add a block to the patient's chain
-        data = {"record_type": "assessment", "title": "Checkup", "data": {"hr": 75}}
+        data = {"record_type": "client_profile", "title": "Checkup", "data": {"hr": 75}}
         block = self.record_service.add_record(patient_id, data, username="dr.notary")
         self.assertIsNotNone(block)
 

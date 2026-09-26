@@ -1,9 +1,9 @@
 """
 scripts/capture_screenshots.py — regenerate the README screenshot gallery.
 
-Drives a running demo instance with a headless browser and saves the four
+Drives a running demo instance with a headless browser and saves the six
 gallery images to docs/screenshots/. Run it against a PRISTINE demo (only the
-seeded CL-001 file) so the dashboard shows the GAD-7 progress chart.
+seeded CL-001 file, its appointments and invoices).
 
 Setup (one time):
     pip install playwright
@@ -56,17 +56,28 @@ def main():
         _shot(page, "01_login.png", settle=1200)
 
         _sign_in(page, *PRACTITIONER)
-        _shot(page, "02_dashboard.png", settle=5000)   # Argon2 login + client list + chart
+        _shot(page, "02_dashboard.png", settle=5500)   # Argon2 login + client list + appointments
 
         page.click('[data-page="records"]')
-        _shot(page, "03_records.png", settle=3000)
+        _shot(page, "03_records.png", settle=3500)
+
+        page.click('[data-page="appointments"]')
+        _shot(page, "04_appointments.png", settle=2500)
+
+        page.click('[data-action="open-invoice"]')
+        _shot(page, "05_invoice.png", settle=1800)
 
         # Then the client, who sees who read their file.
         page = browser.new_context(viewport=VIEWPORT).new_page()
         _sign_in(page, *CLIENT)
         page.wait_for_timeout(4000)
+        if page.is_visible("#kvkk-notice-overlay"):      # first sign-in: the privacy notice
+            # The styled box hides the real checkbox, so tick it directly.
+            page.evaluate("document.getElementById('kvkk-consent-check').checked = true")
+            page.click('[data-action="kvkk-accept"]')
+            page.wait_for_timeout(1000)
         page.click('[data-page="my-access"]')
-        _shot(page, "04_access_ledger.png", settle=2500)
+        _shot(page, "06_access_ledger.png", settle=2500)
 
         browser.close()
     print("Done ->", OUT)

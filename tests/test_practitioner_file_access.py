@@ -31,8 +31,7 @@ ACCOUNTS = {
     "client": ("client001", "Client@2026Secure!"),
     "practitioner": (PRACTITIONER, "Practitioner@2026!"),
 }
-ASSESSMENT_DATA = {"instrument": "GAD-7", "score": 7, "max_score": 21,
-                   "interpretation": "Mild anxiety"}
+PROFILE_DATA = {"presenting_problem": "Panic on the commute"}
 SESSION_DATA = {"session_number": 4, "duration_min": 50, "session_format": "Online",
                 "summary": "Reviewed the exposure ladder."}
 
@@ -67,8 +66,8 @@ class TestPractitionerFileAccess(unittest.TestCase):
             "record_type": record_type, "duration_days": 1})
         self.assertEqual(res.status_code, 200, res.text)
 
-    def _add(self, actor="client", record_type="assessment", access_level="doctor_shared",
-             data=ASSESSMENT_DATA):
+    def _add(self, actor="client", record_type="client_profile", access_level="doctor_shared",
+             data=PROFILE_DATA):
         return self.client.post("/api/v1/records", headers=self.headers[actor], json={
             "patient_id": CLIENT_ID, "record_type": record_type, "title": "File access test",
             "doctor_name": "Uzm. Psk. Elif Yilmaz", "institution": "Mahrem",
@@ -86,21 +85,21 @@ class TestPractitionerFileAccess(unittest.TestCase):
 
     # ── the IDOR ───────────────────────────────────────────────
     def test_single_record_needs_consent(self):
-        idx = self._added(record_type="assessment")
+        idx = self._added(record_type="client_profile")
         path = f"/api/v1/records/{CLIENT_ID}/{idx}"
         self.assertEqual(self._get(path).status_code, 403)
         self.assertEqual(self._get(path + "?version=original").status_code, 403)
 
     def test_single_record_needs_consent_for_its_own_type(self):
-        idx = self._added(record_type="assessment")
+        idx = self._added(record_type="client_profile")
         self._grant("homework")
         path = f"/api/v1/records/{CLIENT_ID}/{idx}"
         self.assertEqual(self._get(path).status_code, 404)
         self.assertEqual(self._get(path + "?version=original").status_code, 404)
-        self._grant("assessment")
+        self._grant("client_profile")
         res = self._get(path)
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json()["data"]["record_type"], "assessment")
+        self.assertEqual(res.json()["data"]["record_type"], "client_profile")
 
     def test_client_only_record_is_hidden_from_single_record_endpoint(self):
         idx = self._added(record_type="other", access_level="private", data={})
@@ -119,7 +118,7 @@ class TestPractitionerFileAccess(unittest.TestCase):
                      f"/api/v1/records/proof/{CLIENT_ID}/{idx}"):
             with self.subTest(path=path):
                 self.assertEqual(self._get(path).status_code, 403)
-        self._grant("assessment")
+        self._grant("client_profile")
         for path in (f"/api/v1/records/{CLIENT_ID}",
                      f"/api/v1/blockchain/{CLIENT_ID}/status",
                      f"/api/v1/records/proof/{CLIENT_ID}/{idx}"):
@@ -141,7 +140,7 @@ class TestPractitionerFileAccess(unittest.TestCase):
     def test_practitioner_needs_consent_to_add_a_record(self):
         res = self._add("practitioner", "session_note", data=SESSION_DATA)
         self.assertEqual(res.status_code, 403, res.text)
-        self._grant("assessment")            # consent for another type is not enough
+        self._grant("client_profile")            # consent for another type is not enough
         res = self._add("practitioner", "session_note", data=SESSION_DATA)
         self.assertEqual(res.status_code, 403, res.text)
         self._grant("session_note")
@@ -154,8 +153,8 @@ class TestPractitionerFileAccess(unittest.TestCase):
         self.assertEqual(self._add("practitioner", access_level="private").status_code, 403)
 
     def test_correction_cannot_move_a_record_to_a_type_without_consent(self):
-        idx = self._added(record_type="assessment")
-        self._grant("assessment")
+        idx = self._added(record_type="client_profile")
+        self._grant("client_profile")
         res = self.client.post(
             f"/api/v1/records/{CLIENT_ID}/{idx}/correct", headers=self.headers["practitioner"],
             json={"reason": "Wrong type", "corrected_data": {
@@ -189,6 +188,25 @@ class TestPractitionerFileAccess(unittest.TestCase):
         idx = self._added("practitioner", "session_note", "practitioner_only", SESSION_DATA)
         self._revoke_all()
         self.assertEqual(self._get(f"/api/v1/records/{CLIENT_ID}/{idx}").status_code, 403)
+
+
+    # ── session transcripts ────────────────────────────────────
+    def test_a_transcript_is_always_practitioner_only(self):
+        self._grant("all")
+        transcript = {"session_number": 3, "transcript": "T: ...\nC: ..."}
+        shared = self._add("practitioner", "session_transcript", "doctor_shared", transcript)
+        self.assertEqual(shared.status_code, 422, shared.text)
+        idx = self._added("practitioner", "session_transcript", "practitioner_only", transcript)
+        listed = [r["block_index"] for r in
+                  self._get(f"/api/v1/records/{CLIENT_ID}", actor="client").json()["records"]]
+        self.assertNotIn(idx, listed)
+
+    def test_a_client_cannot_write_a_transcript(self):
+        transcript = {"session_number": 3, "transcript": "My own version"}
+        for level in ("doctor_shared", "private", "practitioner_only"):
+            with self.subTest(level=level):
+                self.assertIn(self._add("client", "session_transcript", level, transcript).status_code,
+                              (403, 422))
 
 
 if __name__ == "__main__":

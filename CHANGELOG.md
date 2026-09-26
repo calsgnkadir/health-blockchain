@@ -1,5 +1,57 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.4.0] - 2026-09-27
+
+### ✨ Added — KVKK screens
+
+- **Privacy notice and explicit consent**: a client reads the notice (aydınlatma metni) and
+  gives explicit consent before using the app; the accepted version, time and IP are
+  recorded, and a new notice version asks again. The text is a template for the practice
+  to replace.
+- **My Data**: a client downloads a copy of their data (KVKK Art. 11) — the records they
+  can see (locked ones stay locked), appointments, invoices, consents and who accessed
+  their records — and can request erasure.
+- **Erasure requests** (admin, KVKK officer): the request erases nothing by itself. The
+  operator erases the client with the existing crypto-shred, which needs dual control, and
+  can close the request as done only once the key is really gone; otherwise reject it
+  (e.g. a legal duty to keep records).
+- **Security alerts** (admin, KVKK officer): the alerts the system already raised — such
+  as an operator trying to read records without dual control — are now on a screen, with
+  acknowledge.
+- **README**: new screenshots (appointment book, invoice, a transcript only the practitioner
+  sees) and an 11-scene walkthrough covering the practitioner, the secretary, a client's
+  first sign-in with the privacy notice, and an erasure request that needs dual control.
+
+## [6.3.0] - 2026-09-27
+
+### ✨ Added — invoices for completed sessions
+
+- A practitioner or their secretary invoices a completed session from the appointment
+  book: net amount and VAT rate (0, 1, 10 or 20%); the invoice gets the next number for
+  that practitioner and year (`2026-0001`, ...). One invoice per session; only a
+  completed session can be invoiced.
+- Nothing clinical on an invoice: the service line is a fixed text and there is no
+  free-text field. Names are copied in when it is issued, so it never changes afterwards.
+  Amounts are integer kuruş, never floats. No payment tracking, by design.
+- A client sees and prints their own invoices. A printable view prints only the invoice
+  ("Print / save as PDF").
+- Demo: two of the completed demo sessions are invoiced.
+
+## [6.2.0] - 2026-09-27
+
+### Record types: what a practitioner actually keeps
+
+- **Removed scoring**: the "assessment" record type (questionnaire scores such as
+  GAD-7), its schema and the dashboard progress chart. Mahrem keeps what is said and
+  written, not scores. Existing assessment records still load and display.
+- **Added "Client Profile"**: who the client is and why they came — presenting problem,
+  characteristics, background.
+- **Added "Session Transcript"**: what was said, written down. **Always Practitioner
+  Only**, enforced by the server (`access_policy.ALWAYS_PRACTITIONER_ONLY`), not just
+  pre-selected in the form: a shared transcript is refused with 422 and a client cannot
+  write one. The form locks the access level and suggests a password lock on top.
+- No messaging between client and practitioner, by design.
+
 ## [6.1.0] - 2026-09-27
 
 ### 🔒 Fixed — a new role would have read every record

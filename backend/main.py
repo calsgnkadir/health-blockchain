@@ -151,6 +151,14 @@ app.include_router(practitioner_router)
 from backend.routers.appointments import router as appointments_router
 app.include_router(appointments_router)
 
+# Invoices for completed sessions
+from backend.routers.invoices import router as invoices_router
+app.include_router(invoices_router)
+
+# KVKK: privacy notice, data export, erasure requests
+from backend.routers.kvkk import router as kvkk_router
+app.include_router(kvkk_router)
+
 # GDPR/KVKK Art. 17 — crypto-shredding erasure
 from backend.routers.erasure import router as erasure_router
 app.include_router(erasure_router)

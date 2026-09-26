@@ -6,6 +6,8 @@ import { getNotifications, addNotification, updateNotificationsUI, toggleNotific
 import { loadConsents, grantConsent, revokeConsent } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
 import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
+import { checkPrivacyNotice, acceptPrivacyNotice, loadMyData, downloadMyData, requestErasure, loadErasureRequests, eraseClient, closeErasureRequest, loadSecurityAlerts, acknowledgeAlert } from './modules/kvkk.js';
+import { loadInvoices, openInvoice, closeInvoice, printInvoice, startInvoice, issueInvoice } from './modules/invoices.js';
 import { loadAppointments, setAppointmentStatus, startMove, saveMove, cancelMove, bookAppointment } from './modules/appointments.js';
 import { loadClients, inviteClient, inviteSecretary, renewInvite, copyField, openClient, showRedeem, showLogin, redeemInvite, checkInviteLink } from './modules/clients.js';
 
@@ -88,6 +90,7 @@ window.enterApp = function(options = {}) {
   }
   const landing = options.passkeyRequired ? 'security' : (isSecretary ? 'appointments' : 'dashboard');
   loadRecordTypes().then(() => navigate(landing));
+  checkPrivacyNotice();   // a client accepts the KVKK notice before using the app
 };
 
 /* -- Page-Specific View Handlers (Remaining from Monolith) ----------- */
@@ -463,6 +466,10 @@ window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
 window.loadClients = loadClients;
 window.loadAppointments = loadAppointments;
+window.loadInvoices = loadInvoices;
+window.loadMyData = loadMyData;
+window.loadErasureRequests = loadErasureRequests;
+window.loadSecurityAlerts = loadSecurityAlerts;
 window.openClientInPlace = (pid) => openClient(pid, 'dashboard');
 window.renderRecordCard = renderRecordCard;
 
@@ -562,7 +569,7 @@ function renderCommandPaletteResults(query = '') {
   const pages = [
     { type: 'nav', page: 'dashboard', title: 'Dashboard Overview', desc: 'System status, recent records, and chain activity', shortcut: 'G D' },
     { type: 'nav', page: 'records', title: 'Client Records', desc: 'Browse and decrypt records on the chain', shortcut: 'G R' },
-    { type: 'nav', page: 'add-record', title: 'Add Record', desc: 'Write a session note, assessment or document to the chain', shortcut: 'G N' },
+    { type: 'nav', page: 'add-record', title: 'Add Record', desc: 'Write a session note, client profile or transcript to the chain', shortcut: 'G N' },
     { type: 'nav', page: 'chain-status', title: 'Chain Status Verification', desc: 'Verify cryptographic block structures', shortcut: 'G C' },
     { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Practitioner access permissions', shortcut: 'G S' },
     { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }
@@ -902,6 +909,21 @@ registerActions('click', {
   'appt-move':             (el) => startMove(arg(el)),
   'appt-move-save':        (el) => saveMove(arg(el)),
   'appt-move-cancel':      () => cancelMove(),
+
+  // invoices
+  'invoice-start':         (el) => startInvoice(arg(el)),
+  'issue-invoice':         (el) => issueInvoice(arg(el)),
+  'open-invoice':          (el) => openInvoice(arg(el)),
+  'close-invoice':         () => closeInvoice(),
+  'print-invoice':         () => printInvoice(),
+
+  // KVKK
+  'kvkk-accept':           () => acceptPrivacyNotice(),
+  'kvkk-export':           () => downloadMyData(),
+  'kvkk-request-erasure':  () => requestErasure(),
+  'kvkk-erase':            (el) => eraseClient(arg(el)),
+  'kvkk-close':            (el) => closeErasureRequest(arg(el), arg2(el)),
+  'ack-alert':             (el) => acknowledgeAlert(arg(el)),
   'renew-invite':          (el) => renewInvite(arg(el)),
   'copy-field':            (el) => copyField(arg(el)),
 
