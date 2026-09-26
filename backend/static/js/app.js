@@ -6,7 +6,8 @@ import { getNotifications, addNotification, updateNotificationsUI, toggleNotific
 import { loadConsents, grantConsent, revokeConsent } from './modules/consent.js';
 import { loadChainStatus } from './modules/blockchain.js';
 import { registerActions, initActionDispatch, takePayload } from './modules/actions.js';
-import { loadClients, inviteClient, renewInvite, copyField, openClient, showRedeem, showLogin, redeemInvite, checkInviteLink } from './modules/clients.js';
+import { loadAppointments, setAppointmentStatus, startMove, saveMove, cancelMove, bookAppointment } from './modules/appointments.js';
+import { loadClients, inviteClient, inviteSecretary, renewInvite, copyField, openClient, showRedeem, showLogin, redeemInvite, checkInviteLink } from './modules/clients.js';
 
 /* -- Particle Background Canvas ---------------------------------------- */
 (function initParticles() {
@@ -54,11 +55,12 @@ window.enterApp = function(options = {}) {
   appState.updateUser(currentUser);
 
   const isClient = currentUser.role === 'client';
+  const isSecretary = currentUser.role === 'secretary';
 
   // Privileged operators pick which client to view; clients are scoped to
-  // their own record and never see the selector.
+  // their own record, and a secretary opens no client file at all.
   const selector = document.getElementById('patient-selector');
-  if (selector) selector.hidden = isClient;
+  if (selector) selector.hidden = isClient || isSecretary;
   const selInput = document.getElementById('patient-selector-input');
   if (selInput && !isClient) selInput.value = getSelectedPatient() || '';
 
@@ -84,7 +86,8 @@ window.enterApp = function(options = {}) {
   if (options.passkeyRequired) {
     addNotification('Passkey required', 'This vault requires a passkey. Enrol one on this page before you continue.', 'warning');
   }
-  loadRecordTypes().then(() => navigate(options.passkeyRequired ? 'security' : 'dashboard'));
+  const landing = options.passkeyRequired ? 'security' : (isSecretary ? 'appointments' : 'dashboard');
+  loadRecordTypes().then(() => navigate(landing));
 };
 
 /* -- Page-Specific View Handlers (Remaining from Monolith) ----------- */
@@ -459,6 +462,7 @@ window.loadConsents = loadConsents;
 window.loadRecords = loadRecords;
 window.loadDashboard = loadDashboard;
 window.loadClients = loadClients;
+window.loadAppointments = loadAppointments;
 window.openClientInPlace = (pid) => openClient(pid, 'dashboard');
 window.renderRecordCard = renderRecordCard;
 
@@ -892,6 +896,12 @@ registerActions('click', {
 
   // clients (practitioner invitations)
   'open-client':           (el) => openClient(arg(el), arg2(el) || 'records'),
+
+  // appointments
+  'appt-status':           (el) => setAppointmentStatus(arg(el), arg2(el)),
+  'appt-move':             (el) => startMove(arg(el)),
+  'appt-move-save':        (el) => saveMove(arg(el)),
+  'appt-move-cancel':      () => cancelMove(),
   'renew-invite':          (el) => renewInvite(arg(el)),
   'copy-field':            (el) => copyField(arg(el)),
 
@@ -964,6 +974,8 @@ registerActions('input', {
 registerActions('submit', {
   'grant-consent':        (el, e) => grantConsent(e),
   'invite-client':        (el, e) => inviteClient(e),
+  'invite-secretary':     (el, e) => inviteSecretary(e),
+  'book-appointment':     (el, e) => bookAppointment(e),
   'redeem-invite':        (el, e) => redeemInvite(e),
   'dual-control-request': (el, e) => window.requestDualControl(e),
   'dual-control-cosign':  (el, e) => window.coSignDualControl(e),

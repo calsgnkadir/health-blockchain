@@ -162,7 +162,7 @@ export function emptyState(msg) {
 
 export const ROLE_LABEL = {
   admin: 'Administrator', practitioner: 'Practitioner', client: 'Client',
-  security_officer: 'KVKK Officer', auditor: 'Auditor',
+  secretary: 'Secretary', security_officer: 'KVKK Officer', auditor: 'Auditor',
 };
 
 // Privileged operators (admin / practitioner / auditor / security officer) are not tied
@@ -209,6 +209,12 @@ export const ROLE_TEXTS = {
     client:       'Who can see my records',
     practitioner: 'Your access',
     default:      'Active Access Permissions',
+  },
+  'appointments-sub': {
+    client:       'Your upcoming and past appointments. You can cancel one that has not started yet.',
+    practitioner: 'Your appointment book. Your secretary, if you have one, works in the same book.',
+    secretary:    "The practitioner's appointment book: names, client IDs and times only — no records.",
+    default:      'Appointments.',
   },
   'consent-empty': {
     client:       'You have not given any practitioner access yet.',
@@ -284,13 +290,29 @@ export const appState = {
       }
       const navAudit = document.getElementById('nav-audit');
       if (navAudit) navAudit.style.display = (this.currentUser.role === 'admin' || this.currentUser.role === 'auditor') ? 'flex' : 'none';
+      // The appointment book: practitioners, their secretaries and clients.
+      const navAppointments = document.getElementById('nav-appointments');
+      if (navAppointments) {
+        navAppointments.style.display =
+          ['practitioner', 'secretary', 'client'].includes(this.currentUser.role) ? 'flex' : 'none';
+      }
+      // A secretary works only in the appointment book: every page that shows
+      // record data is hidden (the server refuses them anyway).
+      if (this.currentUser.role === 'secretary') {
+        ['dashboard', 'records', 'add-record', 'consent', 'chain-status'].forEach(page => {
+          const item = document.querySelector(`.nav-item[data-page="${page}"]`);
+          if (item) item.style.display = 'none';
+        });
+      }
+      const chainWidget = document.getElementById('chain-status-indicator');
+      if (chainWidget) chainWidget.style.display = this.currentUser.role === 'secretary' ? 'none' : '';
       const navClients = document.getElementById('nav-clients');
       if (navClients) navClients.style.display = (this.currentUser.role === 'practitioner') ? 'flex' : 'none';
       applyRoleTexts(this.currentUser.role);
       const newRecordBtn = document.getElementById('dashboard-new-record');
       if (newRecordBtn) newRecordBtn.style.display = (this.currentUser.role === 'client') ? 'none' : '';
       const navAdd = document.getElementById('nav-add');
-      if (navAdd) navAdd.style.display = (this.currentUser.role === 'client') ? 'none' : 'flex';
+      if (navAdd) navAdd.style.display = ['client', 'secretary'].includes(this.currentUser.role) ? 'none' : 'flex';
 
       // Only the patient who owns the chart may grant or revoke clinical access.
       const consentGrantCard = document.getElementById('consent-grant-card');
