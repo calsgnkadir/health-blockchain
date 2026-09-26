@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **267 passing tests**.
+> Art. 17)**, with **268 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something

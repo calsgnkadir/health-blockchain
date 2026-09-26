@@ -1,8 +1,8 @@
 """
 core/pseudonymization/engine.py — Pseudonymization Engine
 ===========================================================
-Cryptographic identity decoupling layer that separates patient PII
-(Personally Identifiable Information) from medical content in storage.
+Cryptographic identity decoupling layer that separates a client's PII
+(Personally Identifiable Information) from clinical content in storage.
 
 Architecture:
   ┌─────────────────┐     ┌──────────────────────┐

@@ -123,13 +123,6 @@ body {
   gap: 16px;
   animation: fadeDown 0.6s ease;
 }
-.brand-icon {
-  width: 64px; height: 64px;
-  display: flex; align-items: center; justify-content: center;
-  background: #18181B;
-  border: 1px solid #27272A;
-  border-radius: var(--radius-sm);
-}
 .brand-name {
   font-size: 28px;
   font-weight: 800;
@@ -156,7 +149,6 @@ body {
   text-align: center;
   margin-bottom: 28px;
 }
-.lock-icon { font-size: 42px; margin-bottom: 12px; }
 .login-header h2 { font-size: 22px; font-weight: 700; }
 .login-header p { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
@@ -362,125 +354,7 @@ body {
 }
 
 /* Category Specific Sidebar Styling */
-#cat-dashboard .nav-category-title {
-  color: var(--accent-dash);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.1);
-}
-#cat-dashboard .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  color: var(--muted-hi);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  user-select: none;
-  border: 1px solid transparent;
-}
-#cat-dashboard .nav-item:hover {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.2);
-  color: #fff;
-}
-#cat-dashboard .nav-item.active {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--accent-dash);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  font-weight: 700;
-}
 
-#cat-ledger .nav-category-title {
-  color: var(--accent-ledger);
-  border-bottom: 1px solid rgba(14, 165, 233, 0.1);
-}
-#cat-ledger .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  color: var(--muted-hi);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  user-select: none;
-  border: 1px solid transparent;
-}
-#cat-ledger .nav-item:hover {
-  background: rgba(14, 165, 233, 0.08);
-  border-color: rgba(14, 165, 233, 0.2);
-  color: #fff;
-}
-#cat-ledger .nav-item.active {
-  background: rgba(14, 165, 233, 0.12);
-  color: var(--accent-ledger);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  font-weight: 700;
-}
-
-#cat-security .nav-category-title {
-  color: var(--accent-security);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.1);
-}
-#cat-security .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  color: var(--muted-hi);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  user-select: none;
-  border: 1px solid transparent;
-}
-#cat-security .nav-item:hover {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
-  color: #fff;
-}
-#cat-security .nav-item.active {
-  background: rgba(139, 92, 246, 0.12);
-  color: var(--accent-security);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  font-weight: 700;
-}
-
-#cat-integrations .nav-category-title {
-  color: var(--accent-integrations);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.1);
-}
-#cat-integrations .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  color: var(--muted-hi);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  user-select: none;
-  border: 1px solid transparent;
-}
-#cat-integrations .nav-item:hover {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
-  color: #fff;
-}
-#cat-integrations .nav-item.active {
-  background: rgba(16, 185, 129, 0.12);
-  color: var(--accent-integrations);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  font-weight: 700;
-}
 .nav-icon { font-size: 16px; }
 
 .sidebar-bottom { padding: 16px 12px; border-top: 1px solid var(--border); }
@@ -552,17 +426,13 @@ body {
   --accent-view: var(--accent-dash);
   --accent-view-rgb: 255, 179, 0;
 }
-#view-records, #view-add-record, #view-vaccines, #view-medications {
+#view-records, #view-add-record {
   --accent-view: var(--accent-ledger);
   --accent-view-rgb: 0, 229, 255;
 }
 #view-consent, #view-security, #view-dual-control {
   --accent-view: var(--accent-security);
   --accent-view-rgb: 255, 0, 127;
-}
-#view-wearables, #view-appointments, #view-triage {
-  --accent-view: var(--accent-integrations);
-  --accent-view-rgb: 0, 230, 118;
 }
 
 .view {
@@ -628,7 +498,6 @@ body {
   opacity: 1;
   width: 4px;
 }
-.stat-icon { font-size: 32px; flex-shrink: 0; }
 .stat-value {
   font-size: 28px;
   font-weight: 800;
@@ -782,14 +651,6 @@ select option { background: #0f0f23; color: var(--text); }
 
 .input-wrap { position: relative; }
 .input-wrap input { padding-left: 16px; }
-.input-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 15px;
-  pointer-events: none;
-}
 .search-input { max-width: 240px; }
 .select-input { max-width: 200px; }
 
@@ -955,39 +816,6 @@ select option { background: #0f0f23; color: var(--text); }
   gap: 0;
   max-width: 700px;
 }
-.chain-block-viz {
-  background: rgba(18, 18, 38, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius);
-  backdrop-filter: blur(12px);
-  padding: 16px 20px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-}
-.chain-block-viz:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.35);
-}
-.chain-block-viz.valid-block {
-  border-color: rgba(0, 230, 118, 0.25);
-  background: rgba(0, 230, 118, 0.02);
-}
-.chain-block-viz.broken-block {
-  border-color: rgba(255, 23, 68, 0.25);
-  background: rgba(255, 23, 68, 0.04);
-}
-.chain-block-viz.valid-block:hover {
-  border-color: rgba(0, 230, 118, 0.5);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.35), 0 0 15px rgba(0, 230, 118, 0.15);
-}
-.chain-block-viz.broken-block:hover {
-  border-color: rgba(255, 23, 68, 0.5);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.35), 0 0 15px rgba(255, 23, 68, 0.15);
-}
-.chain-block-viz .blk-header { font-size: 11px; color: var(--muted-hi); margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
-.chain-block-viz .blk-hash { color: var(--accent-view); word-break: break-all; font-weight: 600; }
 .chain-connector {
   width: 2px; height: 28px;
   background: linear-gradient(to bottom, rgba(var(--accent-view-rgb), 0.4), rgba(var(--accent-view-rgb), 0.05));
@@ -1080,7 +908,6 @@ select option { background: #0f0f23; color: var(--text); }
   padding: 60px 20px;
   color: var(--muted-hi);
 }
-.empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.7; color: var(--accent-view); }
 .empty-state p { font-size: 14px; }
 
 /* ── Animations ─────────────────────────────────── */
@@ -1112,25 +939,6 @@ select option { background: #0f0f23; color: var(--text); }
 }
 
 /* ── 2FA status badges ── */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.status-badge.enabled {
-  background: rgba(0, 230, 118, 0.08);
-  border: 1px solid rgba(0, 230, 118, 0.25);
-  color: var(--success);
-}
-.status-badge.disabled {
-  background: rgba(255, 23, 68, 0.08);
-  border: 1px solid rgba(255, 23, 68, 0.25);
-  color: var(--danger);
-}
 
 /* ── Notification Center ── */
 .notification-bell {
@@ -1203,65 +1011,6 @@ select option { background: #0f0f23; color: var(--text); }
 .noti-dot-warning { background: var(--warn); }
 .noti-dot-success { background: var(--success); }
 
-/* ── Phase 4 Styling ── */
-/* AI Triage Bubble Dialogs */
-.triage-msg {
-  padding: 10px 14px;
-  border-radius: 8px;
-  max-width: 80%;
-  font-size: 13px;
-  line-height: 1.4;
-  margin-bottom: 8px;
-}
-.triage-msg-system {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  align-self: flex-start;
-  color: var(--text);
-}
-.triage-msg-user {
-  background: rgba(var(--accent-view-rgb), 0.15);
-  border: 1px solid rgba(var(--accent-view-rgb), 0.25);
-  align-self: flex-end;
-  color: #fff;
-  text-align: right;
-}
-
-/* Triage priority badges */
-.triage-badge-red {
-  background: rgba(255, 23, 68, 0.15) !important;
-  border: 1px solid var(--danger) !important;
-  color: var(--danger) !important;
-  box-shadow: 0 0 15px rgba(255, 23, 68, 0.2);
-}
-.triage-badge-orange {
-  background: rgba(255, 145, 0, 0.15) !important;
-  border: 1px solid var(--warn) !important;
-  color: var(--warn) !important;
-}
-.triage-badge-green {
-  background: rgba(0, 230, 118, 0.15) !important;
-  border: 1px solid var(--success) !important;
-  color: var(--success) !important;
-}
-
-/* Appointment consult cards */
-.appointment-card {
-  padding: 16px 20px;
-  background: rgba(18, 18, 38, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.25s;
-}
-.appointment-card:hover {
-  border-color: rgba(var(--accent-view-rgb), 0.25);
-  transform: translateY(-2px);
-  background: rgba(28, 28, 58, 0.45);
-}
-
 /* Card Flip visual container */
 .card-flip-container {
   perspective: 1000px;
@@ -1314,34 +1063,6 @@ select option { background: #0f0f23; color: var(--text); }
 }
 
 /* Sidebar Connection Status Guard Widget */
-.sidebar-status-widget {
-  display: none !important;
-  margin: auto 20px 20px 20px;
-  padding: 16px;
-  background: rgba(16, 22, 40, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-sm);
-  backdrop-filter: blur(12px);
-}
-.status-widget-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--accent-ledger);
-  margin-bottom: 8px;
-}
-.status-widget-body {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted-hi);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
 /* Gantt-like Consent Timeline Chart */
 .consent-gantt-chart {
@@ -1660,19 +1381,3 @@ select option { background: #0f0f23; color: var(--text); }
   background: #27272A;
   color: #FFFFFF;
 }
-
-/* pulse animation for ECG dot */
-@keyframes ecg-pulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 1; }
-  100% { opacity: 0.4; }
-}
-
-#ecg-status-dot {
-  animation: ecg-pulse 1.2s infinite ease-in-out;
-}
-
-
-
-
-

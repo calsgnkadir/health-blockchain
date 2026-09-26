@@ -46,8 +46,8 @@ class TestChainStorePathSafety(unittest.TestCase):
 
     def test_ordinary_project_names_still_resolve(self):
         manager = self.manager
-        path = manager.get_project_path("patient_VIP_001")
-        self.assertTrue(path.endswith("patient_VIP_001"))
+        path = manager.get_project_path("patient_CL_001")
+        self.assertTrue(path.endswith("patient_CL_001"))
 
 
 class TestAtRestStorage(unittest.TestCase):
@@ -71,7 +71,7 @@ class TestAtRestStorage(unittest.TestCase):
             headers={"Authorization": f"Bearer {self.token}"},
             json={
                 "patient_id": "CL-001", "record_type": "session_note",
-                "title": "Session note", "doctor_name": "Dr A",
+                "title": "Session note", "doctor_name": "Psk. A",
                 "institution": "Practice", "record_date": "2026-08-01",
                 "access_level": "doctor_shared", "is_confidential": False,
                 "data": {"session_number": 1, "duration_min": 50,

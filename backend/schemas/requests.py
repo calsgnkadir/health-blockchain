@@ -27,7 +27,7 @@ def sanitize_html(v: str) -> str:
     """
     Normalises free text on the way in. Deliberately does NOT HTML-escape.
 
-    Clinical text is stored verbatim: a record is a medical document, and
+    Clinical text is stored verbatim: a record is a clinical document, and
     rewriting "Dr. Smith & Co" to "Dr. Smith &amp; Co" corrupts it permanently in
     an append-only chain. Escaping belongs at the point of rendering, which the
     web client does for every value it interpolates.
@@ -97,52 +97,6 @@ class RevokePasskeyReq(BaseModel):
 
 
 # ── USER CREATION SCHEMAS ───────────────────────────────────
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    role: str
-    full_name: str
-    patient_id: Optional[str] = None
-    specialty: Optional[str] = None
-    institution: Optional[str] = None
-
-    @field_validator("full_name", "institution", "specialty")
-    @classmethod
-    def sanitize_fields(cls, v):
-        return sanitize_html(v)
-
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v):
-        from core.security import validate_password
-        valid, msg = validate_password(v)
-        if not valid:
-            raise ValueError(msg)
-        return v
-
-    @field_validator("role")
-    @classmethod
-    def valid_role(cls, v):
-        allowed = {"admin", "practitioner", "client", "nurse", "auditor", "security_officer"}
-        if v not in allowed:
-            raise ValueError(f"Invalid role. Allowed roles: {allowed}")
-        return v
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v):
-        if not re.match(r"^[a-zA-Z0-9_\.\-]{3,50}$", v):
-            raise ValueError("Username must be between 3 and 50 characters and contain only alphanumeric characters, underscores, dots, or hyphens.")
-        return v
-
-    @field_validator("patient_id")
-    @classmethod
-    def validate_patient_id(cls, v):
-        if v is not None:
-            if not re.match(r"^CL-[0-9]{3,}$", v):
-                raise ValueError("Patient ID must follow format CL-[0-9]{3,} (e.g., CL-001)")
-        return v
-
 
 # ── 2FA & SECURITY SCHEMAS ──────────────────────────────────
 class Verify2FAReq(BaseModel):

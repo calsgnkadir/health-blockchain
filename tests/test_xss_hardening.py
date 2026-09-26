@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
 class TestClinicalTextFidelity(unittest.TestCase):
     """
-    A record is a medical document: what was written must come back unchanged.
+    A record is a clinical document: what was written must come back unchanged.
 
     Escaping used to happen on the way in - twice, in fact - so "Dr. Smith & Co"
     was stored as "Dr. Smith &amp;amp; Co" and displayed that way for ever in an

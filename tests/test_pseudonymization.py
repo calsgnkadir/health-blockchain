@@ -236,18 +236,18 @@ class TestPseudonymizationAPI(unittest.TestCase):
         })
         cls.admin_token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
 
-        # Login as VIP patient
+        # Login as the demo client
         resp = cls.client.post("/api/v1/auth/login", json={
             "username": "client001",
             "password": "Client@2026Secure!"
         })
-        cls.vip_token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
+        cls.client_token = resp.json().get("access_token", "") if resp.status_code == 200 else ""
 
     def _admin_headers(self):
         return {"Authorization": f"Bearer {self.admin_token}"}
 
-    def _vip_headers(self):
-        return {"Authorization": f"Bearer {self.vip_token}"}
+    def _client_headers(self):
+        return {"Authorization": f"Bearer {self.client_token}"}
 
     def test_generate_pseudonym_as_admin(self):
         resp = self.client.post(
@@ -262,11 +262,11 @@ class TestPseudonymizationAPI(unittest.TestCase):
         self.assertEqual(len(data["anon_id"]), 64)
         self.assertTrue(data["display_id"].startswith("ANON-"))
 
-    def test_generate_pseudonym_as_vip_own(self):
+    def test_generate_pseudonym_as_client_own(self):
         resp = self.client.post(
             "/api/v1/pseudonym/generate",
             json={"patient_id": "CL-001"},
-            headers=self._vip_headers(),
+            headers=self._client_headers(),
         )
         self.assertEqual(resp.status_code, 200)
 
@@ -290,11 +290,11 @@ class TestPseudonymizationAPI(unittest.TestCase):
         self.assertTrue(data["found"])
         self.assertEqual(data["patient_id"], "CL-001")
 
-    def test_resolve_pseudonym_denied_for_vip(self):
+    def test_resolve_pseudonym_denied_for_client(self):
         resp = self.client.post(
             "/api/v1/pseudonym/resolve",
             json={"anon_id": "some-anon-id"},
-            headers=self._vip_headers(),
+            headers=self._client_headers(),
         )
         self.assertEqual(resp.status_code, 403)
 
@@ -308,10 +308,10 @@ class TestPseudonymizationAPI(unittest.TestCase):
         self.assertIn("count", data)
         self.assertIn("mappings", data)
 
-    def test_list_mappings_denied_for_vip(self):
+    def test_list_mappings_denied_for_client(self):
         resp = self.client.get(
             "/api/v1/pseudonym/mappings",
-            headers=self._vip_headers(),
+            headers=self._client_headers(),
         )
         self.assertEqual(resp.status_code, 403)
 

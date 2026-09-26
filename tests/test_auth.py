@@ -44,16 +44,16 @@ class TestAuthService(unittest.TestCase):
     def test_authenticate_success(self):
         user = User(
             id="USR-002",
-            username="test_vip",
+            username="test_client",
             password_hash=hash_password("PatientSecurePassword123!"),
             role="client",
-            full_name="VIP Test Patient",
+            full_name="Test Client",
             patient_id="CL-002"
         )
         self.user_repo.save_user(user)
-        authenticated = self.auth_service.authenticate("test_vip", "PatientSecurePassword123!", "127.0.0.1")
+        authenticated = self.auth_service.authenticate("test_client", "PatientSecurePassword123!", "127.0.0.1")
         self.assertIsNotNone(authenticated)
-        self.assertEqual(authenticated.username, "test_vip")
+        self.assertEqual(authenticated.username, "test_client")
 
     def test_authenticate_failure(self):
         authenticated = self.auth_service.authenticate("unknown_user", "SomePassword123!", "127.0.0.1")
@@ -92,9 +92,9 @@ class TestAuthService(unittest.TestCase):
 
         user_dict = {
             "id": "USR-002",
-            "username": "test_vip",
+            "username": "test_client",
             "role": "client",
-            "full_name": "VIP Test Patient"
+            "full_name": "Test Client"
         }
         token = create_token(user_dict)
         payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[ALGORITHM])
@@ -116,10 +116,10 @@ class TestAuthService(unittest.TestCase):
         from core.security import hash_password
         user = User(
             id="USR-002",
-            username="test_vip",
+            username="test_client",
             password_hash=hash_password("PatientSecurePassword123!"),
             role="client",
-            full_name="VIP Test Patient",
+            full_name="Test Client",
             patient_id="CL-002"
         )
         self.user_repo.save_user(user)

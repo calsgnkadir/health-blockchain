@@ -1,8 +1,7 @@
-import uuid as _uuid
 from typing import Optional
 from core.domain.entities import User
 from core.ports.repositories import IUserRepository
-from core.security import verify_password, hash_password, get_device_id
+from core.security import verify_password, get_device_id
 import core.totp as totp
 from core.events.event_bus import event_bus, SystemAuditEvent
 
@@ -84,36 +83,3 @@ class AuthService:
             return True
         return False
 
-    def create_user(
-        self,
-        username: str,
-        password: str,
-        role: str,
-        full_name: str,
-        patient_id: Optional[str] = None,
-        specialty: Optional[str] = None,
-        institution: Optional[str] = None,
-        creator_username: str = "system"
-    ) -> User:
-        user_id = f"USR-{role.upper()}-{_uuid.uuid4().hex[:6].upper()}"
-        new_user = User(
-            id=user_id,
-            username=username,
-            password_hash=hash_password(password),
-            role=role,
-            full_name=full_name,
-            patient_id=patient_id,
-            specialty=specialty,
-            institution=institution,
-            totp_secret=None,
-            totp_enabled=False
-        )
-        self.user_repo.save_user(new_user)
-        event_bus.publish(SystemAuditEvent(
-            project_name="__system__",
-            action="USER_CREATED",
-            username=creator_username,
-            device_id=get_device_id(),
-            extra={"new_user": username, "role": role}
-        ))
-        return new_user

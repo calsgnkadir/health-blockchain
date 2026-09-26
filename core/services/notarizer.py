@@ -4,8 +4,8 @@ core/services/notarizer.py — Local Merkle Hash-Chain Notarizer
 Calculates and anchors Merkle roots for patient block chains to an isolated,
 cryptographically signed local hash-chain (ADR-0001).
 
-Zero public blockchain / Web3 RPC dependencies — ensures 100% stealth and
-local tamper-evidence for client records.
+No public blockchain or Web3 dependency: nothing about a client's file leaves
+the server, and tampering is detected locally.
 """
 
 import hmac

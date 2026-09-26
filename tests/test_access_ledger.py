@@ -1,7 +1,7 @@
 """
 tests/test_access_ledger.py — the access trail is tamper-evident, and the patient sees it
 =========================================================================================
-Who read (or attempted to read) a VIP record is the claim this vault exists to
+Who read (or attempted to read) a client's record is the claim this vault exists to
 defend. The access log is therefore a hash-linked ledger, not a flat table:
 deleting or altering any entry breaks the chain. The record owner can read their
 own trail and its integrity verdict.
@@ -92,7 +92,7 @@ class TestAccessLedgerIntegrity(unittest.TestCase):
         self.assertFalse(v["valid"])
 
     def test_empty_ledger_is_trivially_valid(self):
-        v = audit_storage.verify_access_log_integrity("patient_VIP_NONE", db_manager=self.mgr)
+        v = audit_storage.verify_access_log_integrity("patient_CL_NONE", db_manager=self.mgr)
         self.assertTrue(v["valid"])
         self.assertEqual(v["count"], 0)
 

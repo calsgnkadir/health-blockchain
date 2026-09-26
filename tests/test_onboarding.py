@@ -32,7 +32,7 @@ class TestOnboarding(unittest.TestCase):
         self.admin = self._login("admin", "Admin@2026Secure!")
         # Unique per run: the shared vault.db persists across runs, so a fixed
         # name would collide with a provisioned account left by an earlier run.
-        self.username = f"vipnew_{uuid.uuid4().hex[:12]}"
+        self.username = f"newacct_{uuid.uuid4().hex[:12]}"
 
     def tearDown(self):
         # Keep the persistent dev DB clean: drop the account and tokens we created.
@@ -57,7 +57,7 @@ class TestOnboarding(unittest.TestCase):
         return {"Authorization": f"Bearer {token}"}
 
     def _provision(self, token=None, **overrides):
-        body = {"username": self.username, "full_name": "New VIP",
+        body = {"username": self.username, "full_name": "New Account",
                 "role": "client", "patient_id": "CL-777"}
         body.update(overrides)
         return self.client.post("/api/v1/onboarding/provision",
@@ -111,6 +111,16 @@ class TestOnboarding(unittest.TestCase):
     def test_provision_rejects_a_duplicate_username(self):
         self.assertEqual(self._provision().status_code, 200)
         self.assertEqual(self._provision().status_code, 409)
+
+    def test_no_shortcut_around_onboarding(self):
+        # POST /admin/users used to let an admin create an active account with a
+        # password directly, skipping the pending state and the single-use code.
+        # Nothing used it; it was removed so onboarding is the only way in.
+        res = self.client.post("/api/v1/admin/users", headers=self._auth(self.admin.json()["access_token"]), json={
+            "username": self.username, "password": _STRONG, "role": "practitioner",
+            "full_name": "Shortcut"})
+        self.assertEqual(res.status_code, 405)
+        self.assertEqual(self._login(self.username, _STRONG).status_code, 401)
 
 
 if __name__ == "__main__":
