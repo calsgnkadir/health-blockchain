@@ -18,6 +18,9 @@
 - **Security alerts** (admin, KVKK officer): the alerts the system already raised — such
   as an operator trying to read records without dual control — are now on a screen, with
   acknowledge.
+- **README**: new screenshots (appointment book, invoice, a transcript only the practitioner
+  sees) and an 11-scene walkthrough covering the practitioner, the secretary, a client's
+  first sign-in with the privacy notice, and an erasure request that needs dual control.
 
 ## [6.3.0] - 2026-09-27
 

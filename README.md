@@ -102,8 +102,9 @@ single node on purpose ([ADR-0002](docs/adr/0002-single-node-deployment.md)).
 
 ## Interface
 
-Captured from the Docker demo. The practitioner, then the client, then an
-administrator who cannot read anything on their own. Every frame is captioned.
+Captured from the Docker demo: the practitioner, the secretary, a client on their
+first sign-in, and an administrator who cannot read anything on their own. Every
+frame is captioned.
 
 ![Walkthrough](docs/screenshots/walkthrough.gif)
 
@@ -111,9 +112,13 @@ administrator who cannot read anything on their own. Every frame is captioned.
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
 
-| Client records (access-scoped, encrypted) | Tamper-evident access ledger |
+| The client's file (a transcript only the practitioner sees) | Appointment book |
 | :---: | :---: |
-| ![Records](docs/screenshots/03_records.png) | ![Access ledger](docs/screenshots/04_access_ledger.png) |
+| ![Records](docs/screenshots/03_records.png) | ![Appointments](docs/screenshots/04_appointments.png) |
+
+| Invoice (nothing clinical on it) | Tamper-evident access ledger (the client's view) |
+| :---: | :---: |
+| ![Invoice](docs/screenshots/05_invoice.png) | ![Access ledger](docs/screenshots/06_access_ledger.png) |
 
 ## Bugs I found and fixed
 
