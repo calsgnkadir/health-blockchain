@@ -562,7 +562,7 @@ function renderCommandPaletteResults(query = '') {
   const pages = [
     { type: 'nav', page: 'dashboard', title: 'Dashboard Overview', desc: 'System status, recent records, and chain activity', shortcut: 'G D' },
     { type: 'nav', page: 'records', title: 'Client Records', desc: 'Browse and decrypt records on the chain', shortcut: 'G R' },
-    { type: 'nav', page: 'add-record', title: 'Add Record', desc: 'Write a session note, assessment or document to the chain', shortcut: 'G N' },
+    { type: 'nav', page: 'add-record', title: 'Add Record', desc: 'Write a session note, client profile or transcript to the chain', shortcut: 'G N' },
     { type: 'nav', page: 'chain-status', title: 'Chain Status Verification', desc: 'Verify cryptographic block structures', shortcut: 'G C' },
     { type: 'nav', page: 'consent', title: 'Consent Settings', desc: 'Practitioner access permissions', shortcut: 'G S' },
     { type: 'nav', page: 'security', title: 'Security & 2FA', desc: 'Manage Multi-Factor Authentication', shortcut: 'G A' }

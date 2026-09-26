@@ -38,34 +38,32 @@ class TestCorrectionFlow(unittest.TestCase):
     def _auth(self, token=None):
         return {"Authorization": f"Bearer {token or self.token}"}
 
-    def _add_assessment(self):
+    def _add_profile(self):
         res = self.client.post("/api/v1/records", headers=self._auth(), json={
-            "patient_id": "CL-001", "record_type": "assessment",
-            "title": "Original assessment", "doctor_name": "Psk. A",
+            "patient_id": "CL-001", "record_type": "client_profile",
+            "title": "Original profile", "doctor_name": "Psk. A",
             "institution": "Practice", "record_date": "2026-08-01",
             "access_level": "doctor_shared", "is_confidential": False,
-            "data": {"instrument": "GAD-7", "score": 8, "max_score": 21,
-                     "interpretation": "Mild anxiety"},
+            "data": {"presenting_problem": "Panic on the commute"},
             "notes": "",
         })
         self.assertEqual(res.status_code, 200, res.text)
         return res.json()["block_index"]
 
-    def _correct(self, idx, interpretation="Severe anxiety", reason="Re-evaluated", token=None):
+    def _correct(self, idx, problem="Panic on the commute and at work", reason="Re-evaluated", token=None):
         return self.client.post(
             f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(token),
             json={"reason": reason, "corrected_data": {
-                "title": "Corrected assessment", "record_type": "assessment",
+                "title": "Corrected profile", "record_type": "client_profile",
                 "doctor_name": "Psk. A", "institution": "Practice",
                 "record_date": "2026-08-01", "access_level": "doctor_shared",
-                "data": {"instrument": "GAD-7", "score": 16, "max_score": 21,
-                         "interpretation": interpretation},
+                "data": {"presenting_problem": problem},
                 "notes": "",
             }},
         )
 
     def test_correction_supersedes_but_keeps_the_original(self):
-        idx = self._add_assessment()
+        idx = self._add_profile()
         res = self._correct(idx)
         self.assertEqual(res.status_code, 200, res.text)
 
@@ -73,23 +71,23 @@ class TestCorrectionFlow(unittest.TestCase):
                                   headers=self._auth()).json()["data"]
         original = self.client.get(f"/api/v1/records/CL-001/{idx}?version=original",
                                    headers=self._auth()).json()["data"]
-        self.assertEqual(current["data"]["interpretation"], "Severe anxiety")
-        self.assertEqual(current["title"], "Corrected assessment")
+        self.assertEqual(current["data"]["presenting_problem"], "Panic on the commute and at work")
+        self.assertEqual(current["title"], "Corrected profile")
         # The original block is untouched and still readable.
-        self.assertEqual(original["data"]["interpretation"], "Mild anxiety")
-        self.assertEqual(original["title"], "Original assessment")
+        self.assertEqual(original["data"]["presenting_problem"], "Panic on the commute")
+        self.assertEqual(original["title"], "Original profile")
 
     def test_corrected_record_is_flagged_with_provenance(self):
-        idx = self._add_assessment()
-        self._correct(idx, reason="Score mis-recorded")
+        idx = self._add_profile()
+        self._correct(idx, reason="Problem mis-recorded")
         records = self.client.get("/api/v1/records/CL-001", headers=self._auth()).json()["records"]
         rec = next(r for r in records if r["block_index"] == idx)
         self.assertTrue(rec["is_corrected"])
-        self.assertEqual(rec["correction"]["reason"], "Score mis-recorded")
+        self.assertEqual(rec["correction"]["reason"], "Problem mis-recorded")
         self.assertEqual(rec["correction"]["corrected_by"], "client001")
 
     def test_correction_requires_a_reason(self):
-        idx = self._add_assessment()
+        idx = self._add_profile()
         res = self.client.post(
             f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
             json={"reason": "  ", "corrected_data": {"title": "x", "data": {}}},
@@ -113,23 +111,23 @@ class TestCorrectionFlow(unittest.TestCase):
 
         block = handler.handle_add_record(AddRecordCommand(
             patient_id=patient,
-            data={"record_type": "assessment", "title": "GAD-7",
-                  "data": {"instrument": "GAD-7", "score": 8, "max_score": 21}},
+            data={"record_type": "client_profile", "title": "Profile",
+                  "data": {"presenting_problem": "Panic on the commute"}},
             is_protected=False, protection_password=None, username="dr.iso",
         ))
         self.assertTrue(service.is_chain_valid(patient))
 
         handler.handle_add_correction(AddCorrectionCommand(
             patient_id=patient, block_index=block.index,
-            corrected_data={"record_type": "assessment", "title": "GAD-7 (corrected)",
-                            "data": {"instrument": "GAD-7", "score": 16, "max_score": 21}},
+            corrected_data={"record_type": "client_profile", "title": "Profile (corrected)",
+                            "data": {"presenting_problem": "Panic on the commute and at work"}},
             username="dr.iso", reason="Re-graded",
         ))
         self.assertTrue(service.is_chain_valid(patient))
         storage.reset_db(service._get_project_name(patient))
 
     def test_doctor_without_consent_cannot_correct(self):
-        idx = self._add_assessment()
+        idx = self._add_profile()
         # Clear any consent leftover from other tests in the shared default store
         # so this exercises the genuine no-consent case (CSRF is off under TESTING).
         for rt in ("all", "session_note"):
@@ -144,24 +142,23 @@ class TestCorrectionFlow(unittest.TestCase):
         self.assertIn(res.status_code, (400, 404, 422))
 
     def test_correction_is_validated_like_a_new_record(self):
-        # This used to be stored as-is; a score above the max must be refused.
-        idx = self._add_assessment()
+        # This used to be stored as-is; a profile without a problem must be refused.
+        idx = self._add_profile()
         res = self.client.post(
             f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
-            json={"reason": "Re-scored", "corrected_data": {
-                "record_type": "assessment",
-                "data": {"instrument": "GAD-7", "score": 99, "max_score": 21,
-                         "interpretation": "x"},
+            json={"reason": "Emptied", "corrected_data": {
+                "record_type": "client_profile",
+                "data": {"presenting_problem": ""},
             }},
         )
         self.assertEqual(res.status_code, 422, res.text)
 
     def test_correction_drops_fields_the_record_form_never_sends(self):
-        idx = self._add_assessment()
+        idx = self._add_profile()
         res = self.client.post(
             f"/api/v1/records/CL-001/{idx}/correct", headers=self._auth(),
             json={"reason": "Re-scored", "corrected_data": {
-                "title": "Corrected assessment",
+                "title": "Corrected profile",
                 "file_type": 'image/png" onerror="alert(1)',
                 "smuggled_field": "<script>alert(1)</script>",
             }},
@@ -169,7 +166,7 @@ class TestCorrectionFlow(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         current = self.client.get(f"/api/v1/records/CL-001/{idx}?version=current",
                                   headers=self._auth()).json()["data"]
-        self.assertEqual(current["title"], "Corrected assessment")
+        self.assertEqual(current["title"], "Corrected profile")
         self.assertNotIn("smuggled_field", current)
         self.assertNotIn("file_type", current)
 

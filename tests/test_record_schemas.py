@@ -16,10 +16,11 @@ from pydantic import ValidationError
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.schemas.requests import (
-    DATA_SCHEMAS, RECORD_TYPES, AssessmentSchema, SessionNoteSchema, HomeworkSchema,
+    DATA_SCHEMAS, RECORD_TYPES, ClientProfileSchema, SessionTranscriptSchema, SessionNoteSchema,
+    HomeworkSchema,
     RecordCreate,
 )
-from backend.demo_seed import _demo_chart, _process_note, _client_journal, DEMO_CLIENT
+from backend.demo_seed import _demo_chart, _process_note, _session_transcript, _client_journal, DEMO_CLIENT
 from core.services.access_policy import CREATABLE_LEVELS
 
 
@@ -29,7 +30,7 @@ class TestRecordSchemas(unittest.TestCase):
             self.assertIn(record_type, RECORD_TYPES)
 
     def test_demo_file_passes_the_api_schemas(self):
-        for record in _demo_chart() + [_process_note(), _client_journal()]:
+        for record in _demo_chart() + [_process_note(), _session_transcript(), _client_journal()]:
             schema = DATA_SCHEMAS.get(record["record_type"])
             if schema:
                 schema(**record["data"])  # raises if the demo drifts from the rules
@@ -37,13 +38,21 @@ class TestRecordSchemas(unittest.TestCase):
             role = "client" if record["created_by"] == DEMO_CLIENT else "practitioner"
             self.assertIn(record["access_level"], CREATABLE_LEVELS[role])
 
-    def test_score_above_max_is_rejected(self):
-        with self.assertRaises(ValidationError):
-            AssessmentSchema(instrument="GAD-7", score=22, max_score=21, interpretation="x")
+    def test_scoring_is_gone(self):
+        # Mahrem keeps no questionnaire scores: no "assessment" type, no score fields.
+        self.assertNotIn("assessment", RECORD_TYPES)
+        self.assertNotIn("assessment", DATA_SCHEMAS)
 
-    def test_negative_score_is_rejected(self):
+    def test_profile_needs_a_presenting_problem(self):
         with self.assertRaises(ValidationError):
-            AssessmentSchema(instrument="GAD-7", score=-1, max_score=21, interpretation="x")
+            ClientProfileSchema(presenting_problem="  ")
+        self.assertEqual(ClientProfileSchema(presenting_problem="Panic").characteristics, "")
+
+    def test_transcript_needs_text_and_a_session(self):
+        with self.assertRaises(ValidationError):
+            SessionTranscriptSchema(session_number=1, transcript="")
+        with self.assertRaises(ValidationError):
+            SessionTranscriptSchema(session_number=0, transcript="T: ...")
 
     def test_unknown_session_format_is_rejected(self):
         with self.assertRaises(ValidationError):

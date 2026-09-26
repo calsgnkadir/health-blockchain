@@ -69,8 +69,8 @@ class TestConsentAuthorization(unittest.TestCase):
         )
 
     def test_patient_can_grant_and_revoke_own_consent(self):
-        self.assertEqual(self._grant("patient", "assessment").status_code, 200)
-        self.assertEqual(self._revoke("patient", "assessment").status_code, 200)
+        self.assertEqual(self._grant("patient", "client_profile").status_code, 200)
+        self.assertEqual(self._revoke("patient", "client_profile").status_code, 200)
 
     def test_doctor_cannot_grant_consent_to_themselves(self):
         res = self._grant("doctor")

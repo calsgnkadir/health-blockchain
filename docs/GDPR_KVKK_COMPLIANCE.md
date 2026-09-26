@@ -33,8 +33,9 @@
 - Güvenlik (Argon2id şifre hash, TOTP sırrı)
 
 ### 2.2 Özel Nitelikli Kişisel Veriler (Sağlık Verileri)
-- Seans notları ve uzmanın kendi süreç notları
-- Ölçek sonuçları (GAD-7, PHQ-9 vb.) ve tedavi planları
+- Danışan profili (özellikler, başvuru nedeni, sorunlar, geçmiş)
+- Seans notları, seans dökümleri (her zaman yalnızca uzman görür) ve uzmanın süreç notları
+- Tedavi planları
 - Ödevler, danışanın kişisel günlüğü ve ekler (ör. taranmış onam formu)
 
 ---

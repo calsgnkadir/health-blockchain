@@ -40,7 +40,7 @@ class TestNotarizationAnchor(unittest.TestCase):
     def _add(self, title, protected=False, password=None):
         return self.handler.handle_add_record(AddRecordCommand(
             patient_id=PATIENT_ID,
-            data={"record_type": "assessment", "title": title, "data": {"heart_rate": "72"}},
+            data={"record_type": "client_profile", "title": title, "data": {"heart_rate": "72"}},
             is_protected=protected,
             protection_password=password,
             username="dr.anchor",
@@ -75,7 +75,7 @@ class TestNotarizationAnchor(unittest.TestCase):
     def test_tampering_with_the_chain_breaks_verification(self):
         """The anchor is only worth anything if a changed block invalidates it."""
         block = self._add("Observation to tamper with")
-        block.data = {"record_type": "assessment", "title": "Silently rewritten", "data": {}}
+        block.data = {"record_type": "client_profile", "title": "Silently rewritten", "data": {}}
         block.hash = block.calculate_hash() if hasattr(block, "calculate_hash") else "0" * 64
         self.block_repo.save_block(self.project, block)
 
@@ -106,7 +106,7 @@ class TestNewChainBootstrap(unittest.TestCase):
     def test_first_record_on_an_empty_chain_succeeds(self):
         block = self.handler.handle_add_record(AddRecordCommand(
             patient_id=self.NEW_PATIENT,
-            data={"record_type": "assessment", "title": "First contact", "data": {"heart_rate": "72"}},
+            data={"record_type": "client_profile", "title": "First contact", "data": {"heart_rate": "72"}},
             is_protected=False,
             protection_password=None,
             username="dr.er",

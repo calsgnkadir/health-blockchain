@@ -28,7 +28,8 @@ export async function loadConsents() {
     const typeLabels = {
       all: 'All Records',
       session_note: 'Session Notes',
-      assessment: 'Assessments',
+      client_profile: 'Client Profile',
+      session_transcript: 'Session Transcripts',
       treatment_plan: 'Treatment Plans',
       homework: 'Homework',
       consent_form: 'Consent Forms',

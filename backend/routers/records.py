@@ -160,6 +160,9 @@ def add_record(
     allowed_levels = access_policy.CREATABLE_LEVELS.get(u["role"])
     if allowed_levels is not None and rec.access_level not in allowed_levels:
         raise HTTPException(403, "You cannot create a record with this access level")
+    if (rec.record_type in access_policy.ALWAYS_PRACTITIONER_ONLY
+            and rec.access_level != access_policy.PRACTITIONER_ONLY):
+        raise HTTPException(422, "A session transcript is always Practitioner Only")
     if not access_policy.can_create(u["role"], rec.access_level, rec.record_type,
                                     _consent_for(consent_validator, rec.patient_id, u["username"])):
         raise HTTPException(403, "Client consent is required to add this type of record")

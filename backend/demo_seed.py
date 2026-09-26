@@ -54,18 +54,19 @@ def _record(record_type: str, title: str, data: dict, days_ago: int,
 
 
 def _demo_chart() -> List[dict]:
-    """Five weeks of a CBT course for anxiety. The GAD-7 score (max 21) falls
-    from 16 to 7, so the file shows the therapy working."""
+    """Five weeks of a CBT course for panic on the commute: the client's
+    profile, the plan, the session notes and the homework."""
     return [
         _record("consent_form", "KVKK explicit consent & therapy agreement", {
             "form_type": "KVKK explicit consent + therapy agreement",
             "signed_date": _day(35),
         }, days_ago=35),
 
-        _record("assessment", "Intake GAD-7", {
-            "instrument": "GAD-7", "score": "16", "max_score": "21",
-            "interpretation": "Severe anxiety",
-        }, days_ago=35, notes="Frequent panic episodes on the morning commute."),
+        _record("client_profile", "Client profile", {
+            "presenting_problem": "Panic attacks on the morning commute; has started avoiding the bus.",
+            "characteristics": "34, software tester. Conscientious, self-critical; sleeps poorly before workdays.",
+            "background": "First episode two years ago after a job change. No previous therapy.",
+        }, days_ago=35),
 
         _record("treatment_plan", "CBT plan for panic and generalised anxiety", {
             "goals": "Fewer panic episodes; commute to work without avoidance",
@@ -88,19 +89,14 @@ def _demo_chart() -> List[dict]:
             "summary": "Reviewed the thought record; challenged catastrophic predictions.",
         }, days_ago=21),
 
-        _record("assessment", "Follow-up GAD-7", {
-            "instrument": "GAD-7", "score": "11", "max_score": "21",
-            "interpretation": "Moderate anxiety",
-        }, days_ago=14),
-
         _record("session_note", "Session 3 — graded exposure", {
             "session_number": "3", "duration_min": "50", "session_format": "Online",
             "summary": "Built an exposure ladder for the commute; first step agreed.",
         }, days_ago=14),
 
-        _record("assessment", "Follow-up GAD-7", {
-            "instrument": "GAD-7", "score": "7", "max_score": "21",
-            "interpretation": "Mild anxiety",
+        _record("session_note", "Session 4 — review", {
+            "session_number": "4", "duration_min": "50", "session_format": "In-person",
+            "summary": "Took the bus two stops alone; fewer panic episodes this week.",
         }, days_ago=1, notes="Responding well to therapy."),
     ]
 
@@ -111,6 +107,17 @@ def _process_note() -> dict:
     return _record("session_note", "Process note — session 3", {
         "session_number": "3", "duration_min": "50", "session_format": "Online",
         "summary": "Own reflections on transference; not for the client file.",
+    }, days_ago=14, access_level="practitioner_only")
+
+
+def _session_transcript() -> dict:
+    # What was said, word for word. A transcript is always practitioner-only.
+    return _record("session_transcript", "Transcript — session 3", {
+        "session_number": "3",
+        "transcript": ("T: What goes through your mind at the bus stop?\n"
+                       "C: That I will faint and everyone will stare.\n"
+                       "T: Has that happened before?\n"
+                       "C: No. My heart races, but I have never fainted."),
     }, days_ago=14, access_level="practitioner_only")
 
 
@@ -151,10 +158,11 @@ def seed_demo_chart() -> bool:
             is_protected=False, protection_password=None, username=DEMO_DOCTOR,
         ))
 
-    handler.handle_add_record(AddRecordCommand(
-        patient_id=DEMO_PATIENT_ID, data=_process_note(),
-        is_protected=False, protection_password=None, username=DEMO_DOCTOR,
-    ))
+    for practitioner_record in (_process_note(), _session_transcript()):
+        handler.handle_add_record(AddRecordCommand(
+            patient_id=DEMO_PATIENT_ID, data=practitioner_record,
+            is_protected=False, protection_password=None, username=DEMO_DOCTOR,
+        ))
     handler.handle_add_record(AddRecordCommand(
         patient_id=DEMO_PATIENT_ID, data=_client_journal(),
         is_protected=True, protection_password=DEMO_RECORD_PASSWORD, username=DEMO_CLIENT,

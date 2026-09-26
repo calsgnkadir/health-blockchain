@@ -55,13 +55,13 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="assessment",
+            record_type="client_profile",
             duration_days=1.0,
             username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd)
 
-        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "assessment")
+        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "client_profile")
         self.assertTrue(has_access, "Consent granted for 1 day should be active")
 
     def test_grant_consent_hours_active(self):
@@ -69,14 +69,14 @@ class TestTimeBoundConsent(unittest.TestCase):
         cmd = GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="assessment",
+            record_type="client_profile",
             duration_days=1.0,
             duration_hours=2.0,
             username="client_owner"
         )
         self.command_handler.handle_grant_consent(cmd)
 
-        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "assessment")
+        has_access = self.consent_validator.has_consent(self.patient_id, self.doctor, "client_profile")
         self.assertTrue(has_access, "Consent granted for 2 hours should be active")
 
     def test_grant_consent_expired_denies_access(self):
@@ -121,10 +121,10 @@ class TestTimeBoundConsent(unittest.TestCase):
         proj_name = self.record_service._get_project_name(self.patient_id)
         self.block_repo.reset_db(proj_name)
 
-        # Add two records: one assessment, one treatment_plan
+        # Add two records: one client profile, one treatment_plan
         self.record_service.add_record(
             patient_id=self.patient_id,
-            data={"record_type": "assessment", "title": "BP Reading"},
+            data={"record_type": "client_profile", "title": "BP Reading"},
             username="system"
         )
         self.record_service.add_record(
@@ -133,11 +133,11 @@ class TestTimeBoundConsent(unittest.TestCase):
             username="system"
         )
 
-        # Grant consent ONLY for assessment
+        # Grant consent ONLY for the client profile
         self.command_handler.handle_grant_consent(GrantConsentCommand(
             patient_id=self.patient_id,
             doctor_username=self.doctor,
-            record_type="assessment",
+            record_type="client_profile",
             duration_days=1.0,
             username="client_owner"
         ))

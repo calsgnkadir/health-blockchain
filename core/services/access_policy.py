@@ -33,6 +33,10 @@ PRACTITIONER_ONLY = "practitioner_only"
 
 KNOWN_LEVELS = {SHARED, CLIENT_ONLY, PRACTITIONER_ONLY}
 
+# Record types that can only ever be practitioner-only: what was said in a
+# session, written down word for word, stays with the practitioner.
+ALWAYS_PRACTITIONER_ONLY = {"session_transcript"}
+
 # Which access levels each role may give a record it creates. A client cannot
 # write a note hidden from themselves, nor a practitioner one hidden from
 # themselves.
@@ -80,6 +84,8 @@ def can_view(role: str, username: str, record: Optional[dict], has_consent: HasC
 
 def can_create(role: str, access_level: str, record_type: str, has_consent: HasConsent) -> bool:
     """May this user add a record with this access level and type?"""
+    if record_type in ALWAYS_PRACTITIONER_ONLY and access_level != PRACTITIONER_ONLY:
+        return False
     allowed = CREATABLE_LEVELS.get(role)
     if allowed is None:
         return role == "admin"

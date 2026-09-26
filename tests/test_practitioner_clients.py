@@ -70,11 +70,11 @@ class TestPractitionerClients(unittest.TestCase):
 
     def test_consenting_client_is_listed_with_the_consent(self):
         self._grant(CLIENT_ID, self.client001, "session_note")
-        self._grant(CLIENT_ID, self.client001, "assessment")
+        self._grant(CLIENT_ID, self.client001, "client_profile")
         entry = self._clients()[CLIENT_ID]
         self.assertEqual(entry["status"], "consented")
         self.assertEqual(entry["full_name"], "Ahmet Karataş")
-        self.assertEqual(entry["consent_types"], ["assessment", "session_note"])
+        self.assertEqual(entry["consent_types"], ["client_profile", "session_note"])
         self.assertIsNotNone(entry["consent_expires_at"])
 
     def test_invited_client_moves_from_invited_to_consented(self):

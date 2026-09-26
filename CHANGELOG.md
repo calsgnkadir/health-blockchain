@@ -1,5 +1,20 @@
 # Changelog — Mahrem (formerly VIP Health Vault)
 
+## [6.2.0] - 2026-09-27
+
+### Record types: what a practitioner actually keeps
+
+- **Removed scoring**: the "assessment" record type (questionnaire scores such as
+  GAD-7), its schema and the dashboard progress chart. Mahrem keeps what is said and
+  written, not scores. Existing assessment records still load and display.
+- **Added "Client Profile"**: who the client is and why they came — presenting problem,
+  characteristics, background.
+- **Added "Session Transcript"**: what was said, written down. **Always Practitioner
+  Only**, enforced by the server (`access_policy.ALWAYS_PRACTITIONER_ONLY`), not just
+  pre-selected in the form: a shared transcript is refused with 422 and a client cannot
+  write one. The form locks the access level and suggests a password lock on top.
+- No messaging between client and practitioner, by design.
+
 ## [6.1.0] - 2026-09-27
 
 ### 🔒 Fixed — a new role would have read every record

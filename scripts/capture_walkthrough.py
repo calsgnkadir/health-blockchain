@@ -43,7 +43,7 @@ VW = {"width": 1366, "height": 860}
 SCENES = [
     ("01", "Sign in — Argon2id hashing, httpOnly-cookie sessions, 5 attempts per minute", 2300),
     ("02", "The practitioner signs in  (psk.elif \u00b7 Uzm. Psk. Elif Y\u0131lmaz)", 1500),
-    ("03", "Dashboard — only clients who gave consent; GAD-7 progress 16 \u2192 7", 3200),
+    ("03", "Dashboard — only clients who gave consent, and the next appointments", 3200),
     ("04", "Client Records — every row is a signed block with an access level", 2800),
     ("05", "My Clients — invite with a one-time code; an invitation grants no access", 2600),
     ("06", "The client signs in — their own file; the practitioner's process note is hidden", 3000),

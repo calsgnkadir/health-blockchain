@@ -35,7 +35,7 @@ class TestRecordService(unittest.TestCase):
         self.assertTrue(self.record_service.is_chain_valid(patient_id))
 
         # Add a block
-        data1 = {"record_type": "assessment", "title": "Checkup", "data": {"hr": 80}}
+        data1 = {"record_type": "client_profile", "title": "Checkup", "data": {"hr": 80}}
         block1 = self.record_service.add_record(patient_id, data1, is_protected=False, protection_password=None, username="psk.test")
         self.assertIsNotNone(block1)
         self.assertEqual(block1.index, 1)

@@ -355,14 +355,6 @@
 
           <!-- Charts Grid -->
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:24px; margin-top:24px; margin-bottom:24px;">
-            <!-- Outcome measures (GAD-7, PHQ-9, ...) over time -->
-            <div id="outcome-chart-panel" class="glass" hidden style="padding:20px; border-radius:14px; border: 1px solid var(--border);">
-              <h3 style="color:var(--gold); font-size:15px; margin-bottom:6px;">Progress</h3>
-              <p id="outcome-summary" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></p>
-              <div style="width:100%; height:240px; position:relative;">
-                <canvas id="outcomeChart"></canvas>
-              </div>
-            </div>
 
             <!-- Ledger Activity Timeline Chart -->
             <div id="activity-chart-panel" class="glass" style="padding:20px; border-radius:14px; border: 1px solid var(--border);">
@@ -458,6 +450,11 @@
               <div class="field-group">
                 <label>Notes</label>
                 <textarea id="rec-notes" rows="3" placeholder="Additional notes..."></textarea>
+              </div>
+
+              <div class="alert alert-info" id="transcript-hint" style="display:none; margin-bottom:12px;">
+                A transcript is always <strong>Practitioner Only</strong>: the client never sees it. Consider locking it
+                with a password as well, so even the server cannot open it without you.
               </div>
 
               <div class="field-group">
@@ -835,7 +832,8 @@
                     <select id="consent-record-type" required>
                       <option value="all">All Records</option>
                       <option value="session_note">Session Notes</option>
-                      <option value="assessment">Assessments</option>
+                      <option value="client_profile">Client Profile</option>
+                      <option value="session_transcript">Session Transcripts</option>
                       <option value="treatment_plan">Treatment Plans</option>
                       <option value="homework">Homework</option>
                       <option value="consent_form">Consent Forms</option>

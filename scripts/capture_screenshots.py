@@ -3,7 +3,7 @@ scripts/capture_screenshots.py — regenerate the README screenshot gallery.
 
 Drives a running demo instance with a headless browser and saves the four
 gallery images to docs/screenshots/. Run it against a PRISTINE demo (only the
-seeded CL-001 file) so the dashboard shows the GAD-7 progress chart.
+seeded CL-001 file and its appointments).
 
 Setup (one time):
     pip install playwright

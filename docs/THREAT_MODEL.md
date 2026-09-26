@@ -9,7 +9,7 @@
 ## 1. System Boundary & Primary Assets
 
 ### Primary Assets
-1. **Therapy records:** session notes, assessments (GAD-7, PHQ-9, …), treatment plans, homework, attachments, and the practitioner's own process notes.
+1. **Therapy records:** the client profile, session notes, session transcripts, treatment plans, homework, attachments, and the practitioner's own process notes.
 2. **The fact of being a client:** the pseudonym mapping that connects a client ID to its `anon_id`, and metadata such as how large a client's file is.
 3. **Master Cryptographic Keys:** KMS key material, AES-256-GCM record encryption keys.
 4. **Audit Trail Integrity:** Immutable access and decryption audit logs (`access_logs`, `RECORD_DECRYPTED` events).

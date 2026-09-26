@@ -35,10 +35,10 @@ class TestCanView(unittest.TestCase):
         self.assertFalse(can_view("client", "client001", record("practitioner_only"), consent_for()))
 
     def test_practitioner_needs_consent_for_the_record_type(self):
-        rec = record("doctor_shared", "assessment")
+        rec = record("doctor_shared", "client_profile")
         self.assertFalse(can_view("practitioner", ME, rec, consent_for()))
         self.assertFalse(can_view("practitioner", ME, rec, consent_for("session_note")))
-        self.assertTrue(can_view("practitioner", ME, rec, consent_for("assessment")))
+        self.assertTrue(can_view("practitioner", ME, rec, consent_for("client_profile")))
         self.assertTrue(can_view("practitioner", ME, rec, consent_for("all")))
 
     def test_practitioner_never_sees_a_client_only_record(self):
@@ -57,9 +57,9 @@ class TestCanView(unittest.TestCase):
             self.assertFalse(can_view(role, ME, record("admin_only"), consent_for("all")))
 
     def test_record_without_a_level_is_treated_as_shared(self):
-        rec = {"record_type": "assessment"}
+        rec = {"record_type": "client_profile"}
         self.assertTrue(can_view("client", "client001", rec, consent_for()))
-        self.assertTrue(can_view("practitioner", ME, rec, consent_for("assessment")))
+        self.assertTrue(can_view("practitioner", ME, rec, consent_for("client_profile")))
 
     def test_non_record_is_never_visible(self):
         self.assertFalse(can_view("client", "client001", None, consent_for()))

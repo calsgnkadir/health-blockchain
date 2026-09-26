@@ -4,7 +4,7 @@
 > built around security engineering: **client-owned consent, one access policy on
 > every endpoint, AES-256-GCM encryption at rest, a signed append-only hash-chain,
 > a tamper-evident access ledger, passkeys and crypto-shredding erasure (KVKK/GDPR
-> Art. 17)**, with **285 passing tests**.
+> Art. 17)**, with **288 passing tests**.
 
 *Mahrem* (Turkish: "private, not to be seen by others") is the pivot of an earlier
 project, *VIP Health Vault*. The security core stayed; the domain became something
@@ -27,7 +27,7 @@ matter:
 | Role | What they can do |
 | :-- | :-- |
 | **Client** | Sees their own file, gives and revokes consent, keeps client-only records, sees who read their records. Joins with an invitation code from their practitioner. |
-| **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Writes shared notes and practitioner-only process notes. Runs an appointment book. |
+| **Practitioner** | Invites clients, works only in the files of clients who gave consent — and only with the record types they consented to. Keeps the client profile, session notes and transcripts — a transcript is always practitioner-only. Runs an appointment book. |
 | **Secretary** | Runs one practitioner's appointment book: books, moves and cancels sessions. Sees clients' names, IDs and appointment times — never a record, a consent or a note. Invited by the practitioner. |
 | **Admin / auditor / KVKK officer** | Run the system. Can read a client's records only with a dual-control co-signature from a second privileged person. |
 
@@ -105,7 +105,7 @@ administrator who cannot read anything on their own. Every frame is captioned.
 
 ![Walkthrough](docs/screenshots/walkthrough.gif)
 
-| Sign in | Practitioner dashboard (clients, progress chart) |
+| Sign in | Practitioner dashboard (clients, next appointments) |
 | :---: | :---: |
 | ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
 
@@ -183,9 +183,9 @@ Then open `http://127.0.0.1:8000`.
 ### Demo accounts
 
 Demo mode seeds these accounts and one example file: client `CL-001`, five weeks of
-CBT for anxiety. The GAD-7 score falls from 16 to 7. The file also holds a
-practitioner-only process note and the client's password-protected journal entry
-(password `DemoRecord@2026!`). Nothing is seeded outside demo mode, and an existing
+CBT for panic on the commute — the client profile, treatment plan, session notes and
+homework. The file also holds a practitioner-only process note and session transcript,
+and the client's password-protected journal entry (password `DemoRecord@2026!`). Nothing is seeded outside demo mode, and an existing
 file is never overwritten.
 
 | Account | Password | Shows |
@@ -224,7 +224,7 @@ CI runs Ruff, Bandit and the full suite on Python 3.10 and 3.11.
 | Status | Item |
 | :---: | :--- |
 | ✅ | One access policy; practitioner-only notes; client-only records |
-| ✅ | Client invitations; practitioner dashboard with outcome-measure progress |
+| ✅ | Client invitations; practitioner dashboard with the client list |
 | ✅ | Appointment book with a secretary role that never sees records |
 | ✅ | Encryption at rest, signed hash-chain, access ledger, crypto-shred erasure |
 | 📋 | Client journal entries written from the client's own screen |

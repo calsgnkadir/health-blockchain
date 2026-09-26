@@ -1,14 +1,15 @@
 import re
 from datetime import datetime
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator
 from typing import Optional, Dict, Any
 
 # What a psychologist writes about a client. Each type (except document/other)
 # has a validation schema at the bottom of this file.
 RECORD_TYPES = {
-    "session_note":   "Session Note",
-    "assessment":     "Assessment",
-    "treatment_plan": "Treatment Plan",
+    "client_profile":     "Client Profile",
+    "session_note":       "Session Note",
+    "session_transcript": "Session Transcript",
+    "treatment_plan":     "Treatment Plan",
     "homework":       "Homework",
     "consent_form":   "Consent Form",
     "document":       "Document",
@@ -287,28 +288,46 @@ class SessionNoteSchema(BaseModel):
         return sanitize_html(v)
 
 
-class AssessmentSchema(BaseModel):
-    """A scored questionnaire, e.g. GAD-7 (anxiety, max 21) or PHQ-9 (depression,
-    max 27). Scores over time show whether therapy is working."""
-    instrument: str
-    score: int
-    max_score: int
-    interpretation: str
+class ClientProfileSchema(BaseModel):
+    """Who the client is and why they came: the page at the front of the file."""
+    presenting_problem: str
+    characteristics: str = ""
+    background: str = ""
 
-    @field_validator("instrument", "interpretation")
+    @field_validator("presenting_problem")
+    @classmethod
+    def require_problem(cls, v):
+        v = sanitize_html(v)
+        if not v:
+            raise ValueError("Presenting problem is required")
+        return v
+
+    @field_validator("characteristics", "background")
     @classmethod
     def sanitize_strings(cls, v):
         return sanitize_html(v)
 
-    @model_validator(mode="after")
-    def check_score_range(self):
-        # This rule compares two fields, so it runs after all fields are parsed.
-        # A field_validator on `score` would run before `max_score` exists.
-        if self.max_score <= 0:
-            raise ValueError("Max score must be a positive integer")
-        if not (0 <= self.score <= self.max_score):
-            raise ValueError("Score must be between 0 and the max score")
-        return self
+
+class SessionTranscriptSchema(BaseModel):
+    """A written transcript of what was said in a session. Always
+    practitioner-only (core/services/access_policy.py)."""
+    session_number: int
+    transcript: str
+
+    @field_validator("session_number")
+    @classmethod
+    def check_session_number(cls, v):
+        if v <= 0:
+            raise ValueError("Session number must be a positive integer")
+        return v
+
+    @field_validator("transcript")
+    @classmethod
+    def require_transcript(cls, v):
+        v = sanitize_html(v)
+        if not v:
+            raise ValueError("Transcript text is required")
+        return v
 
 
 class TreatmentPlanSchema(BaseModel):
@@ -362,9 +381,10 @@ class ConsentFormSchema(BaseModel):
 # Which schema checks the `data` of each record type. "document" and "other"
 # are free-form, so they have no entry here.
 DATA_SCHEMAS = {
-    "session_note":   SessionNoteSchema,
-    "assessment":     AssessmentSchema,
-    "treatment_plan": TreatmentPlanSchema,
+    "client_profile":     ClientProfileSchema,
+    "session_note":       SessionNoteSchema,
+    "session_transcript": SessionTranscriptSchema,
+    "treatment_plan":     TreatmentPlanSchema,
     "homework":       HomeworkSchema,
     "consent_form":   ConsentFormSchema,
 }
